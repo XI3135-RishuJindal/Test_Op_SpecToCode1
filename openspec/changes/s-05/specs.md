@@ -1,6 +1,4 @@
-Since the architecture data for the service "API-01" is not available, I will now proceed to gather requirements for generating the OpenSpec markdown files. 
-
-Please answer the following questions:
+It seems that there is no existing architecture data for the Transaction History Service in the specified project. To proceed, I need to gather some requirements directly from you. Please answer the following questions:
 
 1. What is the name and purpose of this service? (1-2 sentences describing what it does)
 2. What are the primary API endpoints or operations it should expose?
