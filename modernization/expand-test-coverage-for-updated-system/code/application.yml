@@ -1,0 +1,19 @@
+```
+# Updated Java version to be used in your application
+JAVA_VERSION=21
+
+# Spring Boot version has been upgraded
+SPRING_BOOT_VERSION=3.3.x  # Ensure your POM file matches this version
+
+# Log4j version upgrade to address security vulnerabilities
+LOG4J_VERSION=2.17.1
+
+# Jackson Databind library has been updated
+JACKSON_DATABIND_VERSION=2.x  # Replace '2.x' with the latest stable 2.x version
+
+# Migration from javax.persistence to jakarta.persistence
+# Update your entity classes and configurations accordingly.
+PERSISTENCE_API=jakarta.persistence
+
+# Ensure your Maven 'pom.xml' configurations reflect these updated versions.
+```
