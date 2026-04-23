@@ -1,0 +1,16 @@
+```yaml
+# Java version used in the project. Updated to Java 21 for LTS support.
+java.version: 21
+
+# Spring Boot version used to align with the latest stable release.
+spring-boot.version: 3.3.0
+
+# Secure version of Log4j to mitigate vulnerabilities.
+log4j.version: 2.17.1
+
+# Latest Jackson Databind version for improved performance and security.
+jackson-databind.version: 2.15.0
+
+# Enable or configure additional Spring Boot properties as needed for the major version upgrade.
+# spring.main.banner-mode: "off" # Example of how to disable the Spring Boot startup banner.
+```
