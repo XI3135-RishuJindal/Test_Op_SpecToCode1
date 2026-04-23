@@ -1,0 +1,18 @@
+```yaml
+# Application Configuration Example
+
+# Java version required for the application
+java.version: 21 # Updated Java version from 8 to 21. Ensure the application is compatible with this version.
+
+# Spring Boot version
+spring-boot.version: 3.3.x # Updated Spring Boot version from 2.3.12.RELEASE to 3.3.x for compatibility with Java 21.
+
+# Log4j configuration
+log4j.version: 2.17.1 # Updated Log4j version to 2.17.1 to address security vulnerabilities present in previous versions.
+
+# Jakarta Persistence API (JPA)
+jpa.vendor: jakarta.persistence # Updated from javax.persistence to jakarta.persistence as per new frameworks requirements.
+
+# Jackson Databind version
+jackson-databind.version: 2.14.x # Updated to latest stable 2.x version for better security and feature enhancements.
+```
