@@ -1,0 +1,30 @@
+```yaml
+# Java and Spring Boot upgrade configuration
+# Upgrade Java version to 21
+JAVA_VERSION: 21
+
+# Spring Boot upgrade to 3.3.0
+SPRING_BOOT_VERSION: 3.3.0
+
+# Improving Logging with security updates
+# Upgrade Log4j to a secure version
+LOG4J_VERSION: 2.17.1
+
+# Jackson Databind library upgrade for compatibility and features
+JACKSON_DATABIND_VERSION: 2.15.0
+
+# New containerization configuration
+# The image repository for containerization
+DOCKER_IMAGE_REPOSITORY: your-docker-repo/application
+
+# Tag for Docker image versioning
+DOCKER_IMAGE_TAG: latest
+
+# New CI/CD versioning configuration
+# The branch name for CI/CD deployment
+CI_CD_DEPLOY_BRANCH: main
+
+# Enabling modern language features and testing
+# Ensure comprehensive testing with enhanced test configurations
+ENABLE_ENHANCED_TESTING: true
+```
