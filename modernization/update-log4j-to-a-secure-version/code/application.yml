@@ -1,0 +1,15 @@
+```
+# Java Version Configuration
+JAVA_VERSION=21  # Updated to use Java 21 for compatibility and performance improvements.
+
+# Spring Boot Configuration
+SPRING_BOOT_VERSION=3.3.x  # Upgraded to align with the latest supported version offering new features and security enhancements.
+
+# Logging Configuration
+LOGGING_LEVEL_ROOT=INFO  # Default logging level; consider adjusting as needed.
+LOGGING_CONFIG=classpath:log4j2.xml  # Ensure Log4j configuration is referenced correctly with updated Log4j version for security.
+
+# Persistence Configuration
+JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect  # Ensure this is compatible with your DB; check dialect compatibility with Spring Boot 3.3.x.
+JPA_PROPERTIES_JAKARTA_PACKAGE=true  # Configuration updated for migration from javax.persistence to jakarta.persistence.
+```
