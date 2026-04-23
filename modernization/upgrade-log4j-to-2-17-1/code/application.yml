@@ -1,0 +1,16 @@
+```properties
+# Updated for Java 21 compatibility
+JAVA_VERSION=21 # Required Java version for new application runtime
+
+# Spring Boot application settings
+SPRING_BOOT_VERSION=3.3.x # Target Spring Boot version for upgrade compatibility
+
+# Log4j configuration
+LOG4J_VERSION=2.17.1 # Secure version to address previous vulnerabilities
+
+# Jackson Databind Library version
+JACKSON_DATABIND_VERSION=2.x # Update to latest compatible stable version
+
+# Changing the package imports due to Java EE transition to Jakarta EE
+PERSISTENCE_API=jakarta.persistence # New dependency path due to migration from javax.persistence
+```
