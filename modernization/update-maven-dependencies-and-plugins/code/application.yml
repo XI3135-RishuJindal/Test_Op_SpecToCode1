@@ -1,0 +1,15 @@
+```yaml
+# Java version required to build and run the application
+JAVA_VERSION: 21 # Updated to specify the new target Java version
+
+# Spring Boot framework version
+SPRING_BOOT_VERSION: 3.3.x # Updated to the target Spring Boot version
+
+# Log4j library version for security patches
+LOG4J_VERSION: 2.17.1 # Newer version to address security vulnerabilities
+
+# Jackson Databind library version for JSON processing
+JACKSON_DATABIND_VERSION: 2.x.y # Updated to the latest stable version in 2.x series
+
+# Note: Ensure all dependencies are compatible with the updated Java and Spring Boot versions
+```
