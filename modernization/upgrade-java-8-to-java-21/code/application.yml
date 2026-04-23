@@ -1,0 +1,18 @@
+```
+# Updated configuration for Java upgrade to version 21 and Spring Boot to version 3.3.0
+
+# Java version required to run the application
+JAVA_VERSION=21  # Updated to Java 21 LTS
+
+# Spring Boot version
+SPRING_BOOT_VERSION=3.3.0  # Upgraded to the latest stable Spring Boot version
+
+# Logging configuration with secure Log4j version
+LOG4J_VERSION=2.17.1  # Upgraded to a more secure version to address vulnerabilities
+
+# Jackson library for JSON processing
+JACKSON_DATABIND_VERSION=2.15.0  # Updated to the latest stable version
+
+# Optional additional configuration settings for Java 21 may be specified here
+JVM_OPTS=--enable-preview  # Example JVM option for preview features if needed
+```
