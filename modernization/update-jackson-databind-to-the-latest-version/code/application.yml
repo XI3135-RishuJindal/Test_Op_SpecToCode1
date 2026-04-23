@@ -1,0 +1,19 @@
+```properties
+# Updated Java version for the application runtime
+JAVA_VERSION=21
+
+# Spring Boot version upgrade
+SPRING_BOOT_VERSION=3.3.x
+
+# Update to Jakarta Persistence API due to Spring Boot upgrade
+# javax.persistence is replaced by jakarta.persistence
+# Make sure to update your codebase and dependencies to use jakarta.persistence
+PERSISTENCE_API=jakarta.persistence
+
+# Logging framework update; ensure to use a secure version of Log4j
+LOGGING_FRAMEWORK_VERSION=2.19.0
+
+# Optional: Add additional configuration settings specific to new Spring Boot features or settings if needed
+# Example:
+# SPRING_NEW_FEATURE_ENABLED=true
+```
