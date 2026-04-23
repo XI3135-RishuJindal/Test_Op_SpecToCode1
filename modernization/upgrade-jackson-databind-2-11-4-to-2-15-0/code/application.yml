@@ -1,0 +1,52 @@
+```
+# Application configuration template (application.yml)
+
+# Spring Boot Configuration
+spring:
+  application:
+    name: my-application
+
+  # Upgrade to Spring Boot 3.3.0
+  main:
+    spring-boot.version: 3.3.0 # Define Spring Boot version
+
+# Jackson Configuration
+jackson:
+  databind:
+    version: 2.15.0 # Updated Jackson Databind to version 2.15.0
+
+# Log4j Configuration
+logging:
+  log4j:
+    version: 2.17.1 # Ensure usage of secure Log4j version
+    
+# Maven Configuration
+maven:
+  java:
+    source: 21 # Set Java source compatibility to 21
+    target: 21 # Set Java target compatibility to 21
+
+# Dependency Versions
+dependencies:
+  # Ensure all dependencies are at their latest stable versions
+  spring-boot.version: 3.3.0
+  jackson.version: 2.15.0
+  log4j.version: 2.17.1
+
+# Configure JVM settings appropriate for Java 21
+jvm:
+  settings:
+    -XX:+UseG1GC # Enable Garbage First (G1) GC
+    -XX:+UseStringDeduplication # String de-duplication in G1
+
+# Dictionary for APIs (if any)
+api:
+  version: v1
+
+# Miscellaneous settings
+misc:
+  ci-cd:
+    enabled: true # Set to true if CI/CD practices have been implemented
+  containerization:
+    enabled: false # Update to true once containerization is implemented
+```
