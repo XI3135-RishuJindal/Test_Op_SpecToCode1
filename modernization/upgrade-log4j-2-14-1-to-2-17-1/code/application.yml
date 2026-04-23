@@ -1,0 +1,29 @@
+```yaml
+# application.yml
+
+# Java Version
+java.version: 21 # Updated Java version to 21 LTS
+
+# Spring Boot Configuration
+spring:
+  boot:
+    version: 3.3.0 # Upgraded Spring Boot to version 3.3.0
+
+# Log4j Configuration
+logging:
+  log4j2:
+    level: INFO # Default logging level
+    appender:
+      # Example configuration for a console appender
+      console: 
+        name: Console
+        target: SYSTEM_OUT
+      # Security enhancements in new version; make sure to configure patterns and filters appropriately.
+
+    # Add new properties for Log4j 2.17.1 if needed, such as async logging improvements or filtering options
+
+# Jackson Configuration
+jackson:
+  databind:
+    version: 2.15.0 # Upgraded Jackson Databind to version 2.15.0
+```
