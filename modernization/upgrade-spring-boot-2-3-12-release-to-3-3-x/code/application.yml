@@ -1,0 +1,25 @@
+```
+# Updated application configuration template for Spring Boot upgrade
+
+# Specify the required Java version
+JAVA_VERSION=21  # Updated from version 8 to 21 for compatibility with new dependencies
+
+# Spring Boot version
+spring.boot.version=3.3.x  # Updated from 2.3.12.RELEASE to 3.3.x
+
+# Logging configuration
+logging.level.root=INFO
+logging.config=classpath:log4j2-spring.xml
+
+# Log4j configuration
+log4j2.version=2.17.1  # Upgraded to mitigate vulnerabilities
+
+# Jackson configuration
+jackson.databind.version=2.x.latest  # Ensure latest stable 2.x version for security and compatibility
+
+# Persistence API package migration
+# Update import statements in the application from javax.persistence to jakarta.persistence
+# Configuration changes are primarily code-based rather than file-based
+
+# Additional database and application settings remain unchanged unless specific updates are required.
+```
