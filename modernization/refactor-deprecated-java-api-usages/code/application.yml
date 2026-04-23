@@ -1,0 +1,17 @@
+```
+# JVM settings
+JAVA_HOME=/path/to/java21   # Updated to point to Java 21 installation
+JVM_OPTS="-Djava.security.manager=allow"  # Updated options for Java 21
+
+# Spring Boot settings
+SPRING_BOOT_VERSION=3.3.x   # Updated to newer Spring Boot version
+
+# Logging configuration
+LOG4J_VERSION=2.17.1        # Updated to resolve security vulnerabilities
+
+# Dependency versions
+JACKSON_DATABIND_VERSION=2.x.latest  # Update to the latest 2.x stable version
+
+# Persistence API package change
+PERSISTENCE_PACKAGE=jakarta.persistence  # Updated package namespace for Jakarta EE
+```
