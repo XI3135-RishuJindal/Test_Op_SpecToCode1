@@ -1,0 +1,19 @@
+```
+# Java version for the application to use
+JAVA_VERSION=21
+
+# Spring Boot version adjustment for new features and standards
+SPRING_BOOT_VERSION=3.3.x
+
+# Adjustments related to package namespace change from javax to jakarta
+# javax.persistence has been moved to jakarta.persistence in Java 21
+JAKARTA_PERSISTENCE_PACKAGE_ENABLED=true
+
+# Log4j version update for security improvements
+LOG4J_VERSION=2.x  # Ensure this is a version with security patches
+
+# These configurations might need to be updated based on application needs and compatibility checks with new Java and Spring Boot versions
+# Dependencies, plugins, and any specific JVM arguments could be added here as needed
+
+# Ensure that the build tool (e.g., Maven) configuration aligns with these version updates. E.g., Update pom.xml accordingly.
+```
