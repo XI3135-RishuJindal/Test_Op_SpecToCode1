@@ -1,0 +1,54 @@
+```properties
+# .env.example
+
+# Java version should now align with the updated runtime requirements
+JAVA_VERSION=21  # Updated to Java 21 for compatibility with latest Spring Boot
+
+# Spring Boot application properties
+SPRING_APPLICATION_NAME=my-application
+SPRING_BOOT_VERSION=3.3.x  # Updated Spring Boot version
+
+# Database configuration
+# Migration from javax to jakarta for Hibernate due to Spring Boot upgrade
+# Update any entity manager factory or persistence unit references if necessary
+JAKARTA_PERSISTENCE_PROVIDER=org.hibernate.jpa.HibernatePersistenceProvider
+
+# Logging configuration
+LOGGING_LEVEL_ROOT=INFO
+LOGGING_LEVEL_COM_SOME_PACKAGE=DEBUG  # Customize as necessary for package
+LOGGING_FILE_PATH=/var/logs/my-application.log
+LOG4J_VERSION=2.17.2  # Use a secure and updated version of Log4j
+
+# Other necessary changes or new properties due to the upgrade
+# Ensure compatibility with the upgraded frameworks and libraries
+```
+
+```yaml
+# application.yml
+
+spring:
+  application:
+    name: my-application
+  boot:
+    version: 3.3.x  # Updated to Spring Boot 3.3.x
+  datasource:
+    # Ensure the database driver class and any configurations adapt to the move from javax to jakarta
+    driver-class-name: com.my.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/mydb
+    username: user
+    password: password
+
+logging:
+  level:
+    root: INFO
+    com.some.package: DEBUG  # Customize based on needed tracing levels
+  file:
+    path: /var/logs/my-application.log
+  log4j2:
+    version: 2.17.2  # Secured version of Log4j
+
+# Reference any new Jakarta EE features or structural changes if needed:
+jakarta:
+  persistence:
+    provider: org.hibernate.jpa.HibernatePersistenceProvider  # Update for jakarta persistence compliance
+```
