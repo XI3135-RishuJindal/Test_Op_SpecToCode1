@@ -1,0 +1,28 @@
+```yaml
+# application.yml
+
+# Spring Boot version configuration
+spring:
+  boot:
+    version: 3.3.x # Upgraded to Spring Boot 3.3.x for compatibility with Jakarta EE
+
+# Hibernate configuration changes due to migration from javax.persistence to jakarta.persistence
+jakarta:
+  persistence:
+    dialect: org.hibernate.dialect.PostgreSQLDialect # Ensure compatibility with Jakarta Persistence
+    # Additional persistence properties may need adjustment, verify against your specific database requirements
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    org.springframework: DEBUG
+log4j:
+  version: 2.17.1 # Ensures resolution of security vulnerabilities
+
+# Java version (for CI/CD environments and build tools)
+java:
+  version: 21 # Specifies the upgraded Java version to ensure compatibility with new language features
+
+# Application specific configuration keys may require updates or refactoring in alignment with the library upgrades.
+```
