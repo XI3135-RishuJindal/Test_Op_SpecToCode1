@@ -1,0 +1,27 @@
+```properties
+# Application Configuration for Spring Boot 3.3.x Upgrade
+
+# Spring Boot Application version
+spring.application.version=3.3.x
+
+# Change from javax to jakarta namespace
+jakarta.persistence.context-unit=your-persistence-unit
+
+# Log4j configuration
+logging.config=classpath:log4j2.xml  # Update configuration file if needed
+
+# Java version compatibility
+java.version=21  # Upgrade to use Java 21
+
+# Additional Spring settings included directly in the application properties
+spring.config.activate.on-profile=dev,prod  # Profile activation based on environment
+
+# Security configuration adjustments (if applicable)
+spring.security.enable-default-security=true  # Ensure the new security defaults are enabled
+
+# Updated H2 database compatibility mode (if applicable)
+spring.datasource.url=jdbc:h2:mem:testdb;MODE=LEGACY  # Use unless specific compatibility requirements
+
+# Update the web server configuration if necessary for new Java features
+server.port=8080  # Confirm unchanged unless affected by the upgrade
+```
