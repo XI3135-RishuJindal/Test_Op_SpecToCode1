@@ -1,0 +1,18 @@
+```properties
+# Java version required for the application
+JAVA_VERSION=21
+
+# Spring Boot version to be used
+SPRING_BOOT_VERSION=3.3.x
+
+# Updated persistence API package
+# Migration from javax.persistence to jakarta.persistence requires updated dependencies.
+PERSISTENCE_PACKAGE=jakarta.persistence
+
+# Logging configuration
+# Ensure to use a secure version of Log4j compatible with the upgraded Spring Boot and Java.
+LOGGING_CONFIG=classpath:log4j2-spring.xml
+
+# Specify the JDBI compatibility version, if required
+# JDBI_VERSION=3.x (example if library is used)
+```
