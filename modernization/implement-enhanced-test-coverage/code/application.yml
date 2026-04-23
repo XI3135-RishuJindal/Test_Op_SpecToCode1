@@ -1,0 +1,31 @@
+```
+# Application configuration properties
+
+# Java properties
+JAVA_VERSION=21 # Upgraded Java version to 21 LTS for enhanced features and performance
+
+# Spring Boot properties
+SPRING_BOOT_VERSION=3.3.0 # Upgraded to the latest stable version of Spring Boot
+
+# Logging configuration
+LOGGING_LEVEL_ROOT=INFO
+LOGGING_LEVEL_MY_APP=DEBUG
+LOGGING_CONFIG=classpath:log4j2-spring.xml
+# Updated Log4j version and configuration file for improved security
+
+# Jackson configuration (default settings updated for recent version)
+JACKSON_ENABLE_DEFAULT_TYPING=false
+# Disabling default typing for security enhancements
+
+# Maven properties (add this section if Maven version or dependencies are explicitly configured)
+# MAVEN_VERSION=3.8.6 # Example of setting Maven version if required
+
+# CI/CD related configuration (example placeholders for CI/CD tools)
+CI_CD_TOOL=jenkins # Placeholder key if integrating Jenkins for CI/CD as part of modernization
+CI_CD_CONFIG_FILE=jenkinsfile # Jenkins Pipeline script file
+
+# Containerization settings (examples assuming Docker setup)
+CONTAINERIZATION_ENABLED=true
+DOCKER_IMAGE_NAME=myapp:latest # Example Docker image name for the application deployment
+DOCKERFILE_PATH=./Dockerfile # Path to the Dockerfile for building container images
+```
