@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Add your actual lint commands below, e.g. for Java projects:
+      # - name: Run Checkstyle
+      #   run: ./gradlew checkstyleMain
+      # Or if there's no linter, this job can be removed or left as a placeholder.
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java-version: [ '17', '21' ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: temurin
+      # Add build tool integration here, e.g.:
+      # For Maven:
+      # - name: Run tests
+      #   run: mvn test
+      # For Gradle:
+      # - name: Run tests
+      #   run: ./gradlew test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        java-version: [ '17', '21' ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: temurin
+      # Add actual build steps here depending on the build tool, e.g.:
+      # For Maven:
+      # - name: Build with Maven
+      #   run: mvn package --no-transfer-progress
+      # For Gradle:
+      # - name: Build with Gradle
+      #   run: ./gradlew build
+
+  sast:
+    if: ${{ always() && github.event_name != 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Example: Use GitHub CodeQL for SAST (Optional, enable if you use CodeQL)
+      # - name: Initialize CodeQL
+      #   uses: github/codeql-action/init@v3
+      #   with:
+      #     languages: java
+      # - name: Perform CodeQL Analysis
+      #   uses: github/codeql-action/analyze@v3
+      # If you prefer another SAST tool, replace the above with the relevant steps.
