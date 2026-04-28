@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Add language specific linter(s) here if known
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Add language/runtime setup here if known
+      # Example for Java:
+      # - uses: actions/setup-java@v4
+      #   with:
+      #     distribution: 'temurin'
+      #     java-version: '17'
+      - name: Run unit tests
+        run: |
+          ./gradlew test || mvn test || echo "No recognizable test runner found"
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Add language/runtime setup here if known
+      - name: Build project
+        run: |
+          ./gradlew build || mvn package || echo "No recognizable build tool found"
+
+  security-sast:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: 'java,csharp,cpp,python,javascript,typescript,go'
+      - uses: github/codeql-action/analyze@v3

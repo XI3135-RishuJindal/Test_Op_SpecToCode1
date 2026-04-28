@@ -1,22 +1,11 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM eclipse-temurin:17-jre-alpine as runtime
+
 WORKDIR /app
-EXPOSE 80
-EXPOSE 443
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
-COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
+# Copy application jar and dependencies
+COPY target/*.jar app.jar
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+# Upgrade log4j-core to 2.17.1 at runtime (for override); adjust if jar name is different
+ADD https://repo1.maven.org/maven2/org/apache/logging/log4j/log4j-core/2.17.1/log4j-core-2.17.1.jar /app/log4j-core-2.17.1.jar
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+ENTRYPOINT ["java", "-cp", "log4j-core-2.17.1.jar:app.jar", "com.example.Main"]
