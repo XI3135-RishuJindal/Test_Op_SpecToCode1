@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up environment variables
+        run: echo "Configured" # Place to optionally call env exports if used
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install --upgrade pip
+            pip install -r requirements.txt
+          elif [ -f package.json ]; then
+            npm ci
+          elif [ -f pyproject.toml ]; then
+            pip install --upgrade pip
+            pip install poetry
+            poetry install
+          fi
+      - name: Run linter
+        run: |
+          if [ -f .eslintrc.js ] || [ -f .eslintrc.json ]; then
+            npx eslint .
+          elif [ -f setup.cfg ] || [ -f tox.ini ] || [ -f .flake8 ]; then
+            pip install flake8
+            flake8 .
+          fi
+
+  test:
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # add other env vars as needed
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up environment variables
+        run: echo "Configured"
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install --upgrade pip
+            pip install -r requirements.txt
+          elif [ -f package.json ]; then
+            npm ci
+          elif [ -f pyproject.toml ]; then
+            pip install --upgrade pip
+            pip install poetry
+            poetry install
+          fi
+      - name: Run unit tests
+        run: |
+          if [ -f pytest.ini ] || [ -f tests/test_*.py ]; then
+            pip install pytest
+            pytest
+          elif [ -f package.json ]; then
+            npm test
+          fi
+
+  build:
+    runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # add other env vars as needed
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up environment variables
+        run: echo "Configured"
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install --upgrade pip
+            pip install -r requirements.txt
+          elif [ -f package.json ]; then
+            npm ci
+          elif [ -f pyproject.toml ]; then
+            pip install --upgrade pip
+            pip install poetry
+            poetry install
+          fi
+      - name: Build
+        run: |
+          if [ -f package.json ]; then
+            npm run build
+          elif [ -f Makefile ]; then
+            make build
+          fi
+
+  security_scan:
+    if: ${{ always() && github.event_name != 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run SAST (optional)
+        run: |
+          if [ -f package.json ]; then
+            npm install --location=global npm-audit-resolver
+            npm audit --audit-level=high || true
+          elif [ -f requirements.txt ]; then
+            pip install bandit
+            bandit -r .
+          fi
