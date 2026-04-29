@@ -1,22 +1,14 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+FROM --platform=${TARGETPLATFORM} runtime:latest AS base
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
+# Begin build stage
+FROM --platform=${TARGETPLATFORM} build-essentials:latest AS builder
+WORKDIR /app
 COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+# Assuming a placeholder for build command specific to the application
+RUN build_command_here
 
+# Set the entry point for the runtime container
 FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+COPY --from=builder /app/output /app
+ENTRYPOINT ["executable_name_here"]
