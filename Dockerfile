@@ -1,22 +1,19 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+FROM python:alpine AS builder
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --user --no-cache-dir -r requirements.txt
+
 COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+FROM python:alpine
 
-FROM base AS final
 WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+
+COPY --from=builder /root/.local /root/.local
+COPY --from=builder /app /app
+
+ENV PATH=/root/.local/bin:$PATH
+
+CMD ["python", "-m", "unittest", "discover"]
