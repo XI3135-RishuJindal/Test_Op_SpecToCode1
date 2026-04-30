@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""
+migration_helper_sdkstyle_net8.py
+
+A helper script to migrate legacy .NET project files (e.g., .csproj, .vbproj, .fsproj) to SDK-style and update to .NET 8 (net8.0).
+Handles most common breaking changes automatically:
+  - Converts project file structure to SDK-style
+  - Migrates TargetFramework/TargetFrameworkVersion to net8.0
+  - Replaces packages.config/package references with <PackageReference>
+  - Removes explicit <Compile>, <None>, <Content> includes when possible
+  - Removes/updates obsolete MSBuild settings (e.g., AssemblyInfo, binding redirects)
+  - Warns about custom build steps for manual intervention
+
+USAGE:
+  python migration_helper_sdkstyle_net8.py [path]
+
+You must have Python 3 and 'lxml' installed (`pip install lxml`).
+"""
+
+import os
+import sys
+import re
+import glob
+from lxml import etree as ET
+
+# --- Configurable ---
+SUPPORTED_PROJECT_EXTS = ('.csproj', '.fsproj', '.vbproj')
+PACKAGES_CONFIG = 'packages.config'
+
+
+def find_project_files(root):
+    projects = []
+    for dirpath, dirs, files in os.walk(root):
+        for ext in SUPPORTED_PROJECT_EXTS:
+            for f in files:
+                if f.endswith(ext):
+                    projects.append(os.path.join(dirpath, f))
+    return projects
+
+
+def backup_file(path):
+    import shutil
+    backup_path = path + '.bak'
+    shutil.copy2(path, backup_path)
+    print(f"Backed up {path} to {backup_path}")
+
+
+def parse_xml(path):
+    parser = ET.XMLParser(remove_blank_text=True)
+    with open(path, encoding='utf-8') as f:
+        xml = ET.parse(f, parser)
+    return xml
+
+
+def detect_sdk_type(tree):
+    # Simple detection: aspnet/web or default
+    for pg in tree.xpath('//PropertyGroup'):
+        tf = pg.find('ProjectTypeGuids')
+        if tf is not None and ('Web' in (tf.text or '') or 'web' in (tf.text or '')):
+            return 'Microsoft.NET.Sdk.Web'
+    return 'Microsoft.NET.Sdk'
+
+
+def collect_package_references(proj_tree, proj_dir):
+    package_refs = []
+    # packages.config style
+    pkgconfig_path = os.path.join(proj_dir, PACKAGES_CONFIG)
+    if os.path.isfile(pkgconfig_path):
+        pc_tree = ET.parse(pkgconfig_path)
+        for pkg in pc_tree.findall('.//package'):
+            id_ = pkg.get('id')
+            version = pkg.get('version')
+            if id_ and version:
+                package_refs.append( (id_, version) )
+
+    # Legacy <Reference Include="..." /> or <HintPath>
+    for ref in proj_tree.findall('.//Reference'):
+        hint = ref.find('HintPath')
+        if hint is not None and 'packages' in (hint.text or ''):
+            match = re.match(r'.*packages[\\/](.+?)\.(\d[\d\.]*)[\\/]', (hint.text or ''), re.IGNORECASE)
+            if match:
+                id_, version = match.groups()
+                package_refs.append( (id_, version) )
+    # Remove duplicates
+    seen = set()
+    unique_refs = []
+    for p in package_refs:
+        if p not in seen:
+            unique_refs.append(p)
+            seen.add(p)
+    return unique_refs
+
+def convert_to_sdk_style(proj_path):
+    print(f"\nProcessing {proj_path} ...")
+    backup_file(proj_path)
+    tree = parse_xml(proj_path)
+    proj_dir = os.path.dirname(proj_path)
+
+    # Detect Sdk type: (TODO: improve web detection for more types)
+    sdk_type = detect_sdk_type(tree)
+
+    # Collect old property groups for manual settings
+    all_property_texts = []
+    for pg in tree.xpath('//PropertyGroup'):
+        all_property_texts.append(ET.tostring(pg).decode())
+
+    # Work out the output type (Exe/Library) if present
+    output_type = None
+    assembly_name = None
+    root_ns = None
+    for pg in tree.xpath('//PropertyGroup'):
+        ot = pg.find('OutputType')
+        an = pg.find('AssemblyName')
+        rn = pg.find('RootNamespace')
+        if ot is not None:
+            output_type = ot.text
+        if an is not None:
+            assembly_name = an.text
+        if rn is not None:
+            root_ns = rn.text
+
+    # Extract TargetFrameworkVersion or TargetFramework
+    target_framework = None
+    for el in tree.xpath('//PropertyGroup/*'):
+        if el.tag in ('TargetFramework', 'TargetFrameworkVersion'):
+            # Always migrate to net8.0
+            target_framework = 'net8.0'
+            break
+    else:
+        # Default fallback
+        target_framework = 'net8.0'
+
+    # Gather <DefineConstants> if present
+    define_constants = None
+    for pg in tree.xpath('//PropertyGroup'):
+        dc = pg.find('DefineConstants')
+        if dc is not None and dc.text:
+            define_constants = dc.text
+
+    # Collect package references
+    package_refs = collect_package_references(tree, proj_dir)
+
+    # Start SDK-style template
+    root = ET.Element('Project')
+    root.set('Sdk', sdk_type)
+
+    pg = ET.SubElement(root, 'PropertyGroup')
+    tf_elem = ET.SubElement(pg, 'TargetFramework')
+    tf_elem.text = target_framework
+
+    if output_type:
+        ot_elem = ET.SubElement(pg, 'OutputType')
+        ot_elem.text = output_type
+    if assembly_name:
+        an_elem = ET.SubElement(pg, 'AssemblyName')
+        an_elem.text = assembly_name
+    if root_ns:
+        rn_elem = ET.SubElement(pg, 'RootNamespace')
+        rn_elem.text = root_ns
+    if define_constants:
+        dc_elem = ET.SubElement(pg, 'DefineConstants')
+        dc_elem.text = define_constants
+
+    # Remove Compile/None/Content includes, unless for custom files
+    # For now, skip them (use implicit includes). Warn for custom files:
+    has_custom_includes = False
+    for item_tag in ['Compile', 'None', 'Content']:
+        for node in tree.findall(f'.//{item_tag}'):
+            include = node.get('Include')
+            if include and not include.startswith('**\\') and not os.path.normpath(include).startswith('Properties\\'):
+                # If not default, warn user
+                has_custom_includes = True
+    if has_custom_includes:
+        print("TODO: Manual review required for custom <Compile> / <Content> includes. Please port nonstandard includes by hand.")
+
+    # Add <PackageReference> for each extracted NuGet package.
+    if package_refs:
+        itemgroup = ET.SubElement(root, 'ItemGroup')
+        for id_, version in package_refs:
+            pre = ET.SubElement(itemgroup, 'PackageReference')
+            pre.set('Include', id_)
+            pre.set('Version', version)
+
+    # Report and strip custom MSBuild scripts/events
+    custom_build_events = []
+    for ev_tag in ['PreBuildEvent', 'PostBuildEvent', 'RunPostBuildEvent']:
+        for node in tree.findall(f'.//{ev_tag}'):
+            value = node.text
+            if value:
+                custom_build_events.append((ev_tag, value))
+    if custom_build_events:
+        print("TODO: Manual porting required for custom build events/hooks -- see below for what was detected:")
+        for ev_tag, value in custom_build_events:
+            print(f"  <{ev_tag}>: {value}")
+
+    # Remove Import for Microsoft.CSharp.targets, etc.
+    # No action needed; SDK-style infers these
+
+    # Write new file
+    ET.indent(root, space="  ")
+    ET.ElementTree(root).write(proj_path, pretty_print=True, xml_declaration=True, encoding='utf-8')
+    print(f"  -> Converted to SDK-style and net8.0: {proj_path}")
+
+    # Remove packages.config if it exists (now redundant)
+    pkgconfig_path = os.path.join(proj_dir, PACKAGES_CONFIG)
+    if os.path.isfile(pkgconfig_path):
+        os.rename(pkgconfig_path, pkgconfig_path+'.sdk8backup')
+        print(f"  Moved {pkgconfig_path} to {pkgconfig_path+'.sdk8backup'}")
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: migration_helper_sdkstyle_net8.py <repo-root-or-path>")
+        sys.exit(1)
+    root = sys.argv[1]
+    project_files = find_project_files(root)
+    if not project_files:
+        print("No supported project files found in", root)
+        sys.exit(0)
+    print(f"Found {len(project_files)} project(s) to migrate:")
+    for f in project_files:
+        print(" -", f)
+    for proj_file in project_files:
+        convert_to_sdk_style(proj_file)
+    print("\nMigration script complete.")
+    print("Please:")
+    print("  - Review TODOs and warnings above for manual intervention.")
+    print("  - Run 'dotnet restore' and 'dotnet build' to validate the upgrade.")
+    print("  - Port any remaining build events or custom includes per migration notes.")
+
+if __name__ == '__main__':
+    main()
