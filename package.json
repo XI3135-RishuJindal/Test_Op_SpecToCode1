@@ -1,0 +1,18 @@
+{
+  "name": "your-project-name",
+  "version": "1.0.0",
+  "description": "Your project description",
+  "main": "app.py",
+  "scripts": {
+    "test": "pytest"
+  },
+  "dependencies": {
+    "Flask": "^3.0.0",
+    "Flask-RESTful": "^1.0.0",
+    "Werkzeug": "^3.0.0",
+    "Jinja2": "^4.0.0"
+  },
+  "devDependencies": {},
+  "author": "Your Name",
+  "license": "MIT"
+}
