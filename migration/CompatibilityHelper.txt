@@ -1,0 +1,155 @@
+{
+  "Version": "6.0",
+  "RestoreProjectStyle": "PackageReference",
+  "PropertyGroup": {
+    "TargetFramework": "net6.0",
+    "Nullable": "enable",
+    "ImplicitUsings": "enable"
+  },
+  "ItemGroup": {
+    "PackageReference": [
+      {
+        "Include": "Microsoft.AspNetCore.Mvc",
+        "Version": "6.0.0"
+      },
+      {
+        "Include": "Microsoft.EntityFrameworkCore",
+        "Version": "6.0.0"
+      },
+      {
+        "Include": "Microsoft.AspNetCore.Authentication.JwtBearer",
+        "Version": "6.0.0"
+      },
+      {
+        "Include": "Newtonsoft.Json",
+        "Version": "13.0.1"
+      }
+    ]
+  }
+}
+
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+// TODO: Update namespaces and references as needed per file structure.
+
+public class Startup
+{
+    public void ConfigureServices(IServiceCollection services)
+    {
+        // TODO: Update connection string to use IConfiguration from appsettings.json
+
+        services.AddDbContext<ApplicationDbContext>(options =>
+            options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
+
+        // TODO: Configure JWT authentication settings
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    // TODO: Use secure key for production
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("YourSecretKey")),
+                    ValidIssuer = "YourIssuer",
+                    ValidAudience = "YourAudience"
+                };
+            });
+
+        services.AddControllers();
+    }
+
+    public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+    {
+        if (env.IsDevelopment())
+        {
+            app.UseDeveloperExceptionPage();
+        }
+
+        app.UseRouting();
+
+        // TODO: Verify that the correct CORS policies are set up if necessary
+        app.UseAuthentication();
+        app.UseAuthorization();
+
+        app.UseEndpoints(endpoints =>
+        {
+            endpoints.MapControllers();
+        });
+    }
+}
+
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "YourConnectionString"
+  },
+  "AllowedHosts": "*"
+}
+
+// Example of a controller update
+[ApiController]
+[Route("api/[controller]")]
+public class ExampleController : ControllerBase
+{
+    private readonly ApplicationDbContext _context;
+
+    public ExampleController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Get()
+    {
+        var data = await _context.YourEntity.ToListAsync(); // Asynchronous method for data retrieval
+        return Ok(data);
+    }
+}
+
+using FluentValidation;
+
+// TODO: Create new validators for model objects if complex validation is needed
+public class YourEntityValidator : AbstractValidator<YourEntity>
+{
+    public YourEntityValidator()
+    {
+        // TODO: Implement validation rules
+        RuleFor(x => x.Property).NotEmpty().WithMessage("Property cannot be empty.");
+    }
+}
+
+// TODO: Implement unit tests for business logic and controller actions with the new testing framework
+public class ExampleControllerTests
+{
+    [Fact]
+    public async Task Get_ReturnsOkResult()
+    {
+        // Arrange
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: "TestDatabase")
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+        var controller = new ExampleController(context);
+
+        // Act
+        var result = await controller.Get();
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result);
+    }
+}
+
+// TODO: Add any new required NuGet packages for testing, e.g. FluentValidation.TestHelper, etc.

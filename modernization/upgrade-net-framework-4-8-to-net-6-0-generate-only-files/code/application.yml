@@ -1,0 +1,19 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information" // Updated logging structure for .NET 6.0.
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "YourConnectionString" // New key for database connection strings in JSON format.
+  },
+  "Jwt": {
+    "Issuer": "YourIssuer", // Key for JWT Issuer to support modern authentication.
+    "Audience": "YourAudience", // Key for JWT Audience to support modern authentication.
+    "SecretKey": "YourSecretKey" // Key for JWT Secret to support modern authentication.
+  },
+  "FeatureManagement": {
+    "FeatureXEnabled": true // Example key for implementing feature flags.
+  },
+  "AllowedHosts": "*"
+}
