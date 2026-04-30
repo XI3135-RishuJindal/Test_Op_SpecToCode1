@@ -1,0 +1,16 @@
+[tool]
+name = "your_project_name"
+version = "0.1.0"
+description = "A description of your project"
+authors = ["Your Name <your.email@example.com>"]
+license = "MIT"
+
+[dependencies]
+Flask = ">=3.0"
+SQLAlchemy = "latest"  # Ensure compatibility for data models
+Werkzeug = "latest"    # Update alongside Flask; verify changes
+Jinja2 = "latest"      # Ensure template compatibility with Flask 3.x
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
