@@ -1,0 +1,12 @@
+```yaml
+# application.yml
+# Updated configuration for implementing unit tests across services and controllers
+
+testing:
+  enabled: true  # Enable testing configurations
+  framework: xunit  # Specify the unit testing framework being used (xUnit for .NET)
+  coverageThreshold: 80  # Minimum coverage threshold for the tests
+  mockDependencies: true  # Indicate to use mocking for external service dependencies
+
+# Note: No other configurations have changed or are required for this specific story
+```
