@@ -1,111 +1,106 @@
-# MIGRATION RUNBOOK: Flask Upgrade to 3.x
+# Flask Upgrade Migration Runbook
 
 ## Pre-Migration Checklist
-- [ ] ✅ Review Flask 3.x release notes for breaking changes.
-- [ ] ✅ Ensure all dependencies are compatible with Flask 3.x.
-- [ ] ✅ Update development and CI environment tools (Python, pip, etc.) to required versions.
-- [ ] ✅ Create a backup of current application state and database.
-- [ ] ✅ Ensure the application is currently functioning (run all existing tests).
-- [ ] ✅ Communicate planned downtime to stakeholders.
+- [ ] Verify the current Flask version is 2.x
+- [ ] Backup the current application and database
+- [ ] Ensure all dependencies are compatible with Flask 3.x
+- [ ] Update documentation to reflect the upgrade
+- [ ] Gain approval from project stakeholders
 
 ## Environment Setup
-1. Upgrade Python to version 3.8 or higher if not already done:
+1. Upgrade pip to the latest version:
    ```bash
-   sudo apt-get update
-   sudo apt-get install python3.8
+   pip install --upgrade pip
    ```
-
-2. Upgrade pip and setuptools:
+2. Create or update a virtual environment:
    ```bash
-   python3.8 -m pip install --upgrade pip setuptools
+   python3 -m venv venv
+   source venv/bin/activate
    ```
-
-3. Install Flask 3.x and test dependencies:
+3. Install the required dependencies as specified in `requirements.txt`:
    ```bash
-   python3.8 -m pip install Flask==3.*
-   ```
-
-4. Update the CI configuration file (e.g., `.github/workflows/ci.yml`) to use Python 3.8:
-   ```yaml
-   - name: Set up Python
-     uses: actions/setup-python@v2
-     with:
-       python-version: '3.8'
+   pip install -r requirements.txt
    ```
 
 ## Step-by-Step Migration Procedure
-1. **Action**: Update Flask in the `requirements.txt` file or equivalent.
-   - **Expected outcome**: Flask version is updated to 3.x in dependency file.
-   - **Verification command**: `cat requirements.txt | grep Flask`
-   - **Rollback action**: Restore the original `requirements.txt` from backup.
+1. **Action**: Update the Flask version in `requirements.txt` file.
+   - **Expected outcome**: The requirements file reflects the new version Flask==3.x.
+   - **Verification command**: 
+     ```bash
+     grep "Flask==" requirements.txt
+     ```
+   - **Rollback action if it fails**: Restore the `requirements.txt` from backup.
 
-2. **Action**: Modify codebase for any deprecated or breaking features that were removed in Flask 3.x.
-   - **Expected outcome**: Code compiles without errors and passes pre-migration tests.
-   - **Verification command**: `pytest`
-   - **Rollback action**: Check out previous commit with `git checkout <commit_hash>`.
+2. **Action**: Upgrade Flask using pip.
+   - **Expected outcome**: Flask 3.x is installed.
+   - **Verification command**: 
+     ```bash
+     pip show Flask
+     ```
+   - **Rollback action if it fails**: Reinstall the previous version of Flask:
+     ```bash
+     pip install Flask==2.x
+     ```
 
-3. **Action**: Run database migrations if necessary (if using Flask-Migrate).
-   - **Expected outcome**: Database schema is updated and functional.
-   - **Verification command**: `flask db migrate` followed by `flask db upgrade`
-   - **Rollback action**: Use `flask db downgrade` to revert to the previous migration.
+3. **Action**: Review and update the application code for any breaking changes introduced in Flask 3.x.
+   - **Expected outcome**: Code is compliant with Flask 3.x requirements.
+   - **Verification command**: Use `pytest` or an equivalent testing framework:
+     ```bash
+     pytest
+     ```
+   - **Rollback action if it fails**: Restore the codebase from the backup.
 
-4. **Action**: Deploy the application to the staging environment.
-   - **Expected outcome**: The application starts without errors in staging.
-   - **Verification command**: `curl -I http://staging.example.com`
-   - **Rollback action**: Redeploy the last stable version from the backup.
-
-5. **Action**: Run application smoke tests in the staging environment.
-   - **Expected outcome**: All smoke tests pass successfully.
-   - **Verification command**: `pytest smoke_tests/`
-   - **Rollback action**: Configure the staging environment to run the last known good version.
-
-6. **Action**: Merge migration branch to the main branch.
-   - **Expected outcome**: The main branch reflects the updated codebase.
-   - **Verification command**: `git log` to verify commit.
-   - **Rollback action**: Revert merge commit with `git revert <commit_hash>`.
-
-7. **Action**: Deploy to production environment.
-   - **Expected outcome**: Production reflects the updated codebase with Flask 3.x.
-   - **Verification command**: `curl -I http://example.com`
-   - **Rollback action**: Roll back the production deployment to previous stable version.
+4. **Action**: Run migrations related to the application (if applicable).
+   - **Expected outcome**: Migrations run successfully.
+   - **Verification command**: 
+     ```bash
+     flask db upgrade
+     ```
+   - **Rollback action if it fails**: Revert the database to the previous state using backup.
 
 ## Verification & Smoke Tests
-- Run the following command to check if the application is serving requests correctly:
+- Start the Flask application:
   ```bash
-  curl -I http://example.com
+  flask run
   ```
-
-- Execute the test suite to confirm all functionalities work:
-  ```bash
-  pytest
-  ```
+- Access the application in a browser at `http://localhost:5000` to confirm it loads successfully.
+- Run core endpoint tests to ensure expected responses.
 
 ## Rollback Procedure
-1. Restore `requirements.txt` from backup.
-2. Checkout last good codebase if any migrations have failed.
+1. **Action**: Deactivate the current virtual environment.
    ```bash
-   git checkout <commit_hash>
+   deactivate
    ```
-3. Run the application using the previous stable version.
-4. Revert any database changes made during the migration:
+   
+2. **Action**: Restore the previous version of Flask in `requirements.txt`.
+   - Restore the previous copy from backup if necessary.
+   
+3. **Action**: Recreate and activate the virtual environment.
    ```bash
-   flask db downgrade
+   rm -rf venv
+   python3 -m venv venv
+   source venv/bin/activate
    ```
 
-5. Inform stakeholders about the rollback.
+4. **Action**: Reinstall dependencies from the previous `requirements.txt`.
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. **Action**: Restore the application code from the backup if changes were made.
+   - Replace the files with the backup.
+
+6. **Action**: Run the application again to ensure stability.
+   ```bash
+   flask run
+   ```
 
 ## Post-Migration Monitoring
-- **Metrics to watch**:
-  - Response time of endpoints (ensure they are within expected ranges).
-  - Error rates (monitor for any increase in 500-level errors).
-  
-- **Logs**:
-  - Check application logs for any critical warnings or errors.
-  - Monitor access logs for unusual patterns.
-
-- **Alerts**:
-  - Set up alerts for response time exceeding thresholds.
-  - Set up alerts for increased error rates in production monitoring tools.
+- Monitor application logs for errors and warnings within the first 24-48 hours:
+  - Check for 500 and 404 errors.
+  - Track response times and request counts.
+- Set up alerts for any exceptions logged during this period.
+- Review database performance metrics, focusing on query times and error logs.
 
 ## Known Issues & Workarounds
-- N/A — not applicable to this task
+- N/A — not applicable to this task.
