@@ -1,27 +1,24 @@
 ## Prerequisites
-- [ ] [XS] Review Flask 3.x release notes and identify breaking changes
-- [ ] [S] Ensure existing tests cover critical paths of the application
+- [ ] [S] Review the current Flask version and document existing features in use.
+- [ ] [S] Create a backup of the current application repository.
 
 ## Phase 1 — Preparation
-- [ ] [S] Backup current application and database
-- [ ] [M] Create a feature branch for Flask upgrade
+- [ ] [M] Identify breaking changes and deprecations in the Flask 3.x release notes.
+- [ ] [S] Update the requirements.txt file to specify Flask>=3.0 and review dependent libraries for compatibility.
 
 ## Phase 2 — Core Upgrade
-- [ ] [M] Upgrade Flask to version 3.x in requirements.txt
-- [ ] [M] Update import statements in the application to accommodate Flask 3.x changes
-- [ ] [M] Refactor deprecated functionality in the application as per Flask 3.x guidelines
+- [ ] [M] Upgrade Flask from 2.x to 3.x in the requirements.txt file and install the new version.
+- [ ] [L] Refactor codebase to address any deprecations and breaking changes identified in the preparation phase.
 
 ## Phase 3 — Testing & Validation
-- [ ] [S] Run existing tests and validate that the application is functioning as expected
-- [ ] [L] Address any failing tests and ensure all critical paths are covered
+- [ ] [M] Update and run existing unit tests to ensure compatibility with Flask 3.x.
+- [ ] [M] Address any test failures and ensure all features function as expected.
 
 ## Phase 4 — CI/CD & Infrastructure
-- [ ] [S] Update CI/CD pipeline to reflect the Flask 3.x environment setup
-  
+- [ ] [S] Update CI/CD pipeline configuration to reflect the new Flask version in the environment setup.
+
 ## Phase 5 — Documentation & Rollout
-- [ ] [M] Update project documentation to reflect the Flask 3.x upgrade
-- [ ] [S] Notify the team regarding the changes and any new requirements for deployment
+- [ ] [S] Update project documentation to include changes made during the upgrade process.
 
 ## Post-Migration Cleanup
-- [ ] [XS] Remove any unused dependencies that were related to previous Flask versions
-- [ ] [S] Monitor application performance and logs after deployment for any anomalies
+- [ ] [S] Remove any obsolete dependencies related to the previous version of Flask.
