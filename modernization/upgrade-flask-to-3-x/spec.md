@@ -1,75 +1,65 @@
-# Flask Upgrade Specification Document
+# Flask 3.x Upgrade Specification Document
 
 ## Current State
-- **Framework**: Flask 2.x
-- **Key Interfaces**:
-  - Route decorators (`@app.route()`)
-  - Context management (`with app.app_context():`)
-- **Key APIs**:
-  - Legacy support for requests, responses, and error handling.
-  - Dependency injection through function parameters.
+- **Framework Version**: Flask 2.x
+- **Existing Interfaces**: 
+  - RESTful APIs implemented with Flask's `@app.route` decorator.
+  - Blueprints for modular application structure.
 - **Data Models**: 
-  - Primarily JSON responses, relying on Flask’s `jsonify()` and request parsing via `request.get_json()`.
-- **Key Behaviours**:
-  - Middleware stacking with `before_request` and `after_request` decorators.
-  - Templating with Jinja2.
+  - SQLAlchemy models integrated within Flask views.
+- **Key Behaviours**: 
+  - Middleware components for request/response manipulation.
+  - Session management using Flask's built-in session handling.
 
 ## Target State
-- **Framework**: Flask 3.x
-- **Key Interfaces**:
-  - All route decorators should remain compatible, but enhancements may exist in the syntax for type declarations in route parameters.
-- **Key APIs**: 
-  - Introduction of functionality for better async support.
-  - More explicit return type hints are preferred.
+- **Framework Version**: Flask 3.x
+- **Updated Interfaces**: 
+  - Updated route decorators to reflect any potential changes in argument handling or route definitions introduced in Flask 3.x.
 - **Data Models**: 
-  - Continued use of JSON responses, with potential optimizations based on new Flask features.
-- **Key Behaviours**:
-  - Improved middleware interface with changes in the way middleware manages context.
+  - Interaction with SQLAlchemy should remain unchanged; however, validation on endpoints will be reviewed for compliance with the new version.
+- **Key Behaviours**: 
+  - Migration of middleware components might be necessary due to changes in the request/response cycle.
 
 ## Compatibility & Breaking Changes
-- **Change 1**: 
-  - **Old**: `flask.request` might not support certain operations that are now async.
-  - **Migration Path**: Refactor all endpoints to use `async def` and utilize `await` for database calls or any I/O operations.
-  
-- **Change 2**: 
-  - **Old**: Use of certain legacy decorators or patterns may become deprecated.
-  - **Migration Path**: Refactor decorators as needed following the updated Flask documentation for version 3.x.
+1. **Route Decorator Changes**
+   - **Breaking Change**: Changes to handling of URL parameters.
+   - **Migration Path**: Update route definitions to conform to the new syntax; specifically check for any required changes in argument types.
+
+2. **Session Management**
+   - **Breaking Change**: Changes in session handling methods.
+   - **Migration Path**: Update session handling to reflect changes; review the official Flask documentation for migration guidelines.
+
+3. **Middleware Updates**
+   - **Breaking Change**: Changes in the middleware installation process.
+   - **Migration Path**: Refactor middleware to comply with the new way of integrating with Flask routes.
 
 ## Key Flows (before vs after)
-1. **Route Definition**:
+1. **API Calling Flow**
    - **Before**:
-     ```python
-     @app.route('/items', methods=['GET'])
-     def get_items():
-         return jsonify(items), 200
-     ```
-   - **After**: 
-     ```python
-     @app.route('/items', methods=['GET'])
-     async def get_items():
-         return jsonify(items), 200
-     ```
+     1. Client sends HTTP request to Flask route defined with `@app.route`.
+     2. Flask processes the request and calls the corresponding view function.
+     3. Result is returned as a Flask response object.
 
-2. **Request Handling**:
-   - **Before**:
-     ```python
-     @app.before_request
-     def before_request_func():
-         # some synchronous operation
-     ```
    - **After**:
-     ```python
-     @app.before_request
-     async def before_request_func():
-         # some async operation
-     ```
+     1. Client sends HTTP request to updated Flask route defined with new syntax.
+     2. Flask processes the request with potential new handling logic in the view function.
+     3. Result is returned, ensuring compatibility with any new response handling features.
+
+2. **Session Management Flow**
+   - **Before**:
+     1. User initiates session through Flask session manipulation methods.
+     2. Data is stored/retrieved from the session.
+
+   - **After**:
+     1. User interacts using new session handling methods as defined in Flask 3.x.
+     2. Data retrieval and storage remain similar, but using updated methods.
 
 ## Data Model Changes
-- N/A — not applicable to this task
+N/A — not applicable to this task
 
 ## Configuration Changes
-- **Old Configuration**:
-  - No specific config changes noted for Flask 2.x
-- **New Configuration**:
-  - Potential introduction of new environment variables for features related to async support.
-  - Validate and update `FLASK_ENV` and `FLASK_DEBUG` as necessary if new behaviours are introduced in these settings.
+- **Updated Environment Variables**: Review and update any environment variables that pertain to session management and middleware properties based on Flask 3.x documentation.
+- **Feature Flags**: If applicable, check and update any feature flags related to the new framework version.
+- **Config Files**: 
+  - Update the `config.py` or similar configuration file to ensure compatibility with new settings/features introduced in Flask 3.x. Specific keys may need verification from the Flask migration documentation.
+
