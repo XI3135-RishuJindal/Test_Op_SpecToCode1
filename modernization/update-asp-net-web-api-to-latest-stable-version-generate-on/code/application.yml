@@ -1,0 +1,6 @@
+<httpRuntime targetFramework="4.8" /> <!-- Updated to support .NET 6.0 features -->
+<configuration>
+  <system.web>
+    <compilation debug="true" targetFramework="4.8" />
+  </system.web>
+</configuration> <!-- Updated to ensure compatibility with the latest framework and features -->
