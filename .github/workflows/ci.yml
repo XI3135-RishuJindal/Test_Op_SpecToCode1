@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Lint (dotnet format)
+        run: dotnet format --verify-no-changes --severity error
+
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Run Tests
+        run: dotnet test --no-restore --verbosity normal
+
+  build:
+    name: Build Solution (Swashbuckle.AspNetCore Upgrade)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build (with Swashbuckle.AspNetCore)
+        run: dotnet build --no-restore --configuration Release
+
+  sast:
+    name: Security Scan (SAST)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+      - name: Run Dotnet Security Scan (experimental)
+        continue-on-error: true
+        run: |
+          dotnet tool install --global SecurityCodeScan.VS2019 --version 5.*
+          export PATH="$PATH:/home/runner/.dotnet/tools"
+          SecurityCodeScan *.sln || true
