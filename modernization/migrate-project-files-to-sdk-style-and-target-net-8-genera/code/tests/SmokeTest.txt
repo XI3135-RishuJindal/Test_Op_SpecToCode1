@@ -1,0 +1,60 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using Xunit;
+
+public class SdkStyleDotNet8MigrationSmokeTest
+{
+    private const string SolutionFile = "YourSolution.sln"; // Replace with actual solution name
+
+    [Fact(DisplayName = "Build succeeds with SDK-style and .NET 8")]
+    public void Build_Succeeds_ForSdkStyleDotNet8()
+    {
+        Assert.True(File.Exists(SolutionFile), $"Solution file {SolutionFile} not found.");
+        var buildResult = RunDotNetProcess("build", $"{SolutionFile} --configuration Release --nologo --verbosity minimal");
+        Assert.True(buildResult.Success, $"Build failed: {buildResult.Output}\n{buildResult.Error}");
+        Assert.Contains("Build succeeded.", buildResult.Output);
+    }
+
+    [Fact(DisplayName = "Restore succeeds with SDK-style and .NET 8")]
+    public void Restore_Succeeds_ForSdkStyleDotNet8()
+    {
+        Assert.True(File.Exists(SolutionFile), $"Solution file {SolutionFile} not found.");
+        var restoreResult = RunDotNetProcess("restore", $"{SolutionFile} --nologo --verbosity minimal");
+        Assert.True(restoreResult.Success, $"Restore failed: {restoreResult.Output}\n{restoreResult.Error}");
+        Assert.DoesNotContain("error", restoreResult.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(DisplayName = "Tests run and pass after migration")]
+    public void DotNet_Test_Succeeds_ForSdkStyleDotNet8()
+    {
+        Assert.True(File.Exists(SolutionFile), $"Solution file {SolutionFile} not found.");
+        var testResult = RunDotNetProcess("test", $"{SolutionFile} --no-build --nologo --verbosity minimal");
+        Assert.True(testResult.Success, $"dotnet test failed: {testResult.Output}\n{testResult.Error}");
+        Assert.DoesNotContain("Failed!", testResult.Output);
+        Assert.Contains("Total tests:", testResult.Output);
+        Assert.Contains("Passed!", testResult.Output);
+    }
+
+    private (bool Success, string Output, string Error) RunDotNetProcess(string command, string args)
+    {
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"{command} {args}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            }
+        };
+
+        process.Start();
+        var output = process.StandardOutput.ReadToEnd();
+        var error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        return (process.ExitCode == 0, output, error);
+    }
+}
