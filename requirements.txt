@@ -1,0 +1,1 @@
+# No requirements.txt needed for .NET projects. Skipping file generation.
