@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 'latest'
+
+      - name: Install dependencies
+        run: dotnet restore
+
+      - name: Run linter
+        run: dotnet format --check
+
+  tests:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 'latest'
+
+      - name: Install dependencies
+        run: dotnet restore
+
+      - name: Run unit tests
+        run: dotnet test --no-build --verbosity normal
+
+  build:
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 'latest'
+
+      - name: Install dependencies
+        run: dotnet restore
+
+      - name: Build project
+        run: dotnet build --configuration Release --no-restore
+
+  security_scan:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'  # Optional: Only run on main branch
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      - name: Run security scan
+        run: dotnet tool install --global dotnet-security
+      - name: Execute security scan
+        run: dotnet security scan .
