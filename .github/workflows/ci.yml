@@ -1,4 +1,4 @@
-```yaml
+```
 name: CI Pipeline
 
 on:
@@ -11,31 +11,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out code
+      - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up .NET
+      - name: Setup .NET
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: '8.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore ApiGateway.csproj
+        run: dotnet restore
 
-      - name: Build project
-        run: dotnet build ApiGateway.csproj --configuration Release --no-restore
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test Tests/ApiGateway.Tests.csproj --no-build --verbosity normal
+        run: dotnet test --no-restore --verbosity normal
 
-      - name: Run dependency scan with Snyk
-        run: |
-          npm install -g snyk
-          snyk test --all-projects || (echo "Snyk found vulnerabilities!" && exit 1)
+      - name: Run dependency scan
+        run: dependency-scanner-tool --config scanning_config.yml
 
-      - name: Publish project
-        run: dotnet publish ApiGateway.csproj --configuration Release --no-build -o ./publish
-
-      - name: Deploy
-        run: echo "Deploy steps would go here."
+      - name: Publish
+        run: dotnet publish --configuration Release --output ./publish
 ```

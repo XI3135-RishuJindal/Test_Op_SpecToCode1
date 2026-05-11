@@ -1,0 +1,14 @@
+```
+version: '1.0'
+scanning:
+  enabled: true
+  rules:
+    - type: block
+      libraries:
+        - name: payment-sdk
+          version: '*'
+  alert:
+    module: email
+    recipients:
+      - devteam@example.com
+```

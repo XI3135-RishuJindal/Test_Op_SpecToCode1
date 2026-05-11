@@ -1,4 +1,4 @@
-- **Quality Principles**: Maintainable, secure, performance-efficient.
-- **Tech Guardrails**: Standardize dependency scanning tools to ensure consistent validations against payment SDKs/libraries.
-- **Coding Standards**: Ensure logging and error handling are implemented as per project guidelines.
-- **Non-Functional Requirements**: CI pipeline should not allow any build to succeed if payment SDKs/libraries are identified.
+- **Quality Principles**: Maintainability, Reliability, Security
+- **Tech Guardrails**: Ensure no payment SDKs are included in codebase, CI/CD practices must be followed.
+- **Coding Standards**: Follow .NET coding standards, ensure code is well-documented.
+- **Non-Functional Requirements**: CI pipeline must complete within 10 minutes; dependency scans should be accurate and comprehensive.
