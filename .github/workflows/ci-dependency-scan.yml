@@ -1,0 +1,38 @@
+name: CI Dependency Scan
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  dependency-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '8.0'
+
+    - name: Restore dependencies
+      run: dotnet restore ApiGateway.csproj
+
+    - name: Run dependency scan
+      run: |
+        # Example using Snyk
+        # Make sure to set `SNYK_TOKEN` secret in GitHub repository settings
+        npm install -g snyk
+        snyk test --all-projects --fail-on=critical
+
+    - name: Build the project
+      run: dotnet build ApiGateway.csproj --configuration Release
+
+    - name: Run tests
+      run: dotnet test ApiGateway.Tests.csproj --configuration Release
