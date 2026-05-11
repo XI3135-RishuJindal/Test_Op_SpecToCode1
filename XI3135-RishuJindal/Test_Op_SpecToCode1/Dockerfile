@@ -14,8 +14,8 @@ COPY . .
 WORKDIR "/src/."
 RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
 
-# Install dependency scanning tools
-RUN dotnet tool install --global dotnet-depends
+# Add dependency scanning tools
+RUN dotnet tool install -g dotnet-dependency-scanner
 
 FROM build AS publish
 RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
