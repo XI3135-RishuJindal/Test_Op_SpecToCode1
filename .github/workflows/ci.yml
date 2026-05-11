@@ -1,0 +1,41 @@
+```yaml
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore ApiGateway.csproj
+
+      - name: Build project
+        run: dotnet build ApiGateway.csproj --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test Tests/ApiGateway.Tests.csproj --no-build --verbosity normal
+
+      - name: Run dependency scan with Snyk
+        run: |
+          npm install -g snyk
+          snyk test --all-projects || (echo "Snyk found vulnerabilities!" && exit 1)
+
+      - name: Publish project
+        run: dotnet publish ApiGateway.csproj --configuration Release --no-build -o ./publish
+
+      - name: Deploy
+        run: echo "Deploy steps would go here."
+```

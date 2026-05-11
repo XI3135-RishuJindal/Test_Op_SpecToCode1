@@ -1,15 +1,5 @@
-## Architecture Decisions
-Implement dependency scanning within the CI pipeline using tools like Snyk or OWASP Dependency-Check integrated within GitHub Actions or Azure DevOps pipelines.
-
-## Component Design
-- Integration of a scanning tool within the CI configuration files for both frontend and backend repositories.
-- Required changes to settings in existing CI/CD pipelines to accommodate new scanning procedures.
-
-## API Contracts
-- No changes required for external API contracts as part of this implementation.
-
-## Data Model Changes
-- No data model changes are required for the dependency scanning setup.
-
-## Integration Points
-- Set up scanning integrations for both the frontend and backend repositories.
+- **Architecture Decisions**: Utilize Snyk for dependency scanning. Integrate into the existing CI pipeline without requiring additional hardware or major architectural changes.
+- **Component Design**: Add a new CI step for scanning dependencies; follow by a blocking step that halts builds if payment SDKs/libraries are found.
+- **API Contracts**: No new APIs required; existing APIs will be updated for scanning results logging.
+- **Data Model Changes**: Update build logs to include results from the dependency scanning.
+- **Integration Points**: Set up the Snyk CLI tool in the CI pipeline configuration.

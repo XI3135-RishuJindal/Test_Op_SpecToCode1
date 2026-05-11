@@ -1,0 +1,34 @@
+```json
+{
+  "version": "v1.0",
+  "project": "ApiGateway",
+  "ignore": [
+    "**/node_modules/**",
+    "**/bin/**",
+    "**/obj/**"
+  ],
+  "policy": {
+    "rules": [
+      {
+        "id": "no-payment-sdks",
+        "description": "Ensure no payment SDKs are present",
+        "condition": {
+          "operator": "or",
+          "conditions": [
+            {
+              "type": "dependency",
+              "name": "payment-sdk-1",
+              "version": "latest"
+            },
+            {
+              "type": "dependency",
+              "name": "payment-sdk-2",
+              "version": "latest"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
