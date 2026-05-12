@@ -18,5 +18,8 @@ RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=
 
 FROM base AS final
 WORKDIR /app
+# Feature flag default for US-006. To override at runtime, run the container with:
+#   docker run -e FEATURES__US006__ENABLED=true <image>
+ENV FEATURES__US006__ENABLED=false
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "ApiGateway.dll"]

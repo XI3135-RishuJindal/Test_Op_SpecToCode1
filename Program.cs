@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
-using Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,9 +39,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// Include event filter
-builder.Logging.AddFilter<EventFilter>();
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -58,6 +54,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Conditional feature endpoint for US-006 based on environment variable FEATURES__US006__ENABLED
+// When enabled, exposes GET /us-006 which returns 501 Not Implemented
+if (app.Configuration.GetValue<bool>("Features:US006:Enabled"))
+{
+    app.MapGet("/us-006", () => Results.StatusCode(501));
+}
 
 try
 {
