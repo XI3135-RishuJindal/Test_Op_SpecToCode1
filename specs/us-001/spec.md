@@ -1,55 +1,70 @@
 Title
-Remove payment UI elements
+Remove payment UI elements (US-001 / JT-5958)
 
-Epic/Traceability
-- Epic: EP-001
-- Story: US-001 (JT-5958 / 30320)
-- Type: Functional
+Why
+- To keep the MVP scope focused on core functionality and avoid incomplete or non-compliant payment experiences.
+- To reduce risk and surface area by excluding payment UI and dependencies from builds and user journeys.
 
-Problem/Why
-Payments are excluded from the MVP to keep focus on core capabilities. Any payment-related UI elements (links, buttons, forms) or implied support must be absent to avoid scope creep, user confusion, and compliance risks.
+What (functional scope)
+- Remove all payment-related UI from web and mobile clients:
+  - Links, buttons, CTAs (e.g., “Billing”, “Upgrade”, “Subscribe”).
+  - Forms, inputs, and validation for payment details (e.g., card details).
+  - Routes/screens/pages dedicated to billing or subscription management.
+  - Modals, toasts, empty states, and banners that reference payments.
+- Remove client-side analytics/events related to payments.
+- Remove or deprecate client-side API calls referencing payment endpoints; ensure none are invoked from UI code.
+- Ensure navigation remains coherent after removals (no dead links).
 
-What (functional specification)
-- Remove/avoid any payment-related UI affordances in all user-facing surfaces (web, mobile).
-- Ensure backend public API surface does not expose payment-related endpoints that could be wired to UI inadvertently.
-- Provide negative assurance tests in backend repositories to prevent accidental introduction of payment endpoints during MVP.
+User story
+As a Product Owner, I want to ensure there are no payment UI elements in the MVP, so that we maintain the focus on core functionalities.
 
 Acceptance criteria
-- AC1: No payment UI (links/buttons/forms) on any screen.
-- AC2: OpenAPI/Swagger for backend services must not contain paths or tags with payment-related terms: payment, payments, billing, checkout, subscription, invoice, card, creditcard, stripe, paypal.
-- AC3: CI includes an automated test that fails if any controller name, route template, or action name contains forbidden payment-related terms.
-- AC4: Stakeholders review and sign off that MVP shows no payment affordances.
+- No payment UI (links/buttons/forms) on any screen.
+- No navigation items/routes to billing or subscription flows.
+- No client calls to payment endpoints triggered by UI actions.
+- No payment-related analytics/logs emitted by clients.
+- Build, lint, and tests pass with zero references to removed components.
 
-Gherkin scenarios (conceptual; UI repos apply)
-- Scenario: User cannot see payment options
-  Given I am on any screen in the application
-  Then I do not see any payment, checkout, or billing links, buttons, or forms
+Gherkin-ready acceptance tests
+- Scenario: Payment CTAs are absent in navigation
+  Given I am an authenticated user
+  When I open the main navigation
+  Then I do not see any items containing “Billing”, “Upgrade”, or “Subscribe”
 
-- Scenario: API does not expose payment endpoints
-  Given the OpenAPI specification for the API Gateway
-  Then there are no paths containing payment-related terms
+- Scenario: Settings has no payment sections
+  Given I am on the Settings screen
+  Then I do not see any sections or links related to “Payment” or “Subscription”
 
-Scope and constraints
-- In-scope:
-  - Backend negative assurance test to ensure no payment-related API endpoints are introduced in API Gateway.
-  - Documentation of guardrails.
-- Out-of-scope:
-  - Implementing any alternative monetization or subscription flows.
-  - Payment feature flags (they must not exist in MVP).
-  - Data migrations (no payment data should exist).
-- Constraints:
-  - Do not break existing controllers/tests.
-  - Keep test lightweight and independent of network or external services.
+- Scenario: Payment routes are inaccessible
+  When I navigate directly to /billing or /subscribe
+  Then I receive the standard 404 page
 
-Cross-repo dependency notes
-- Frontend web/mobile repos must remove payment UI. This spec only impacts XI3135-RishuJindal/Test_Op_SpecToCode1 by adding negative assurance tests and documentation.
-- If other services expose OpenAPI, they must adopt a similar negative assurance test.
+- Scenario: No payment inputs on any page
+  Given I browse all available forms
+  Then I do not find inputs for credit card details or payment methods
 
-Definition of Ready
-- Business value documented: Payments excluded from MVP.
-- Testable acceptance criteria defined.
+- Scenario: No payment analytics
+  When I perform common user flows
+  Then no analytics events with names containing “payment”, “billing”, or “upgrade” are emitted
+
+Constraints
+- Do not degrade non-payment features or navigation clarity.
+- Do not introduce unused imports or broken type references.
+- If a feature flag exists for payments, it must be disabled by default and excluded from bundles.
+- Maintain a clean dependency graph; remove third-party payment SDKs only if not required by non-UI code paths.
+
+Out of scope
+- Removal of backend payment endpoints or domain logic (unless required by client build).
+- Data migration or deletion of historical payment data.
+- Pricing pages that purely describe plans without interaction may remain if explicitly non-transactional and approved by Product; otherwise remove links that suggest upgrading or paying.
+
+Dependencies and cross-repo notes
+- Web frontend: primary removal of components, routes, and analytics.
+- Mobile app: remove screens and menu items; update deep links.
+- API service: no functional changes required; optionally mark payment endpoints internal for clients.
+- Docs: update user-facing docs to reflect absence of payment features.
 
 Definition of Done
-- All AC pass.
-- Test suite contains negative assurance checks and is green.
-- Stakeholder sign-off that UI (in UI repos) is payment-free.
+- All AC pass; UI is free from payment elements; stakeholders sign-off.
+- CI green: type checks, lints, unit/e2e tests.
+- Documentation updated; changelog entry added; removal inventory captured in PR.
