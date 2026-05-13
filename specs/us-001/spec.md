@@ -1,52 +1,57 @@
 Title
 US-001: Remove payment UI elements
 
-Why
-Payments are out-of-scope for MVP. Any visible payment affordances (links, buttons, forms) or discoverable API/UI elements create scope creep and user confusion. We must ensure the application presents no payment UI.
+Epic linkage
+- Epic: EP-001
+- JIRA: JT-5958 (30320)
+- Story type: Functional
 
-Scope (this repository)
-- Repo: XI3135-RishuJindal/Test_Op_SpecToCode1 (ApiGateway)
-- This is an API gateway without front-end templates. We will:
-  - Verify no payment-related discoverability via controller names, routes, Swagger metadata, or source files.
-  - Add automated tests to prevent regressions.
-  - No functional API changes required.
+What
+- Ensure the application exposes absolutely no payment UI elements in the MVP. This includes links, buttons, forms, or routes that would surface a payment capability in any UI or API documentation surface.
+- For this repository (API Gateway, backend), enforce absence of payment-related API routes, tags, and names that could appear in Swagger or client generation as implicit UI elements.
+- Add invariant tests that fail the build if controllers or routes contain payment-related terminology.
+
+Why
+- Maintain MVP scope focused on core functionality, explicitly excluding payment to reduce risk and complexity.
 
 User story
 As a Product Owner, I want to ensure there are no payment UI elements in the MVP, so that we maintain the focus on core functionalities.
 
 Acceptance criteria
-- AC1: No payment-related route segments, controller/action names, or Swagger operation metadata exist in the API Gateway. Forbidden tokens: payment, payments, payout, billing, invoice, invoices, checkout, creditcard, debitcard, cardnumber, cvv, stripe, paypal, applepay, googlepay, wallet.
-- AC2: A guardrail test suite exists that fails the build if any forbidden token is found in:
-  - Controller names, route templates, action method names, or HTTP verb attribute templates.
-  - Source/content files (*.cs, *.cshtml, *.html, *.js, *.ts, *.css).
-- AC3: No references to payment UI are present in repository documentation.
-- AC4: Stakeholder sign-off confirming absence of payment UI discoverability for this repo.
+- No payment UI artifacts (links, buttons, forms) in any product UI.
+- For this backend repository:
+  - No payment-related routes, controllers, action names, or Swagger-visible paths containing banned payment terms.
+  - Automated tests enforce the absence of banned payment terms in routes and known UI directories (if present).
+- Stakeholder sign-off confirming no payment UI elements exist.
 
-Gherkin-ready scenarios
-- Scenario: No forbidden tokens in controller and route metadata
-  Given the ApiGateway assembly is loaded
-  When scanning all ControllerBase types and their route/HTTP attributes
-  Then no forbidden token is found in controller names, action names, or route templates
+Gherkin-ready examples (repository-scoped)
+- Scenario: No payment-related routes are defined
+  Given the API assembly is scanned for controller and action routes
+  When route templates and action names are compared to the banned terms list
+  Then no matches are found
 
-- Scenario: No forbidden tokens in source/content files
-  Given the repository source files are scanned (*.cs, *.cshtml, *.html, *.js, *.ts, *.css)
-  Then no forbidden token is found (case-insensitive)
+- Scenario: No payment UI assets exist
+  Given standard UI folders (Views, Pages, wwwroot, ClientApp) are scanned if present
+  When file contents are compared to the banned terms list
+  Then no matches are found
 
 Constraints
-- Do not remove Swagger or auth endpoints; they are not payment UI.
-- No changes to API contracts or behavior unless a payment element is detected (none expected).
-- Tests must not require live network or external services.
+- Do not introduce stubs or placeholders for payment.
+- Do not introduce feature flags pointing to payment features.
+- Preserve existing non-payment behavior and tests.
 
 Out of scope
-- Removing payment backends, processors, or data models (none exist here).
-- Feature flags for future payment enablement.
-- UI changes in other repositories.
+- Removal or refactoring of backend payment domain logic in other services (none exists in this repo).
+- Any UI-level repository changes (web/mobile apps) not included here; they are tracked separately.
 
-Dependencies and cross-repo notes
-- Other UI/front-end repositories must also remove payment UI; tracked separately.
-- This repo adds only automated checks; no cross-repo code dependency.
+Cross-repo dependency notes
+- If separate web/mobile UI repositories exist, they must remove or omit any payment UI elements and pass equivalent guardrail tests.
+- No known direct dependencies for this repo; this work is self-contained and preventive.
+
+Definition of ready
+- Business value documented: Payments excluded from MVP.
+- Testable AC defined and captured as invariant tests.
 
 Definition of done
-- All acceptance criteria pass.
-- Guardrail tests are merged and run in CI.
-- Documentation updated to state payments are out of MVP.
+- All AC pass; UI is free from payment elements; stakeholders sign-off.
+- Guardrail tests merged and running in CI.
