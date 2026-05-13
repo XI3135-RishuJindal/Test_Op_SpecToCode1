@@ -1,25 +1,26 @@
 Quality principles
-- MVP scope integrity: No payment functionality or UI must exist in the MVP. Prevent accidental introduction via invariant tests and policy checks.
-- Simplicity: Prefer removal or omission over stubbing. Do not add placeholders such as “Payment coming soon.”
-- Security and privacy: No collection, storage, or transmission of payment-related data. No PII in logs.
-- Observability: Maintain structured logging; no logs should reference payment concepts.
-- Backward compatibility: Do not introduce breaking changes to existing non-payment endpoints.
-- Testability: Acceptance criteria must be Gherkin-ready and enforced by automated tests that fail on any payment UI artifact reintroduction.
-- Documentation accuracy: README and specs must clearly state payments are excluded from MVP.
+- MVP scope fidelity: No payment functionality or UI must exist in the MVP. Any payment-related affordances are prohibited.
+- Least surprise: Remove or hide any references that could imply payment capability.
+- Explicit negative assurance: Add tests and CI checks that fail on accidental introduction of payment UI/back-end endpoints.
+- Security and privacy: Never collect or expose payment or billing data. Avoid logging secrets or sensitive data.
+- Observability: Keep structured logging; do not log secrets.
+- Backward compatibility: Do not break existing non-payment APIs, tests, or integrations.
+- Testability: Add deterministic, low-flake tests that assert absence of payment-related elements.
 
 Tech guardrails
-- Deny-list policy for payment-related UI terms enforced via tests (reflection on routes and optional static scan for UI asset folders).
-- No new controllers, routes, or Swagger operations containing payment-related routes or names.
-- Feature flags must not include or reference payment features.
-- CI must run tests to enforce guardrails.
+- Forbidden terms in public surface for MVP: payment, payments, billing, checkout, subscription, invoice, card, creditcard, stripe, paypal.
+- OpenAPI/Swagger must not expose any endpoint path or tag containing these terms.
+- UI repos (web/mobile) must not render payment-related links, buttons, forms, or menu items. Instead, show no element or a non-interactive placeholder only if explicitly approved.
+- Configuration must not include payment provider keys, endpoints, or toggles that enable payment features.
 
 Coding standards
-- Controllers: Attribute routing must be explicit and descriptive. Avoid ambiguous route segments that could be confused with payment (e.g., avoid “pay” abbreviations).
-- Tests: Add invariant, non-functional tests that scan assemblies for forbidden patterns. Keep the forbidden term list centralized in a policy file.
-- Configuration: No payment-related configuration keys (e.g., PaymentProvider, StripeKey).
+- C#: Use nullable reference types, async/await, structured logging with Serilog.
+- Controllers should be annotated with [ApiController] and explicit route attributes; keep routes descriptive and non-ambiguous.
+- Do not leave commented-out payment code or TODOs implying future payment work within MVP code branches.
+- Tests: Prefer reflection-based checks for negative assurance when the feature is intentionally absent.
 
 Non-functional requirements
-- Performance: New tests are lightweight and should add negligible runtime to the test suite.
-- Reliability: Guardrail tests must be deterministic and not rely on network or environment.
-- Maintainability: Centralized banned-term list to ease updates without code changes.
-- Compliance: Exclude any references to payment platforms (Stripe, PayPal, Apple Pay, Google Pay, Adyen, etc.).
+- Compliance: No storage or processing of PCI data.
+- Performance: No change—MVP focus is non-payment; ensure added checks are lightweight.
+- Reliability: Added tests must run in <2s locally/CI to avoid pipeline bloat.
+- CI quality gates: Fail build if forbidden terms appear in API controller names, routes, or action names.

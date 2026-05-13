@@ -1,16 +1,47 @@
 Architecture and approach
-- Preventive, test-driven enforcement: Add invariant tests that scan the API assembly for any route templates or action identifiers containing payment-related terminology. Also scan common UI asset folders if they exist.
-- Centralize the banned terms list in a repo file to enable easy updates without code changes.
-- Minimal code changes: Expose Program as a partial class only if needed for test assembly discovery; no runtime behavior changes.
+- This repository is an API Gateway (.NET 8) with no UI. We will enforce MVP scope via a non-functional test that prevents accidental introduction of payment-related endpoints or action names.
+- Use reflection-based scanning over the ApiGateway assembly to:
+  - Enumerate controllers ([ApiController] or ControllerBase-derived).
+  - Inspect controller names, [Route] templates.
+  - Inspect action method names and HttpMethodAttribute templates.
+- Assert that none contain forbidden payment-related terms (case-insensitive).
 
-Components impacted
-- ApiGateway (this repository)
-  - Tests: New non-functional test suite to enforce absence of payment UI elements.
-  - Optionally expose Program partial class to support certain test patterns (though reflection-based scanning does not require server bootstrapping).
+Design decisions
+- Reflection vs. live server:
+  - Choose reflection to avoid coupling to hosting environment or Swagger generation. It’s fast and deterministic.
+- Forbidden terms list is centrally defined in the test to be easily extended.
+- We will not modify runtime code since current code has no payment references.
 
-Data model and API contracts
-- No changes to models or endpoints; this is a scope guardrail.
-- No new endpoints added.
+API contracts
+- No changes to existing endpoints:
+  - AuthController: POST /api/auth/token
+  - HealthController: GET /api/health
+  - TestController: POST /api/test (authorized)
+- OpenAPI/Swagger behavior unchanged; tests guard against future payment routes.
 
-Banned term policy
--
+Data model
+- No changes.
+
+Integration points
+- None added. Tests run as part of ApiGateway.Tests.
+
+Test strategy
+- Unit-style non-functional test:
+  - Scans ApiGateway assembly for forbidden terms in:
+    - Controller type names.
+    - Class-level [Route] templates.
+    - Method-level HttpMethodAttribute templates.
+    - Action method names.
+  - Produces a clear violation list on failure.
+- Optional extension (documented, not implemented here): A Swagger JSON scan test via Microsoft.AspNetCore.Mvc.Testing to examine generated paths and tags.
+
+Risks and mitigations
+- False positives: Keep forbidden list focused on payment domain. Use full-word substrings that are unlikely to clash. Provide actionable failure messages.
+- Flakiness: Avoid hosting or network calls. Use pure reflection to keep tests stable and fast.
+
+Rollout plan
+- Commit tests and run CI.
+- If failures occur (unexpected), investigate for accidental introduction of payment references.
+
+Observability and Ops
+- No runtime changes. CI will surface test failures if scope violations appear.
