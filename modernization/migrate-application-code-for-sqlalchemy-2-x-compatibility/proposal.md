@@ -2,59 +2,67 @@
 
 ## Overview
 
-- Objective: Update application code to ensure compatibility with SQLAlchemy 2.x.
-- Focus exclusively on necessary code changes to support SQLAlchemy 2.x API and deprecations.
+- Objective: Update the application’s existing codebase to ensure full compatibility with SQLAlchemy 2.x.
+- Focus: Refactor or modify code as needed to address changes and deprecations introduced in SQLAlchemy 2.x.
 
 ## Business Motivation
 
-- Maintain long-term support: Continue to receive updates, security patches, and bug fixes for SQLAlchemy.
-- Reduce technical debt: Address deprecated APIs and avoid future compatibility issues.
-- Prevent disruption: Ensure application stability as dependencies and platforms adopt newer SQLAlchemy versions.
+- Ensures continued support and security updates by staying current with upstream SQLAlchemy releases.
+- Reduces technical debt and risk of running unsupported or deprecated code.
+- Prepares the codebase to take advantage of new features and performance improvements in SQLAlchemy 2.x.
 
 ## Scope
 
 ### In Scope
 
-- Identify code areas incompatible with SQLAlchemy 2.x.
-- Refactor usage of deprecated features or APIs replaced in 2.x.
-- Conduct targeted testing to confirm operational integrity after migration.
+- Identify and update all elements of application code incompatible with SQLAlchemy 2.x (APIs, statements, patterns).
+- Run and update automated and manual tests relevant to database interactions.
+- Update project dependencies to require SQLAlchemy 2.x.
+- Implement code changes only necessary for SQLAlchemy 2.x compatibility.
 
 ### Out of Scope
 
-- No changes to unrelated application logic.
-- No upgrades to the language/runtime/build tool unless strictly required by SQLAlchemy 2.x.
-- No new feature development or general refactoring beyond requirements for 2.x compatibility.
+- Migration or upgrade of language, runtime, or build tools beyond requirements for SQLAlchemy 2.x.
+- Introduction of new features or non-essential refactoring.
+- Changes to business logic not directly related to SQLAlchemy migration.
+- Other database or ORM upgrades not related to this effort.
 
 ## Stakeholders
 
-- Application Engineering Team
-- QA/Test Team
-- Product Owner/Business Sponsor
+- Application development and maintenance team
+- QA/Test engineering team
+- Product owners dependent on reliable data layer
+- DevOps/Release engineering (for deployment of updated dependencies)
 
 ## Success Criteria
 
-- All current application functionality remains intact after migration.
-- Application passes all existing automated and regression tests under SQLAlchemy 2.x.
-- No usages of deprecated or removed APIs from pre-2.x versions remain.
-- Stakeholder sign-off upon successful deployment and validation.
+- Application runs without errors or warnings related to SQLAlchemy deprecations or incompatibilities under SQLAlchemy 2.x.
+- All existing database-related tests pass.
+- No regressions or loss of features in application data access and persistence.
+- Upgrade documented for future reference.
 
 ## Risks & Mitigations
 
-- **Risk:** Undocumented dependencies on old SQLAlchemy APIs may cause runtime failures.
-  - *Mitigation:* Comprehensive code analysis and increased test coverage during migration.
-- **Risk:** Hidden incompatibilities may not be revealed until application is in production.
-  - *Mitigation:* Enhanced QA/testing with real-world scenarios and a monitored pilot phase if feasible.
+- **Risk:** Missed deprecated usage causing runtime errors.
+  - *Mitigation:* Comprehensive code search; run test suite; use SQLAlchemy's deprecation warnings and tools.
+- **Risk:** Insufficient test coverage may hide issues.
+  - *Mitigation:* Review and, if needed, expand test coverage for data access code.
+- **Risk:** Unintended behavioral changes in edge cases.
+  - *Mitigation:* Solicit feedback from users/testing; staged rollout if feasible.
+- **Risk:** Delays affecting downstream projects.
+  - *Mitigation:* Communicate changes early with stakeholders; provide migration timeline.
 
 ## Timeline Estimate
 
-- Code Audit & Impact Assessment: 1 week
-- Migration & Refactoring: 2–3 weeks
-- Testing & Validation: 1–2 weeks
-- Contingency & Bug Fixing: 1 week
-- **Total Estimate:** 5–7 weeks
+- Code assessment and inventory: 1 week
+- Code migration and updates: 1–2 weeks
+- Testing & bugfix/verification: 1 week
+- Documentation and deployment: 1 week
+
+**Total estimate:** 3–5 weeks
 
 ---
 
-*Sections not included above are:*
+Sections below are not applicable:
 
-N/A — not applicable to this task
+- N/A — not applicable to this task.
