@@ -1,67 +1,79 @@
-# SPEC: Upgrade Python Runtime to 3.12
+# SPEC: Python Runtime Upgrade to 3.12
 
 ## Current State
 
-- **Python Runtime Version:** 3.8.x (assumed; update as appropriate)
-- **Key Interfaces/APIs:** 
-    - N/A — not applicable to this task (the upgrade is runtime-only; details about frameworks/libs unknown)
-- **Data Models:** 
-    - N/A — not applicable to this task
-- **Key Behaviours:** 
-    - Application executes under Python 3.8.x runtime.
-    - All Python libraries are installed and compatible with Python 3.8.x.
-    - Build and deployment toolchains point to Python 3.8.x.
-    - CI/CD and development environments are configured to use Python 3.8.x.
+- **Python Version:** (Unknown, but assumed < 3.12)  
+- **Interfaces/APIs/Data Models:**  
+    The application currently runs under an earlier Python runtime (exact version unspecified). All interfaces, libraries, and behaviors align with that version’s language features and standard library.
+- **Key Behaviours:**  
+    - Code execution, dependencies, and system scripts expect pre-3.12 syntax and semantics.
+    - Third-party modules may use APIs deprecated or removed in 3.12.
+    - Build/runtime environments use settings and processes fitting the current Python version (e.g., `python3.10`, `venv` paths, etc.).
 
 ## Target State
 
-- **Python Runtime Version:** 3.12.x
-- **Key Interfaces/APIs:**
-    - N/A — not applicable to this task
-- **Data Models:** 
-    - N/A — not applicable to this task
-- **Key Behaviours:**
-    - Application executes under Python 3.12.x runtime.
-    - All dependencies are updated to versions compatible with Python 3.12.x.
-    - Build and deployment toolchains point to Python 3.12.x.
-    - CI/CD and development environments are configured to use Python 3.12.x.
+- **Python Version:** 3.12.x (latest release in the 3.12 series)
+- **Interfaces/APIs/Data Models:**  
+    All compatible with Python 3.12 standards.
+- **Key Behaviours:**  
+    - Code, dependencies, and scripts execute against Python 3.12 interpreter.
+    - Syntax, standard library usage, and dependencies meet 3.12 requirements.
+    - System/package management references `python3.12`.
+    - Future development adheres to Python 3.12 features and idioms.
 
 ## Compatibility & Breaking Changes
 
-- **Removal of Deprecated Features:** Python 3.12 removes some modules and language features deprecated in earlier versions.
-    - **Migration Path:** Refactor code to eliminate any usage of removed deprecated features. Refer to [What's New In Python 3.12](https://docs.python.org/3/whatsnew/3.12.html) for full list.
-- **String and Byte Formatting Edge Cases:** Minor changes in behavior for certain string and byte formatting.
-    - **Migration Path:** Update affected code paths, validate via regression tests.
-- **Dependency Compatibility:** Some 3rd-party libraries may not support Python 3.12.
-    - **Migration Path:** Upgrade dependencies to Python 3.12 compatible versions, or replace if necessary.
-- **Syntax Changes:** Use of certain legacy syntax/features now causes errors.
-    - **Migration Path:** Run code linters (`flake8`, `pyupgrade`), update accordingly.
-- **Build Tool Updates:** Build and deployment scripts referencing python3.8 or assuming version-specific paths may break.
-    - **Migration Path:** Update all references in scripts, Dockerfiles, environment managers (requirements.txt, setup.py, Pipfile, pyproject.toml, etc.) to reference python3.12.
+Python 3.12 introduces changes that may break code written for earlier versions.  
+
+### Notable Breaking Changes & Migration Paths
+
+1. **Removed Deprecated Standard Library Modules**
+    - E.g., `distutils` has been fully removed.
+    - _Migration_: Switch to `setuptools` or adopt official replacements listed in Python 3.12 release notes.
+
+2. **Syntax Errors / Language Changes**
+    - Some legacy syntax or behaviors may now error (e.g., old-style formatted strings, bare excepts).
+    - _Migration_: Update code to comply with 3.12 syntax; run linters/`pyupgrade`.
+
+3. **C Extension Compatibility**
+    - Some compiled dependencies using Python C API may not work.
+    - _Migration_: Upgrade to compatible package versions; recompile using headers from 3.12.
+
+4. **Standard Library Function Changes/Removals**
+    - Example: Changes in `collections.abc` relocation, `importlib.resources` API, etc.
+    - _Migration_: Update imports and usages per Python documentation.
+
+5. **Built-in Behavior Modifications**
+    - Subtle changes (e.g., stricter typing in function signatures).
+    - _Migration_: Adjust application code and update dependencies as needed.
+
+6. **Package Version Constraints**
+    - Some third-party packages may not support 3.12 yet.
+    - _Migration_: Verify and upgrade all dependencies; replace obsolete packages.
 
 ## Key Flows (before vs after)
 
-### Environment Preparation
+**1. Application Startup**
 
-**Before:**
-1. Developer/CI deploys Python 3.8.x.
-2. Libraries installed via `requirements.txt` for Python 3.8.x.
-3. Application starts with python3.8.
+__Before:__
+1. System executes `python` (e.g. `python3.10`) interpreter.
+2. Environment activates virtualenv for previous version.
+3. Dependencies installed from `requirements.txt` using pip for earlier Python.
 
-**After:**
-1. Developer/CI deploys Python 3.12.x.
-2. Libraries installed via `requirements.txt` for Python 3.12.x. All libraries are verified compatible.
-3. Application starts with python3.12.
+__After:__
+1. System executes `python3.12` interpreter.
+2. (New) environment activates virtualenv using Python 3.12.
+3. Dependencies installed after verifying compatibility with Python 3.12.
 
-### Deployment Build
+**2. CI/CD Pipeline Execution**
 
-**Before:**  
-1. Dockerfile starts from `python:3.8` image.  
-2. Application dependencies built on Python 3.8.
+__Before:__
+1. Runner sets up build with previous Python version.
+2. Unit tests run with old runtime.
 
-**After:**  
-1. Dockerfile starts from `python:3.12` image.  
-2. Application dependencies built on Python 3.12.
+__After:__
+1. Runner installs/uses Python 3.12.
+2. All tests executed against 3.12 runtime.
 
 ## Data Model Changes
 
@@ -69,22 +81,23 @@ N/A — not applicable to this task
 
 ## Configuration Changes
 
-- **`python_version` References:**
-    - Any configuration referencing 3.8 (e.g., `PYTHON_VERSION=3.8`, `.python-version` files, Dockerfiles) must be changed to 3.12.
-    - **Migration Path:** Search and replace to update all version-specific configuration references.
+- **Environment Variables**  
+    - Update any variables or scripts that specify `PYTHON_VERSION` or `python` executable to `3.12`:
+        - Example:  
+            Old: `PYTHON_VERSION=3.10`  
+            New: `PYTHON_VERSION=3.12`
+    - Update shebangs in scripts, if version-pinned (e.g., `#!/usr/bin/env python3.12`).
 
-- **CI/CD Pipelines:**
-    - Update pipeline definitions (GitHub Actions, GitLab CI, etc.) to use 3.12 runners/images.
-    - For example, in `.github/workflows/ci.yml`:
-        ```yaml
-        python-version: [3.12]
-        ```
+- **Build/Deployment Configuration**  
+    - Dockerfiles, system package lists, CI/CD configs (`.github/workflows/*`, `Jenkinsfile`, etc.) updated to use Python 3.12 base image or install Python 3.12.
+    - Update virtual environment creation commands:
+        - From: `python3 -m venv venv/` (if `python3` defaulted to old version)
+        - To: `python3.12 -m venv venv/`  
+- **Dependency Management**
+    - Re-generate `requirements.txt` and/or lock files (`Pipfile.lock`, `poetry.lock`) in a Python 3.12 environment.
 
-- **Environment Management:**
-    - Update tools like `pyenv`, `conda`, `Pipfile`, or `pyproject.toml` to require Python 3.12.
-
-- **Dependency Lock Files:**
-    - Recreate or update `requirements.txt`, `Pipfile.lock`, `poetry.lock` after ensuring all dependencies support Python 3.12.
+- **Feature Flags/Settings**  
+    - N/A — not applicable to this task
 
 ---
 
