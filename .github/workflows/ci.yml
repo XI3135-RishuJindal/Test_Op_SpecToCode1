@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install lint dependencies
+        run: pip install flake8
+      - name: Lint code
+        run: flake8 .
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install test dependencies
+        run: pip install pytest
+      - name: Run unit tests
+        run: pytest
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install build dependencies
+        run: pip install .
+      - name: Build WSGI entrypoint
+        run: |
+          if [ -f wsgi.py ]; then
+            echo "WSGI entrypoint detected."
+          else
+            echo "ERROR: No WSGI entrypoint (wsgi.py) found." && exit 1
+          fi
+
+  security:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install Bandit
+        run: pip install bandit
+      - name: Run Bandit SAST scan
+        run: bandit -r . || true
