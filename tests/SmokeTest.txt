@@ -1,0 +1,108 @@
+import pytest
+import sqlalchemy
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import DeclarativeBase, Session, Mapped, mapped_column
+import sys
+
+# --- Test Models ---
+class Base(DeclarativeBase):
+    pass
+
+class User(Base):
+    __tablename__ = 'users'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+
+# --- Test Config ---
+TEST_DATABASE_URL = "sqlite:///:memory:"
+TARGET_SQLALCHEMY_VERSION = "2."  # Accepts any SQLAlchemy 2.x version
+
+# --- Tests ---
+
+def test_sqlalchemy_version_is_2():
+    # Validate that SQLAlchemy version is exactly 2.x
+    actual_version = sqlalchemy.__version__
+    assert actual_version.startswith(TARGET_SQLALCHEMY_VERSION), (
+        f"Expected SQLAlchemy version 2.x, got {actual_version}"
+    )
+
+def test_orm_critical_path_works():
+    # Uses SQLAlchemy 2.x ORM API for engine, session and CRUD
+    engine = create_engine(TEST_DATABASE_URL, echo=False, future=True)
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = User(name="Alice")
+        session.add(user)
+        session.commit()
+    with Session(engine) as session:
+        result = session.execute(text("SELECT id, name FROM users"))
+        row = result.first()
+        assert row is not None
+        assert row[1] == "Alice"
+
+def test_core_critical_path_works():
+    # Ensures Core API critical path works with new engine/connection conventions
+    engine = create_engine(TEST_DATABASE_URL, echo=False, future=True)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY, name VARCHAR)"))
+        connection.execute(text("INSERT INTO users (name) VALUES ('Bob')"))
+        result = connection.execute(text("SELECT name FROM users"))
+        names = [row[0] for row in result]
+        assert "Bob" in names
+
+def test_legacy_deprecated_session_and_query_not_present():
+    # Confirm legacy patterns removed: session.query() and direct connection.execute()
+    # session.query() exists but issues warning in 2.x and is discouraged/removed in pure 2 mode
+    # direct connection.execute(raw_sql) is not permitted, but connection.execute(text("...")) is OK
+    engine = create_engine(TEST_DATABASE_URL, echo=False, future=True)
+    Base.metadata.create_all(engine)
+
+    from sqlalchemy.orm import Session as NewSession
+    with NewSession(engine) as session:
+        # session.query() should fail or emit warning in 2.x "future" API
+        with pytest.raises(Exception):
+            getattr(session, 'query')(User)
+        # Using new-style select() is the valid way
+        from sqlalchemy import select
+        stmt = select(User).where(User.name == 'Charlie')
+        results = session.execute(stmt)
+        # Should not raise, but should be empty for this test case
+        assert results.first() is None
+
+def test_deprecated_api_absence():
+    # Test that APIs removed in 2.x are not present or are properly rejected
+    # .from_self() and .with_entities() should not be available on Query objects in 2.x pure mode
+    # session.execute(raw_sql_string) should not be permitted
+    from sqlalchemy.orm import Query
+    engine = create_engine(TEST_DATABASE_URL, echo=False, future=True)
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        with pytest.raises(Exception):
+            getattr(session, 'execute')("SELECT 1")  # Should require TextClause, not str in 2.x
+        # Build a Query in a way that fails if legacy methods exist
+        # Note: In pure 2.x, direct Query() usage is legacy and discouraged
+        try:
+            q = session.query(User)  # Should error or warn in 2.x pure mode
+            with pytest.raises(AttributeError):
+                getattr(q, 'from_self')
+            with pytest.raises(AttributeError):
+                getattr(q, 'with_entities')
+        except Exception:
+            # If session.query is not present/raises, that's confirmation too
+            pass
+
+def test_new_config_keys_load():
+    # Example: 'future=True' or 'engine.echo' are recommended 2.x config flags.
+    # Check that specifying new config keys does not error.
+    try:
+        engine = create_engine(TEST_DATABASE_URL, echo=False, future=True)
+        assert engine is not None
+    except Exception as e:
+        pytest.fail(f"Engine creation with new 2.x config keys failed: {e}")
+
+def test_import_paths_are_2x_compatible():
+    # Ensure modern import paths (sqlalchemy.orm.DeclarativeBase, mapped_column) are available
+    try:
+        from sqlalchemy.orm import DeclarativeBase, mapped_column
+    except ImportError as e:
+        pytest.fail(f"SQLAlchemy 2.x import paths failed: {e}")
