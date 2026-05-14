@@ -1,43 +1,38 @@
 # Modernization_Service.Tasks
 
 ## Prerequisites
-
-- [ ] [S] Identify all locations in the codebase where secrets or sensitive configuration values are hardcoded.
+- [ ] [S] Identify and document all locations in the codebase where secrets are hardcoded (e.g., API keys, database passwords).
+- [ ] [S] Obtain a secure method/system for securely managing environment variables (e.g., .env files, cloud secrets manager, CI/CD secret store).
 
 ## Phase 1 — Preparation
-
-- [ ] [S] Compile a list of all hardcoded secrets/configuration parameters (e.g., API keys, database URIs, passwords) found in the codebase.
-- [ ] [S] For each secret, determine a unique and descriptive environment variable name to use as a replacement.
-- [ ] [XS] Prepare or update a .env.example file (or equivalent documentation) listing all new environment variable names (without their secret values).
+- [ ] [S] Audit application configuration files and source code for hardcoded secrets.
+- [ ] [XS] Confirm best practice guidelines for secret management with the security team, if available.
+- [ ] [S] Determine all runtime environments (local/dev/test/prod) that require secret configuration.
 
 ## Phase 2 — Core Upgrade
-
-- [ ] [M] Refactor the codebase to remove all hardcoded secrets and load their values from environment variables instead.
-- [ ] [S] Add fallback or error handling for missing environment variables, if applicable.
-- [ ] [XS] Update local development scripts or run configurations to read from environment variables.
+- [ ] [M] Refactor application code to retrieve secrets from environment variables instead of hardcoded values.
+- [ ] [S] Remove all hardcoded secrets from the codebase and replace them with appropriate environment variable lookups.
+- [ ] [S] Update configuration files to reference environment variables as needed.
 
 ## Phase 3 — Testing & Validation
-
-- [ ] [S] Manually test all code paths to ensure the application functions when secrets are supplied via environment variables.
-- [ ] [XS] Verify errors are handled gracefully when environment variables are absent or malformed.
-- [ ] [S] Update/add automated tests to cover environment variable loading and error handling.
+- [ ] [S] Manually verify application launches and connects to required services using environment-variable-based secrets in local and test environments.
+- [ ] [S] Write or update automated tests to confirm the application fails gracefully if required secrets are missing or invalid.
+- [ ] [XS] Ensure that no secrets are logged or exposed in error messages.
 
 ## Phase 4 — CI/CD & Infrastructure
-
-- [ ] [S] Update CI/CD pipeline configuration to inject necessary environment variables (without exposing secret values in logs or defaults).
-- [ ] [XS] Coordinate with DevOps/infrastructure team to securely store and inject secrets via environment variables in each deployment environment.
+- [ ] [S] Update CI/CD pipeline scripts to provide secrets via environment variables or secret management facilities.
+- [ ] [S] Remove any secrets from version control and add them to .gitignore or equivalent ignore files.
+- [ ] [S] Secure storage of production secrets in the deployment environment (e.g., secrets manager, CI/CD secrets).
 
 ## Phase 5 — Documentation & Rollout
-
-- [ ] [XS] Update project documentation to instruct developers and operators on configuring secrets via environment variables.
-- [ ] [XS] Remove any documentation or code comments referencing hardcoded secrets.
+- [ ] [XS] Update development and deployment documentation to instruct on using and configuring secrets via environment variables.
+- [ ] [XS] Communicate secret management changes to all developers, ops, and relevant stakeholders.
 
 ## Post-Migration Cleanup
-
-- [ ] [S] Audit version control history to ensure all secrets have been purged from commit history (using tools like git-secrets or BFG Repo-Cleaner, if necessary).
-- [ ] [XS] Rotate all previously hardcoded secrets as a security precaution.
-- [ ] [XS] Remove any obsolete configuration files or secret values that are no longer needed.
+- [ ] [XS] Double-check that no secrets remain in version control history or code review artifacts.
+- [ ] [S] Remove all obsolete configuration or documentation references to hardcoded secrets.
 
 ---
 
-_Note: All unrelated sections and tasks are omitted as per the upgrade goal and scope specified._
+All other potential modernization topics:  
+N/A — not applicable to this task
