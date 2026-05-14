@@ -1,0 +1,59 @@
+name: Documentation Modernization CI
+
+on:
+  push:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/ci.yml'
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/ci.yml'
+
+jobs:
+  lint:
+    name: Lint Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli
+      - name: Run markdown lint
+        run: markdownlint docs/**/*.md
+
+  unit-tests:
+    name: Docs Link Checker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check links in Markdown files
+        uses: lycheeverse/lychee-action@v1
+        with:
+          args: --no-progress docs/**/*.md
+
+  build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mkdocs
+      - name: Build Docs
+        run: mkdocs build --strict
+
+  security-sast:
+    name: Security Scan (SAST) - Optional
+    runs-on: ubuntu-latest
+    if: ${{ false }} # Set to true to enable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run security scan (placeholder)
+        run: echo "No SAST applicable for documentation modernization."
