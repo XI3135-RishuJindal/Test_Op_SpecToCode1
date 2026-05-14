@@ -1,147 +1,125 @@
-# MIGRATION RUNBOOK  
-_Update Documentation for Modernization Changes_
-
----
+# Documentation Modernization Migration Runbook
 
 ## Pre-Migration Checklist
 
-- [ ] ✅ Identify all documentation sets affected by modernization.
-- [ ] ✅ Gather change log or summary of modernization changes.
-- [ ] ✅ Confirm access to documentation repository (e.g., GitHub, GitLab).
-- [ ] ✅ Ensure write permissions to the documentation branches.
-- [ ] ✅ Notify stakeholders/documentation owners of planned update.
+All must be ✅ before proceeding.
 
----
+- [ ] ✅ Stakeholder sign-off received for documentation updates.
+- [ ] ✅ Access confirmed to all documentation repositories and content management systems.
+- [ ] ✅ Backup created of all existing documentation (local and remote).
+- [ ] ✅ Chosen style guides/standards for modernization agreed on and documented.
+- [ ] ✅ List of documentation targets finalized.
+
 
 ## Environment Setup
 
-- Clone the documentation repository:
-  ```sh
-  git clone <REPO_URL>
-  cd <REPO_FOLDER>
-  ```
-- (If using static site generators or docs tools) Install required dependencies:
-  ```sh
-  # Example for mkdocs
-  pip install mkdocs
+- Ensure access to the documentation repository (e.g., Git, Confluence, etc.).
+- Set up local text editor or documentation tool (e.g., VS Code, Markdown editor).
+- (If applicable) Clone the documentation repository:
 
-  # Example for Sphinx
-  pip install sphinx
-  ```
-- (Optional) Setup pre-commit hooks for documentation linting if configured:
   ```sh
-  pre-commit install
+  git clone <documentation-repo-url>
+  cd <documentation-repo>
   ```
 
----
+- Verify you have permission to push or create merge requests/pull requests.
+
 
 ## Step-by-Step Migration Procedure
 
-1. **Review Modernization Changes**
-    - **Action:** Open the change log or summary describing the modernization efforts.
-    - **Expected outcome:** Clear understanding of the new/changed features that require documentation updates.
-    - **Verification command:** N/A (manual review).
-    - **Rollback action if it fails:** Escalate to project lead for clarification before proceeding.
+1. **Pull Latest Documentation Content**
+   - **Action:** Fetch the latest changes from the default branch.
+   - **Expected outcome:** Local copy is up-to-date.
+   - **Verification command:**  
+     ```sh
+     git pull origin main
+     ```
+   - **Rollback:** Revert local changes if fetch or merge fails.
 
-2. **Identify Impacted Documentation**
-    - **Action:** Search the documentation repo for mentions of modified/removed features.
-    - **Expected outcome:** List of affected files to be updated.
-    - **Verification command:** Manual search or grep, e.g.,
-      ```sh
-      grep -ri '<deprecated-feature>' docs/
-      ```
-    - **Rollback action if it fails:** Request feature owner input.
+2. **Standardize Documentation Files**
+   - **Action:** Update documentation files to adhere to the new style guide (formatting, headers, structure).
+   - **Expected outcome:** All files reflect the agreed modernization standards.
+   - **Verification command:**  
+     Review changes with:
+     ```sh
+     git status
+     git diff
+     ```
+   - **Rollback:** Discard changes not meeting standards:
+     ```sh
+     git checkout -- <file>
+     ```
 
-3. **Update Documentation Content**
-    - **Action:** Edit identified files to accurately describe modernized features, update screenshots/code samples if necessary.
-    - **Expected outcome:** Documentation reflects the current, modernized system behavior.
-    - **Verification command:** 
-      ```sh
-      git diff
-      ```
-    - **Rollback action if it fails:** Revert changes with:
-      ```sh
-      git checkout -- <affected-files>
-      ```
-  
-4. **Preview Documentation Locally**
-    - **Action:** Build and preview documentation using the local build tool (e.g., mkdocs serve, sphinx-build).
-    - **Expected outcome:** Clean build; updated content displayed correctly.
-    - **Verification command:**
-      ```
-      mkdocs serve
-      # or
-      sphinx-build -b html source/ build/
-      ```
-    - **Rollback action if it fails:** Address build errors or revert last content change.
+3. **Update All Relevant Content**
+   - **Action:** Revise and update outdated content, terminology, images, and references as required.
+   - **Expected outcome:** Content is current, clear, and aligned with modernization goals.
+   - **Verification command:**  
+     Manual review via editor or preview tool.
+   - **Rollback:** Revert specific changes as needed.
+
+4. **Run Spellcheck/Linting Tools**
+   - **Action:** Execute documentation linters and spelling checkers as per guidelines.
+   - **Expected outcome:** No critical spelling or formatting errors reported.
+   - **Verification command:**
+     ```sh
+     # Example for Markdown linting
+     markdownlint *.md
+     # Example for spell checking
+     codespell .
+     ```
+   - **Rollback:** Fix flagged issues, or revert problematic files.
 
 5. **Commit and Push Changes**
-    - **Action:** Commit documentation updates with a clear message and push to the relevant branch.
-    - **Expected outcome:** Changes are available in the central repository.
-    - **Verification command:**
-      ```sh
-      git status
-      git commit -am "Update docs for modernization changes"
-      git push origin <branch>
-      ```
-    - **Rollback action if it fails:** Amend or reset commit as necessary.
+   - **Action:** Commit and push changes to the documentation repository.
+   - **Expected outcome:** Updates are available in the remote repository.
+   - **Verification command:**
+     ```sh
+     git add .
+     git commit -m "Modernize documentation: applied standards and updates"
+     git push origin <branch-name>
+     ```
+   - **Rollback:** Revert commit or open a pull request for review and possible rejection.
 
-6. **Open Pull Request / Merge Request**
-    - **Action:** Follow standard repo process to merge changes after review.
-    - **Expected outcome:** Documentation updates are merged into mainline.
-    - **Verification command:** Confirm via repo UI (GitHub, GitLab, etc.).
-    - **Rollback action if it fails:** Close or update PR/MR as needed.
-
----
+6. **Create Pull/Merge Request for Review**
+   - **Action:** Open a pull/merge request and assign reviewers.
+   - **Expected outcome:** Await, then collect feedback for further changes before merge.
+   - **Verification:** PR/MR visible in repository UI.
+   - **Rollback:** Close PR/MR if update not approved.
 
 ## Verification & Smoke Tests
 
-- Render documentation to ensure formatting is correct:
+- Preview the updated documentation in your local environment or documentation portal.
+- Check for broken links with:
   ```sh
-  mkdocs build
-  # or
-  sphinx-build -b html source/ build/
+  # For Markdown docs (using markdown-link-check)
+  npx markdown-link-check *.md
   ```
-- Visually inspect updated documentation sections.
-- If applicable, run any configured documentation linter/test scripts:
-  ```sh
-  # Example:
-  markdownlint docs/
-  ```
-
----
+- Ask a team member to review rendered documentation for readability/completeness.
+- Confirm all images and diagrams render correctly.
 
 ## Rollback Procedure
 
-1. **Identify Documentation Change Commit(s)**
-    - Use:
-      ```sh
-      git log
-      ```
+1. Revert to original files from backup:
+   - Restore documentation from backup made in the Pre-Migration Checklist.
 
-2. **Revert the Commit(s)**
-    - Use:
-      ```sh
-      git revert <commit-hash>
-      git push origin <branch>
-      ```
+2. If changes have been pushed:
+   - Use git to revert the commit:
+     ```sh
+     git log                # Identify the commit hash
+     git revert <commit-hash>
+     git push origin <branch-name>
+     ```
 
-3. **Rebuild and Deploy Documentation**
-    - Confirm site is restored to the previous state.
-
-4. **Notify Stakeholders**
-    - Communicate that docs have been reverted and follow up for further action.
-
----
+3. If changes merged to main/default branch:
+   - Open a rollback MR/PR to restore content from backup or previous commit.
+   - Notify stakeholders of rollback.
 
 ## Post-Migration Monitoring
 
 - N/A — not applicable to this task
 
----
-
 ## Known Issues & Workarounds
 
-- N/A — not applicable to this task
-
----
+- Formatting may appear differently in various documentation portals; preview in all supported environments.
+- If linting/spellcheck tools produce false positives, review results manually before correcting.
+- Ensure images/links reference correct updated paths after restructuring, correcting as needed.
