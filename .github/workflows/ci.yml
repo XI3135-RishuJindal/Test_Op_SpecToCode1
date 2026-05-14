@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Run dotnet format (check only)
+        run: dotnet format --verify-no-changes --severity error
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build with .NET 8
+        run: dotnet build --configuration Release --no-restore
+      - name: Run tests
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+  sast:
+    name: Security Scan (SAST)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+      - name: Download DevSkim CLI
+        run: |
+          wget https://github.com/microsoft/DevSkim/releases/latest/download/devskim-latest-linux-x64.tar.gz
+          tar -xzf devskim-latest-linux-x64.tar.gz
+          chmod +x devskim
+      - name: Run DevSkim SAST
+        run: ./devskim analyze . || true
+    continue-on-error: true
