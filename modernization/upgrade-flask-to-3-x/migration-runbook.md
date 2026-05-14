@@ -1,164 +1,182 @@
-# Flask 3.x Upgrade — Migration Runbook
+# Flask 3.x Upgrade Migration Runbook
 
 ## Pre-Migration Checklist
 
-**All items must be ✅ before proceeding:**
-
-- [ ] Codebase is under version control and latest branch is pushed to remote.
-- [ ] All existing tests (unit, integration, end-to-end) are passing.
-- [ ] Python version is compatible with Flask 3.x (≥3.8).
-- [ ] No uncommitted local changes; working directory is clean.
-- [ ] Backup created for current requirements/dependencies files (e.g., `requirements.txt`, `Pipfile`, `pyproject.toml`).
-- [ ] Review Flask 3.x [changelog](https://flask.palletsprojects.com/en/3.0.x/changes/) for relevant breaking changes.
-- [ ] Confirm compatibility of key Flask extensions (e.g., flask_sqlalchemy, flask_login) with Flask 3.x.
-
-## Environment Setup
-
-### Local Environment Preparation
-
-```bash
-# (Optional, recommended) Create a virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Backup current dependencies
-cp requirements.txt requirements.txt.bak
-
-# Upgrade pip and setuptools to avoid install issues
-pip install --upgrade pip setuptools wheel
-```
-
-### CI Environment Preparation
-
-- Ensure CI image/runtime supports Python ≥3.8.
-- Update dependency cache settings if necessary.
-- Confirm test and deployment scripts allow for updated dependencies.
-
-## Step-by-Step Migration Procedure
-
-1. **Update Flask Version in Dependency File**
-   - **Action:** Change `Flask` version in `requirements.txt` (or `Pipfile`/`pyproject.toml`) to `Flask>=3.0,<4.0`.
-   - **Expected Outcome:** Dependency file references Flask 3.x.
-   - **Verification Command:**
-     ```bash
-     grep Flask requirements.txt
-     ```
-   - **Rollback:** Revert to backup dependency file.
-
-2. **Upgrade Flask and Dependencies**
-   - **Action:** Install upgraded Flask and update dependencies.
-     ```bash
-     pip install --upgrade -r requirements.txt
-     ```
-   - **Expected Outcome:** Flask 3.x and compatible packages are installed.
-   - **Verification Command:**
-     ```bash
-     python -c "import flask; print(flask.__version__)"
-     ```
-   - **Rollback:** Re-activate backup virtual env or reinstall from `requirements.txt.bak`.
-
-3. **Check Flask Extension Compatibility**
-   - **Action:** Review and upgrade Flask extensions as needed.
-     ```bash
-     pip list | grep Flask
-     ```
-     Upgrade any primary extensions (example):
-     ```bash
-     pip install --upgrade flask_sqlalchemy flask_login flask_wtf
-     ```
-   - **Expected Outcome:** All extensions are up to date and compatible.
-   - **Verification Command:**
-     ```bash
-     pip check
-     ```
-   - **Rollback:** Downgrade any problematic extension or revert extension specs to previous versions.
-
-4. **Run Tests Locally**
-   - **Action:** Run all local tests to check for compatibility issues.
-     ```bash
-     pytest
-     ```
-   - **Expected Outcome:** All tests pass cleanly.
-   - **Verification Command:** Review test output (should be green/no failures).
-   - **Rollback:** Investigate and fix test regressions, or revert to previous environment.
-
-5. **Check for Deprecated/Removed Flask APIs**
-   - **Action:** Search codebase for use of removed/deprecated Flask APIs per [Flask 3.0 Porting Guide](https://flask.palletsprojects.com/en/3.0.x/porting/).
-   - **Expected Outcome:** Code does not use removed interfaces or deprecated patterns.
-   - **Verification Command:**
-     ```bash
-     grep -rnw . -e 'flask.ext' -e 'app.errorhandler(Exception)' -e 'app.env'
-     ```
-   - **Rollback:** Refactor code or revert changes that require more time.
-
-6. **Deploy to Staging Environment**
-   - **Action:** Promote updated code to a staging/pre-production environment.
-   - **Expected Outcome:** Application starts and behaves as expected.
-   - **Verification Command:** Access app endpoints, check logs for Flask startup messages, monitor error logs.
-   - **Rollback:** Revert deployment to previous release.
-
-7. **Deploy to Production**
-   - **Action:** Merge and deploy to production.
-   - **Expected Outcome:** Production application uses Flask 3.x, no critical errors.
-   - **Verification Command:** Monitor production for traffic, error rates, and log anomalies.
-   - **Rollback:** Initiate rollback procedure (see below).
-
-## Verification & Smoke Tests
-
-- **Functional Verification:**  
-  - Run basic user scenarios (login, API endpoints, pages).
-- **Automated Tests:**  
-  ```bash
-  pytest
-  ```
-- **Health Endpoint:**  
-  ```bash
-  curl -f http://localhost:5000/health
-  ```
-- **Logs:**  
-  - Examine server logs for exceptions on startup or while handling requests.
-
-## Rollback Procedure
-
-1. **Restore Previous Dependency File**
-   - Replace updated `requirements.txt` with `requirements.txt.bak` (or earlier lockfile).
-
-2. **Reinstall Dependencies**
-   ```bash
-   pip install --force-reinstall -r requirements.txt.bak
-   ```
-
-3. **Redeploy Application**
-   - Deploy the reverted code and dependencies to staging/production as needed.
-
-4. **Verify Rollback**
-   - Run tests and smoke checks to confirm the application is functioning as before.
-
-5. **Monitor**
-   - Observe metrics and logs to ensure rollback success.
-
-## Post-Migration Monitoring
-
-- **Metrics to Watch (24-48h):**
-  - Error rate (5xx, exceptions in logs)
-  - Application startup errors
-  - User-reported issues (support desk, sentry/rollbar, etc.)
-- **Log Monitoring:**
-  - New stack traces or "ImportError"/"AttributeError"
-  - Flask-specific warnings/errors at startup/runtime
-- **Alerts:**
-  - Uptime/health check failures
-  - Latency spikes
-
-## Known Issues & Workarounds
-
-- If using `flask.ext.*` imports:  
-  - **Workaround:** Change to explicit imports via actual extension module (e.g., `import flask_sqlalchemy`).
-- Extensions not compatible with Flask 3.x may fail to import or break:  
-  - **Workaround:** Pin extension versions as per their Flask 3.x compatibility docs, or wait for maintainers to support Flask 3.x.
-- Removed APIs (e.g., `app.env`, certain error handling signatures):  
-  - **Workaround:** Refactor affected code as per [Flask 3.x porting guide](https://flask.palletsprojects.com/en/3.0.x/porting/).
+- [ ] ✅ All application and test dependencies are up-to-date and compatible versions identified for Flask 3.x.
+- [ ] ✅ The current application is passing all tests (unit, integration, e2e) on both local and CI environments.
+- [ ] ✅ Codebase scanned for usage of removed/deprecated Flask APIs and corresponding changes are planned.
+- [ ] ✅ Backup of production environment and source code repository completed.
+- [ ] ✅ Stakeholders notified of the planned maintenance window.
+- [ ] ✅ Rollback plan is reviewed and tested on a staging environment.
 
 ---
 
-_N/A — not applicable to this task._ (for any sections not listed above)
+## Environment Setup
+
+### Local Environment
+
+1. **Create a new virtual environment** (if applicable):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   ```
+
+2. **Upgrade pip and setuptools (if needed):**
+   ```bash
+   pip install --upgrade pip setuptools
+   ```
+
+3. **Install dependencies using requirements file:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### Continuous Integration (CI) Environment
+
+1. **Update build config** (e.g., `.github/workflows`, `Jenkinsfile`, etc.) to use Python version compatible with Flask 3.x (Python >=3.8 is recommended).
+2. **Ensure CI configuration installs dependencies from the updated requirements file.**
+3. **Enable test jobs for any new/changed dependencies.**
+
+---
+
+## Step-by-Step Migration Procedure
+
+1. **Update Flask version in dependency file**
+   - **Action**: Change the Flask version specification in `requirements.txt`/`Pipfile`/`pyproject.toml` to `Flask>=3.0,<4.0`
+   - **Expected outcome**: Project dependency file references correct Flask version.
+   - **Verification command**:  
+     ```bash
+     grep Flask requirements.txt   # or your specific dependency file
+     ```
+   - **Rollback action**: Revert dependency file to original Flask version.
+
+2. **Install/Update dependencies**
+   - **Action**: Upgrade project dependencies to use Flask 3.x.
+   - **Expected outcome**: Flask 3.x and compatible versions of dependencies are installed.
+   - **Verification command**:  
+     ```bash
+     pip freeze | grep Flask
+     ```
+   - **Rollback action**: Reinstall dependencies with old requirements file.
+
+3. **Scan and update deprecated/removed API usages**
+   - **Action**: Identify and update usage of any Flask APIs deprecated or removed in 3.x (e.g., `flask.ext.*` imports, old extension patterns, `jsonify` behavior, custom CLI commands).
+   - **Expected outcome**: Source code is compatible with Flask 3.x API surface.
+   - **Verification command**:  
+     ```bash
+     grep -r "flask.ext" .   # and other patterns matching legacy APIs
+     ```
+   - **Rollback action**: Revert changed code or restore from source VCS.
+
+4. **Run all unit and integration tests**
+   - **Action**: Execute test suite locally and on CI.
+   - **Expected outcome**: All tests pass.
+   - **Verification command**:  
+     ```bash
+     pytest    # or your test runner, e.g. python -m unittest discover
+     ```
+   - **Rollback action**: Restore dependencies and/or code to last known good state.
+
+5. **Smoke test the application locally**
+   - **Action**: Start the app locally, hit a representative sample of routes/pages.
+   - **Expected outcome**: Application starts, major features work, no critical errors.
+   - **Verification command**:  
+     ```bash
+     flask run  # or your application's specific start command
+     ```
+   - **Rollback action**: Stop the app, revert code and dependencies.
+
+6. **Deploy to staging/pre-production environment**
+   - **Action**: Promote changes to a non-production environment for final validation.
+   - **Expected outcome**: Application works as expected in staging.
+   - **Verification command**:  
+     - Application health checks/pages load.
+     - Error logs do not show Flask-related tracebacks.
+   - **Rollback action**: Redeploy previous version.
+
+7. **Deploy to production**
+   - **Action**: Release the upgrade to the live environment.
+   - **Expected outcome**: Application operates normally, no Flask 3.x-specific issues.
+   - **Verification command**:  
+     - Application health checks.
+     - Monitor error logs.
+     - Smoke test major endpoints.
+   - **Rollback action**: Redeploy previous (backed-up) environment.
+
+---
+
+## Verification & Smoke Tests
+
+- Run test suite:
+  ```bash
+  pytest                     # or relevant runner
+  ```
+- Health check key endpoints:
+  ```bash
+  curl -I http://localhost:5000/        # replace URL/port as appropriate
+  curl -I http://localhost:5000/api/...
+  ```
+- Check application logs for errors:
+  ```bash
+  tail -f logs/app.log         # or journalctl, docker logs, etc.
+  ```
+- Manually exercise authentication, key CRUD operations, and any custom routes or CLI commands.
+
+---
+
+## Rollback Procedure
+
+1. **Restore Flask version in dependencies**  
+   - Change dependency file back to original Flask version (`Flask==<old version>`).
+
+2. **Reinstall previous dependencies**  
+   - Run:
+     ```bash
+     pip install -r requirements.txt
+     ```
+
+3. **Revert any code changes made for Flask 3.x compatibility**  
+   - Use:
+     ```bash
+     git checkout <last-known-good-commit> .
+     ```
+
+4. **Redeploy application to appropriate environment (staging/production) using the backed-up state.**
+
+5. **Verify application functionality by running smoke tests and checking for normal operation.**
+
+---
+
+## Post-Migration Monitoring
+
+- **Key metrics to monitor (24–48h):**
+  - Application error rate (especially HTTP 500s)
+  - Request latency
+  - Traffic levels and patterns
+
+- **Logs to watch:**
+  - Application logs for traceback errors mentioning Flask or extensions
+  - Web server logs (e.g., Gunicorn, uWSGI, etc.)
+
+- **Alerts:**
+  - Automated alerts for application outage, unusual error rates, or dependency errors
+
+---
+
+## Known Issues & Workarounds
+
+- **Incompatible Extensions:**  
+  Some Flask extensions may not yet be compatible with Flask 3.x. Refer to each extension's documentation for 3.x support. If incompatible, do not upgrade until the extension is updated.
+
+- **Removed Deprecated APIs:**  
+  Any code using APIs removed in Flask 3.x must be updated per Flask’s [3.0 migration guide](https://flask.palletsprojects.com/en/3.0.x/changes/#version-3-0-0).
+
+- **Werkzeug and Jinja2 compatibility:**  
+  Flask 3.x requires recent versions of Werkzeug and Jinja2. Pin compatible versions in your dependencies if needed.
+
+- **Custom CLI Commands:**  
+  Migration may require updates for custom Flask CLI commands due to changes in Click integration or API.
+
+---
+
+*(End of Runbook)*
