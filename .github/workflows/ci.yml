@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feat/flask-sqlalchemy-refactor]
+  pull_request:
+    branches: [main, feat/flask-sqlalchemy-refactor]
+
+jobs:
+  setup-python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Upgrade pip and install virtualenv
+        run: |
+          python -m pip install --upgrade pip==21.3.1
+          pip install virtualenv==20.21.0
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install dependencies
+        run: |
+          python -m virtualenv venv
+          . venv/bin/activate
+          pip install -r requirements.txt
+
+  lint:
+    needs: setup-python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install flake8
+        run: pip install flake8==6.0.0
+      - name: Run flake8
+        run: flake8 .
+
+  unit-test:
+    needs: setup-python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install test dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest==7.2.0
+      - name: Run unit tests
+        run: pytest
+
+  build:
+    needs: [setup-python, unit-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Build package (dummy step)
+        run: echo "Build successful"
+
+  sast:
+    needs: [setup-python]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install bandit
+        run: pip install bandit==1.7.4
+      - name: Run Bandit static analysis
+        run: bandit -r .
