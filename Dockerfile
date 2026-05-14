@@ -1,22 +1,25 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+FROM python:3.12-slim
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
+# Set environment variables for Python, prevent bytecode and set UTF-8
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV LANG=C.UTF-8
+
+# Install build dependencies
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create and set working directory
+WORKDIR /app
+
+# Install Python dependencies first (to leverage Docker cache)
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy application source code
 COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
-
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+# Set default command (please adjust 'app.py' as per your project)
+CMD ["python", "app.py"]
