@@ -2,42 +2,49 @@
 
 ## Prerequisites
 
-- [ ] [S] Identify and document all environments (local, CI, staging, production) where Python is installed.
+- [ ] [XS] Identify current Python runtime version used in production and in all development/build environments.
+- [ ] [S] Audit project for any direct dependencies on Python version-specific features or behavior.
+- [ ] [S] Inventory all external Python dependencies (pip requirements, conda environments, etc.).
 
 ## Phase 1 — Preparation
 
-- [ ] [S] Locate and document all references to the Python runtime version in code, configuration files, and deployment scripts.
-- [ ] [S] Review third-party dependencies for Python 3.12 compatibility using requirements.txt, Pipfile, or similar.
-- [ ] [S] Backup existing environment configurations and document current Python version(s) in use.
+- [ ] [S] Update local and CI environment configurations to allow installation and use of Python 3.12.
+- [ ] [M] Review and document all places where the Python runtime version is specified (e.g., Dockerfiles, virtualenv scripts, Makefiles, CI pipelines).
 
 ## Phase 2 — Core Upgrade
 
-- [ ] [M] Update Python runtime to 3.12 in all development, build, and deployment configurations.
-- [ ] [M] Rebuild all virtual environments, Docker images, and deployment artifacts to use Python 3.12.
-- [ ] [S] Update any version constraints or shebang lines in scripts to reflect Python 3.12.
+- [ ] [M] Update Dockerfile(s), environment files, and scripts to reference Python 3.12.
+- [ ] [M] Rebuild project environments (locally and in CI) using Python 3.12, ensuring all dependencies install successfully.
+- [ ] [L] Address syntax and standard-library incompatibilities surfaced by the upgrade.
 
 ## Phase 3 — Testing & Validation
 
-- [ ] [M] Run all automated tests and manually verify core application functionality works with Python 3.12.
-- [ ] [S] Address failures or incompatibilities detected during testing (dependency updates, syntax changes, etc.).
-- [ ] [S] Validate deployment scripts and processes with Python 3.12 in a staging environment.
+- [ ] [M] Run existing automated test suite under Python 3.12 and document failures.
+- [ ] [M] Fix application issues and failing tests caused by the Python 3.12 upgrade.
+- [ ] [M] Validate integration points (databases, APIs, etc.) for 3.12 compatibility.
+- [ ] [S] Smoke test critical application workflows in an environment running Python 3.12.
 
 ## Phase 4 — CI/CD & Infrastructure
 
-- [ ] [S] Update CI/CD pipelines to use Python 3.12 as the runtime.
-- [ ] [S] Update infrastructure automation (e.g., Dockerfiles, Ansible, Terraform) to install/use Python 3.12.
-- [ ] [S] Verify successful builds and deployments in the updated environment.
+- [ ] [S] Update CI/CD pipeline configuration to use Python 3.12 as the default runtime.
+- [ ] [S] Ensure deployment infrastructure (Docker, serverless, PaaS, etc.) supports Python 3.12.
+- [ ] [M] Deploy to a staging environment using Python 3.12 and verify stability.
 
 ## Phase 5 — Documentation & Rollout
 
-- [ ] [S] Update README and other developer documentation to indicate Python 3.12 as the required version.
-- [ ] [S] Communicate Python 3.12 migration details and remediation steps to the development team.
-- [ ] [S] Schedule and monitor production rollout of Python 3.12 upgrade.
+- [ ] [S] Update internal documentation to state Python 3.12 is required (README, onboarding docs, etc.).
+- [ ] [XS] Communicate Python 3.12 upgrade to relevant internal stakeholders and teams.
+- [ ] [S] Guide team members on updating local development environments for Python 3.12.
 
 ## Post-Migration Cleanup
 
-- [ ] [XS] Remove any obsolete files, scripts, or dependencies specific to previous Python versions.
-- [ ] [XS] Archive documentation/configuration for previous Python versions if needed.
-- [ ] [XS] Close out migration tracking tickets and update status dashboards.
+- [ ] [XS] Remove references or scripts related to the old Python runtime version.
+- [ ] [XS] Decommission legacy deployment artifacts or environments using the old Python version.
+- [ ] [XS] Close out Python version upgrade tracking tickets/issues.
 
 ---
+
+_Note: All sections unrelated to upgrading the Python runtime to 3.12 are omitted or explicitly marked as not applicable._
+
+### Non-applicable sections
+N/A — not applicable to this task
