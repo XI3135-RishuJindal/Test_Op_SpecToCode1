@@ -2,101 +2,123 @@
 
 ## Current State
 
-- **Secret Handling:**  
-  Application code contains secrets (such as API keys, database credentials, and authentication tokens) hardcoded directly within source files.
-- **Configuration Example:**  
-  ```python
-  # Example of hardcoded secret in Python:
-  DATABASE_PASSWORD = "supersecret123"
-  ```
-- **Relevant Files/Modules:**  
-  - app/config.py
-  - app/db/client.py
-  - app/auth/token_manager.js
-- **Current Behavior:**  
-  - On startup, application loads secrets from constants or variables within source code.
-  - No dependency on external environment for secret values.
-- **Key Risks:**  
-  - Secrets are exposed in version control.
-  - Difficult to rotate keys without code changes.
-  - Increased risk of accidental secret leakage.
+- **Interface / Code Locations:**  
+  - Application source code currently contains hardcoded secrets (API keys, DB credentials, tokens, etc.) directly in source files, e.g.,  
+    ```python
+    DB_PASSWORD = "hardcodedpassword"
+    API_KEY = "staticapikey123"
+    ```
+  - These secrets may appear in:
+    - Configuration classes
+    - Utility files
+    - Initialization scripts
+    - Documentation/examples
+
+- **Data Models:**
+  - Secrets are not stored externally or in secure vaults; no use of environment variables or secret management.
+
+- **Configuration:**
+  - Credentials and sensitive settings are set in plain text within codebases or in commit history.
+  - Application environment does not require any secrets to be passed in as environment variables.
+
+- **Key Behaviors:**
+  - Secrets are static and bundled with deployments.
+  - Impossible/impractical to rotate credentials without code changes.
+  - High risk of accidental exposure via repository access or code sharing.
+
+---
 
 ## Target State
 
-- **Secret Handling:**  
-  All secrets are loaded from environment variables at runtime. No secrets are present in source code.
-- **Configuration Example:**  
-  ```python
-  # Python: Load from environment
-  import os
-  DATABASE_PASSWORD = os.environ.get("DATABASE_PASSWORD")
-  ```
-- **Required Environment Variables:**  
-  - DATABASE_PASSWORD  
-  - API_KEY  
-  - AUTH_TOKEN_SECRET  
-  *(other secrets as applicable, per original hardcoded usages)*
-- **Documentation:**  
-  - README updated with required environment variables for local/dev/test/prod.
-- **Key Improvements:**  
-  - Secrets never stored in code or VCS.
-  - Credentials can be rotated externally from code deploys.
-  - Easier integration with secret management tools.
+- **Interface / Code Locations:**
+  - All secrets (database passwords, API keys, tokens, sensitive connection strings) are retrieved from environment variables using, e.g.,  
+    ```python
+    import os
+    DB_PASSWORD = os.environ["DB_PASSWORD"]
+    API_KEY = os.environ["API_KEY"]
+    ```
+  - No sensitive values remain hardcoded in the codebase.
+
+- **Data Models:**
+  - N/A — not applicable to this task
+
+- **Configuration:**
+  - Secrets must be set via environment variables at deploy/runtime.
+  - Application fails fast on missing env vars, with clear error messaging.
+  - Documentation is updated to inform operators of required environment variable names.
+
+- **Key Behaviors:**
+  - Secrets can be rotated without a code change.
+  - No secrets are committed to the repository or visible in the source code.
+
+---
 
 ## Compatibility & Breaking Changes
 
-| Breaking Change                                     | Migration Path                                                |
-|-----------------------------------------------------|--------------------------------------------------------------|
-| Application will not start unless secrets are       | For each secret, set the corresponding environment variable.  |
-| supplied via environment variable.                  | e.g., `export DATABASE_PASSWORD=supersecret123`              |
-|                                                     | or via `.env` file if supported by build tooling.            |
-| Removal of hardcoded secret values from source.     | Ensure deployment process sets environment variables in       |
-|                                                     | all environments (dev, test, prod, CI/CD).                   |
+1. **Breaking Change: Removal of Hardcoded Secrets**
+    - **Impact:** Application will not function unless required secrets (now only available via environment variables) are provided at runtime.
+    - **Migration Path:**
+        - Identify all places in deployment, CI/CD, and local development where secrets were previously assumed or set via code.
+        - Update deployment manifests, Dockerfiles, process managers (e.g., systemd) to set required secrets as environment variables:
+          ```
+          export DB_PASSWORD=actual_password
+          export API_KEY=actual_apikey
+          ```
+        - For Docker/Kubernetes, set these as environment variables in container specs.
+
+2. **Error on Missing Environment Variables**
+    - **Impact:** Application will exit with an error if any required environment variable is missing.
+    - **Migration Path:** Ensure all documented secrets are set in every environment in which the application is run.
+
+---
 
 ## Key Flows (before vs after)
 
-### Example: Application startup
+### Example: Database Connection
 
 **Before:**
-
-1. Application starts.
-2. Code initializes with secret values read directly from source code variables/constants.
-3. Application connects to database/services using hardcoded secrets.
+1. Application is initialized.
+2. Code reads password from a hardcoded string.
+3. DB connection established using hardcoded password.
 
 **After:**
+1. Application is initialized.
+2. Code attempts to read `DB_PASSWORD` from the environment.
+3. If present, DB connection established; if not, application fails with a clear error about missing environment variable.
 
-1. Application starts.
-2. Code attempts to read secrets from environment variables.
-3. If a required environment variable is missing:
-    - Application fails to start (or throws an explicit error).
-4. On success, application connects using secrets supplied externally.
+### Example: API Usage
+
+**Before:**
+1. Application calls external API, using hardcoded API key from source.
+2. Key cannot be changed without code (and possibly redeploy).
+
+**After:**
+1. Application retrieves `API_KEY` from environment.
+2. Key may be rotated independently of code.
+3. Call proceeds if key provided.
+
+---
 
 ## Data Model Changes
 
 N/A — not applicable to this task
 
-## Configuration Changes
-
-- **Removed:**  
-  - Hardcoded secret assignments in source code (e.g., `DATABASE_PASSWORD = "..."`)
-- **Added/Required:**  
-  - Environment variables that must be set per deployment environment:
-    - `DATABASE_PASSWORD`
-    - `API_KEY`
-    - `AUTH_TOKEN_SECRET`
-    - *(plus any others as previously hardcoded)*
-- **Fallback/Default Values:**  
-  - None. Secrets must be supplied; do not set defaults in code.
-- **Supporting Files (if applicable):**  
-  - `.env.example` or corresponding template added to document required keys.
-  - README instructions updated to specify required configuration steps.
-
 ---
 
-For sections not included above:  
+## Configuration Changes
 
-- Interfaces, APIs, and data model changes are not directly affected.  
-- No changes to libraries or frameworks.  
-- No impact to external API schemas.
+- **Removed:**
+  - All hardcoded secret values from source code.
 
-**End of SPEC.**
+- **Added:**
+  - The following environment variables must be set externally (list to be updated per actual code review):
+    - `DB_PASSWORD`
+    - `API_KEY`
+    - (add others as discovered: `SECRET_KEY`, `TOKEN`, etc.)
+
+- **Required Actions:**
+  - Documentation for deployment and developer onboarding must specify required environment variables.
+  - Sample `.env.example` or deployment manifests provided, with empty/default values.
+  - Legacy config files with hardcoded values must be removed or replaced with placeholders or env variable references.
+
+---
