@@ -1,57 +1,51 @@
-# Flask 3.x Upgrade — Design Document
+# Flask 3.x Upgrade Design Document
 
 ## Architecture Overview
 
-### High-Level Architecture Before
-- The application is built on Flask 2.x.
-- Uses Flask as the core web framework.
-- Dependencies may include Flask extensions and plugins compatible with Flask 2.x.
-- Integrated with existing CI/CD pipeline for build, test, and deployment.
+**Before:**  
+The application is built on Flask 2.x or earlier. Components, blueprints, request handling, and extension usage are based on conventions and APIs available in previous Flask releases.
 
-### High-Level Architecture After
-- The application will be upgraded to run on Flask 3.x.
-- All required dependencies and extensions will be compatible with Flask 3.x.
-- No architectural changes beyond the Flask framework and related integrations.
+**After:**  
+The application will be based on Flask 3.x, leveraging updated APIs, stricter error handling, and dropping of deprecated features. No changes to physical architecture, but codebase must adapt where breaking changes are introduced.
 
 ## Migration Strategy
 
-The selected upgrade approach is **parallel run**:
-
-- Branch-based upgrade: a parallel upgrade branch will be maintained to apply, test, and validate Flask 3.x changes.
-- The legacy (Flask 2.x) branch remains untouched until migration is validated.
-- After complete verification, the Flask 3.x branch will be merged and deployed.
+Chosen approach: **Parallel branch with Strangler Fig pattern**  
+- All changes will be implemented on a dedicated upgrade branch.
+- Existing application will remain untouched until the upgrade passes all tests.
+- The upgrade branch will be tested and validated before merging and deploying to production.
 
 ## Component Changes
 
-### Flask Application Core
-- Update all references and imports to be compatible with Flask 3.x, adapting to any deprecated or removed APIs.
-- Refactor any application code that uses features removed or changed in Flask 3.x (e.g., request handling, extension APIs).
-- Address any changes in error handling, signals, or response processing per Flask 3.x release notes.
-
-### Flask Extensions/Plugins
-- Review and upgrade all Flask extensions to versions compatible with Flask 3.x.
-- Refactor extension usages to address any breaking changes listed in release documentation.
-
-### Dependency Management
-- Update dependency files (requirements.txt, Pipfile, pyproject.toml) to specify Flask 3.x and compatible dependency versions.
+| Component                   | Description of Change                                                                                      | Rationale                                         |
+|-----------------------------|-----------------------------------------------------------------------------------------------------------|---------------------------------------------------|
+| Application Factory         | Update imports and remove use of deprecated APIs.                                                         | Flask 3.x removes/deprecates certain patterns.    |
+| Blueprints & Routing        | Ensure all routing patterns are compatible and update for any syntax or behavior changes in 3.x.           | Maintain compatibility with updated Flask APIs.     |
+| Error Handling              | Refactor custom error handlers if they rely on deprecated exceptions or APIs.                             | Flask 3.x enforces stricter error handling.        |
+| Extensions                  | Audit all Flask extension usage for 3.x compatibility; upgrade extensions as needed.                       | Many extensions mandate Flask 3.x compatibility.   |
+| CLI Integration             | Update custom CLI commands if using legacy interfaces.                                                    | Flask CLI received updates in 3.x.                |
+| Test Cases                  | Update or refactor tests that may fail due to changed responses or exceptions in 3.x.                     | Ensure all tests work under the new version.       |
 
 ## Dependency Upgrade Plan
 
-| Dependency       | Current Version | Target Version | Migration Notes                                                      |
-|------------------|----------------|---------------|----------------------------------------------------------------------|
-| flask            | 2.x            | 3.x           | Review [Flask 3.x changelog](https://flask.palletsprojects.com/en/3.0.x/changes/) for breaking changes |
-| flask-*          | varies         | compatible    | Upgrade each extension; confirm compatibility and update import usage |
-| Werkzeug         | varies         | compatible    | Upgrade if required by Flask 3.x                                     |
-| Jinja2           | varies         | compatible    | Upgrade if required by Flask 3.x                                     |
-| itsdangerous     | varies         | compatible    | Upgrade if required by Flask 3.x                                     |
+| Dependency         | Current Version | Target Version | Migration Notes                                                                       |
+|--------------------|----------------|---------------|----------------------------------------------------------------------------------------|
+| Flask              | [unknown]      | 3.x           | Major breaking changes; audit for removed/deprecated APIs and update as needed.         |
+| Flask Extensions   | [varies]       | Latest/3.x+   | Confirm each extension’s 3.x support; upgrade or replace as necessary.                  |
+| Werkzeug          | [unknown]      | Latest        | Flask 3.x may require newer Werkzeug; upgrade in lockstep.                             |
+| Jinja2            | [unknown]      | Latest        | Ensure compatibility with Flask 3.x required version.                                   |
+| MarkupSafe        | [unknown]      | Latest        | Min version may increase; upgrade as required.                                         |
+| ItsDangerous      | [unknown]      | Latest        | Required for Flask session, signing; keep current.                                     |
+| Tests (pytest)    | [unknown]      | Latest        | Confirm or update for compatibility running tests on 3.x.                               |
 
-_Note: Specify exact versions based on project dependency lockfiles._
+*Note: Discover all actual versions used in requirements files and update accordingly.*
 
 ## CI/CD Pipeline Changes
 
-- Update build pipeline to install Flask 3.x and compatible dependencies.
-- Add a test matrix in CI to run tests against both Flask 2.x and 3.x until migration is complete.
-- Remove/disable legacy environment after successful cutover.
+- Update CI pipeline to install Flask 3.x and upgraded dependencies.
+- Add/modify a pipeline job to run the full test suite with Flask 3.x.
+- Ensure test coverage and outputs are compared against pre-upgrade results.
+- (Optional) Add a canary deployment pipeline for limited initial rollout of Flask 3.x application.
 
 ## Infrastructure Changes
 
@@ -59,18 +53,29 @@ N/A — not applicable to this task
 
 ## Rollback Plan
 
-- Maintain the current Flask 2.x branch and deployment.
-- If issues arise post-upgrade, redeploy the prior stable build from the old branch.
-- Dependencies and environment lockfiles for Flask 2.x should be preserved for rollback.
+- Retain a stable production branch with Flask 2.x and previous dependencies.
+- If issues are found post-upgrade, revert deployment to the last known good version.
+- Rollback is a matter of redeploying the previous Docker image or package with Flask 2.x dependencies.
+- Ensure backup of configuration and session data as needed in transition.
 
 ## Testing Strategy
 
-- **Unit Tests**: Run full unit test suite against application, focusing on any refactored view/controller/business logic code.
-- **Integration Tests**: Test application endpoints for regressions due to Flask 3.x upgrade, including authentication, request/response flows, extension usage.
-- **Regression Tests**: Compare key use-cases pre- and post-upgrade to catch legacy behavior changes.
-- **Performance Tests**: Run baseline performance metrics to ensure no degradation in key endpoints after upgrade.
-- Add/expand tests to cover any new error or edge cases introduced by API changes.
+**Unit Tests:**
+- Run all existing unit tests under Flask 3.x.
+- Add/modify tests for any code updated due to breaking changes.
+
+**Integration Tests:**
+- Validate all API endpoints and routes for expected request/response behavior under Flask 3.x.
+- Test edge cases handled by custom error handlers or session management.
+
+**Regression Tests:**
+- Compare application behavior (functional and UI, if any) before and after the upgrade.
+- Test major user workflows to catch regressions due to the upgrade.
+
+**Performance Tests:**
+- Run baseline benchmarks before and after the upgrade.
+- Check for degraded response times or increased resource usage.
 
 ---
 
-_End of Document_
+**End of Document**
