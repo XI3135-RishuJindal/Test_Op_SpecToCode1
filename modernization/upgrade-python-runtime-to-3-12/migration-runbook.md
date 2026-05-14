@@ -1,197 +1,202 @@
-# Python 3.12 Migration Runbook
-
-This runbook guides the upgrade of the project’s Python runtime to version 3.12. Follow each section carefully to ensure a safe and verified migration.
-
----
+# Python Runtime 3.12 Migration Runbook
 
 ## Pre-Migration Checklist
 
-All requirements below **must be satisfied and checked ✅ before starting** the upgrade.
+_All items must be ✅ before proceeding:_
 
-- [ ] ✅ All application source code is committed and pushed to version control.
-- [ ] ✅ Unit/integration test suites are passing on the current Python version.
-- [ ] ✅ A comprehensive list of dependencies (requirements.txt, Pipfile, pyproject.toml, etc.) is available and up-to-date.
-- [ ] ✅ All maintainers and stakeholders have been notified of the upgrade schedule.
-- [ ] ✅ A tested and documented rollback process is ready.
-- [ ] ✅ Access/permissions to update CI configurations and deployment environments.
-- [ ] ✅ Backup of the current production/staging deployment artifacts and environments taken.
+- [ ] ✅ Project stakeholders notified of planned Python 3.12 upgrade and maintenance window
+- [ ] ✅ Existing CI/CD pipelines are passing on current Python version
+- [ ] ✅ All code and infrastructure are committed and pushed to source control
+- [ ] ✅ A successful, restorable backup of application and data exists
+- [ ] ✅ Inventory of all Python dependencies and their version compatibility with Python 3.12 is complete
+- [ ] ✅ All developers/engineers have Python 3.12 available locally or access to the upgrade environment
 
 ---
 
 ## Environment Setup
 
-Prepare both local and CI environments for the migration.
+_Prepare local and CI environments for Python 3.12:_
 
-### Update Local Python Environment
+### Local Environment
 
 1. **Install Python 3.12**
+    ```sh
+    # On Ubuntu/Debian
+    sudo apt update
+    sudo apt install -y python3.12 python3.12-venv python3.12-dev
 
-    - **Ubuntu/Debian:**  
-      ```bash
-      sudo apt update
-      sudo apt install python3.12 python3.12-venv python3.12-dev
-      ```
-    - **macOS (Homebrew):**  
-      ```bash
-      brew install python@3.12
-      ```
-
-2. **Create and Activate New Virtual Environment**
-    ```bash
-    python3.12 -m venv venv-py312
-    source venv-py312/bin/activate
+    # On macOS (with Homebrew)
+    brew install python@3.12
     ```
 
-### Update CI Configuration
+2. **Update PATH and aliases if necessary**
+    ```sh
+    # Example
+    alias python3=python3.12
+    ```
 
-- Update the CI workflow (e.g., GitHub Actions, GitLab CI, Jenkins) to use `python: 3.12` or similar as the Python runtime.
-    - _Example (GitHub Actions):_
-        ```yaml
-        jobs:
-          build:
-            runs-on: ubuntu-latest
-            steps:
-              - uses: actions/setup-python@v4
-                with:
-                  python-version: '3.12'
-        ```
+### CI Environment
+
+1. **Update CI pipeline configuration** (e.g., `.github/workflows/`, `.gitlab-ci.yml`, Jenkinsfile) to use Python 3.12:
+    ```yaml
+    # Example for GitHub Actions
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Set up Python 3.12
+            uses: actions/setup-python@v5
+            with:
+              python-version: "3.12"
+    ```
+
+2. **Rebuild any Docker images or containers**
+    - Update `Dockerfile`:
+      ```Dockerfile
+      FROM python:3.12
+      ```
+    - Rebuild:
+      ```sh
+      docker build -t myapp:py312 .
+      ```
 
 ---
 
 ## Step-by-Step Migration Procedure
 
-1. **Update Dependency Files for Python 3.12**
-    - **Action:** Update `requirements.txt`, `Pipfile`, or `pyproject.toml` to ensure compatibility with Python 3.12. Update package versions if necessary.
-    - **Expected Outcome:** All dependencies declare support for Python 3.12.
-    - **Verification Command:**  
-      ```bash
+1. **Pin Python version**
+    - _Action:_ Update runtime/version config files (`runtime.txt`, `pyenv`, Dockerfile, CI config) to use Python 3.12
+    - _Expected Outcome:_ All project environments use Python 3.12
+    - _Verification Command:_
+      ```sh
+      python3 --version
+      # Expected output: Python 3.12.x
+      ```
+    - _Rollback:_ Restore previous version configuration; re-install prior Python version
+
+2. **Create and activate a fresh virtual environment**
+    - _Action:_
+      ```sh
+      python3.12 -m venv venv312
+      source venv312/bin/activate
+      ```
+    - _Expected Outcome:_ Shell is using new Python 3.12 venv
+    - _Verification Command:_
+      ```sh
+      python --version
+      # Expected output: Python 3.12.x
+      ```
+    - _Rollback:_ Revert to prior virtualenv; activate previous venv
+
+3. **Update pip and setuptools**
+    - _Action:_
+      ```sh
+      python -m pip install --upgrade pip setuptools wheel
+      ```
+    - _Expected Outcome:_ Latest pip and build tools installed
+    - _Verification Command:_
+      ```sh
+      pip --version
+      # Expected output includes pip for Python 3.12
+      ```
+    - _Rollback:_ Reinstall previous pip/setuptools if issues arise
+
+4. **Reinstall all project dependencies**
+    - _Action:_
+      ```sh
       pip install -r requirements.txt
       ```
-    - **Rollback Action:** Revert dependency files to previous state from version control.
-
-2. **Install Project Dependencies Using Python 3.12**
-    - **Action:** In the new virtual environment, reinstall all dependencies.
-    - **Expected Outcome:** No install errors; all dependencies installed cleanly.
-    - **Verification Command:**  
-      ```bash
+    - _Expected Outcome:_ All dependencies are installed without errors
+    - _Verification Command:_
+      ```sh
       pip check
+      # Expected output: No broken requirements
       ```
-    - **Rollback Action:** Reactivate previous Python environment and reinstall previous dependencies.
+    - _Rollback:_ Restore previous requirements or constraints; downgrade problematic packages
 
-3. **Run Tests with Python 3.12**
-    - **Action:** Execute the full test suite using Python 3.12.
-    - **Expected Outcome:** All tests pass or are updated for Python 3.12 compatibility.
-    - **Verification Command:**  
-      ```bash
-      pytest  # or the project’s test runner
-      ```
-    - **Rollback Action:** Investigate and fix incompatibilities; otherwise, revert to previous Python version.
-
-4. **Update Shebangs and Runtime Paths (if used in scripts)**
-    - **Action:** Update any hardcoded `python`/`python3` shebangs to reference `python3.12`.
-    - **Expected Outcome:** Scripts use the correct Python interpreter.
-    - **Verification Command:**  
-      ```bash
-      head -n 1 path/to/scripts/*.py | grep python3.12
-      ```
-    - **Rollback Action:** Restore previous shebang lines.
-
-5. **Update Deployment/Container Configuration**
-    - **Action:** Update Dockerfiles, deployment scripts, or platform/runtime configurations to use Python 3.12.
-    - **Expected Outcome:** All deployed runtimes specify Python 3.12.
-    - **Verification Command:**  
-      - For Docker:  
-        ```bash
-        docker run --rm your-image python --version
+5. **Run test suite on Python 3.12**
+    - _Action:_
+      - If using pytest/unittest/etc.:
+        ```sh
+        pytest
+        # or
+        python -m unittest
         ```
-      - For managed platforms: check configuration UI or deployment logs.
-    - **Rollback Action:** Rollback deployment/container definitions to prior Python version.
-
-6. **Deploy to Staging Environment**
-    - **Action:** Deploy using Python 3.12 to pre-production environment.
-    - **Expected Outcome:** App runs and passes smoke tests on staging.
-    - **Verification Command:**  
-      Check staging logs; run smoke tests (see next section).
-    - **Rollback Action:** Redeploy staging with previous artifact or configuration.
-
-7. **Deploy to Production**
-    - **Action:** Release code and containers using Python 3.12 to production.
-    - **Expected Outcome:** Production workloads utilize Python 3.12 with no runtime issues.
-    - **Verification Command:**  
-      ```bash
-      python --version
+    - _Expected Outcome:_ All tests pass
+    - _Verification Command:_
+      ```sh
+      echo $?
+      # Expected output: 0
       ```
-      (on production hosts/containers), and validate logs.
-    - **Rollback Action:** Trigger full rollback procedure.
+    - _Rollback:_ Fix failing tests; revert to prior Python version if blockers
+
+6. **Update deployment scripts and environment configs**
+    - _Action:_ Modify deployment config (e.g., Dockerfile, process manager configs) to use Python 3.12
+    - _Expected Outcome:_ Deployments use Python 3.12
+    - _Verification Command:_
+      - After deploy, check on target host/container:
+        ```sh
+        python3 --version
+        ```
+    - _Rollback:_ Redeploy previous image or restore prior configuration
 
 ---
 
 ## Verification & Smoke Tests
 
-Run these commands in the upgraded environment to verify successful migration:
-
-```bash
-python --version   # Should print Python 3.12.x
-pip check          # Should show "No broken requirements found."
-pytest             # Or your test suite; all tests should pass
-```
-
-- Ensure application starts without errors:
-    ```bash
-    ./manage.py runserver  # For Django
-    flask run              # For Flask
-    # or your framework’s command
+- Verify application endpoints (API, web interface) function correctly.
+- Run regression test suite/end-to-end tests.
+- Confirm core business workflows.
+- _Sample commands:_
+    ```sh
+    # Example: basic import test
+    python -c "import sys; assert sys.version_info[:2] == (3, 12)"
+    # Application-specific
+    pytest tests/smoke/
+    curl http://localhost:8000/healthz
     ```
-
-- End-to-end application smoke tests:
-    - Confirm major endpoints/features respond as expected.
 
 ---
 
 ## Rollback Procedure
 
-1. **Restore Dependency/Configuration Files**
-    - Checkout previous versions of dependency files and configuration from version control.
+1. **Restore Previous Python Version**
+    - Switch runtime, venv, and/or Docker image back to previous Python version.
 
-2. **Restore Python Runtime**
-    - Switch environments or Docker base images back to the prior Python version.
+2. **Revert configuration files**
+    - Restore old `runtime.txt`, Dockerfile, CI/CD configuration.
 
-3. **Reinstall Dependencies**
-    - In the previous Python environment, reinstall dependencies.
-    ```bash
-    pip install -r requirements.txt
-    ```
+3. **Reinstall dependencies for previous Python version**
+    - Recreate old virtual environment:
+      ```sh
+      python3.<OLD_VERSION> -m venv venv_old
+      source venv_old/bin/activate
+      pip install -r requirements.txt
+      ```
 
-4. **Revert CI Configuration**
-    - Update CI/CD pipeline(s) to use previous Python version.
+4. **Redeploy application**
+    - Roll out old deployment scripts or container images.
 
-5. **Redeploy Application**
-    - Deploy previous artifact or configuration to all environments (staging, then production).
+5. **Verify application health**
+    - Check application logs, run health checks and tests.
 
-6. **Run Smoke Tests**
-    - Validate that the application is functional on the previous version.
-    ```bash
-    python --version   # Should print previous version
-    pytest             # Confirm tests pass
-    ```
+6. **Notify stakeholders of rollback and status**
 
 ---
 
 ## Post-Migration Monitoring
 
-Monitor the following for 24–48 hours after production deployment:
+_Monitor for 24-48 hours:_
 
-- **Application error logs:** Watch for new or increased Python errors/exceptions.
-- **Crash/restart rates:** Unusual increases may indicate hidden runtime issues.
-- **CI/CD pipeline results:** Monitor for new failures on merge/test pipelines.
-- **Key business metrics:** Drop in throughput, latency spikes, or failed transactions.
-
-_Set up alerts for:_ Unhandled exceptions, increased 5xx errors, and service restarts.
+- Application and server logs for Python runtime errors (`SyntaxError`, `ImportError`, deprecated usage)
+- Any failures or anomalies in application's primary error monitoring/alerting tools (e.g., Sentry, Datadog)
+- CI/CD build/release success
+- Core metrics: latency, error rate, crash rate, memory/CPU usage
+- Alert on any increase in 5XX errors or process crashes
 
 ---
 
 ## Known Issues & Workarounds
 
-N/A — not applicable to this task
-
----
+_N/A — not applicable to this task_
