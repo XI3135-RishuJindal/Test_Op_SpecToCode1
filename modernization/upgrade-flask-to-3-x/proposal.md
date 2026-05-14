@@ -1,61 +1,70 @@
-# Flask 3.x Upgrade Proposal
+# Proposal: Upgrade Flask to 3.x
 
 ## Overview
-- **Task:** Upgrade the current application framework from Flask (pre-3.x) to Flask 3.x.  
-- **Objective:** Ensure ongoing support, security, and access to the latest features by modernizing the application framework.
+
+This proposal outlines the plan to upgrade the existing system’s Flask framework to version 3.x.
 
 ## Business Motivation
-- Keep the application aligned with a supported, secure framework.
-- Benefit from Flask 3.x improvements (security, maintainability, and long-term compatibility).
-- Reduce technical debt associated with older framework versions.
-- Enable future enhancements and integrations that require Flask 3.x or later.
+
+- Ensure continued support and security for the application by staying on a maintained Flask version.
+- Address potential security vulnerabilities in earlier Flask versions.
+- Benefit from performance, feature, and bug fixes available in Flask 3.x.
+- Reduce technical debt by maintaining up-to-date core dependencies.
 
 ## Scope
 
 ### In Scope
-- Upgrade Flask to version 3.x in the application.
-- Refactor code as needed to address deprecations and breaking changes introduced in Flask 3.x.
-- Update dependencies directly affected by the Flask upgrade (e.g., Flask-extensions).
-- Update build/deployment scripts to reflect new dependencies (as required).
-- Run and extend tests to ensure compatibility and stability following the upgrade.
+
+- Analyze and update all code that uses Flask APIs affected by changes in version 3.x.
+- Update all direct Flask dependencies to be compatible with Flask 3.x.
+- Update related configuration, deployment scripts, and documentation as required by changes in Flask 3.x.
 
 ### Out of Scope
-- Upgrading unrelated third-party libraries outside of what Flask 3.x requires.
-- Refactoring or enhancing application features unrelated to the Flask upgrade.
-- Major architectural or language/runtime changes.
-- Changes to infrastructure or deployment pipelines, unless strictly required for the Flask 3.x upgrade.
+
+- Refactoring or modernization of code unrelated to the Flask upgrade.
+- Broad upgrades to non-Flask dependencies.
+- Introduction of new features not required for Flask 3.x compatibility.
 
 ## Stakeholders
-- Application development team
-- QA/testing team
-- Product owner
-- DevOps/operations team (if deployment scripts need changes)
+
+- Engineering/development team
+- QA/test team
+- Product owner/project manager
 
 ## Success Criteria
-- Application starts and operates correctly with Flask 3.x (verified via test suite and smoke tests).
-- All existing automated tests pass without regression.
-- No critical warnings or errors related to Flask versions at runtime.
-- Documentation is updated to specify Flask 3.x in requirements/specifications.
-- Stakeholders are notified of the successful upgrade.
+
+- Application functionality is preserved post-upgrade.
+- All automated and manual tests pass using Flask 3.x.
+- No critical security or performance regressions introduced by the upgrade.
+- Documentation reflects any pertinent changes.
 
 ## Risks & Mitigations
-- **Risk:** Breaking changes in Flask 3.x may introduce runtime errors.
-  - *Mitigation:* Review Flask 3.x migration guides and changelogs. Refactor code and thoroughly test after upgrade.
-- **Risk:** Outdated or incompatible Flask extensions or plugins.
-  - *Mitigation:* Audit and update extensions; replace unsupported ones as needed.
-- **Risk:** Limited internal familiarity with Flask 3.x changes.
-  - *Mitigation:* Allocate time for training and research as part of the upgrade effort.
-- **Risk:** Incomplete test coverage may allow regressions.
-  - *Mitigation:* Run a test coverage report; extend tests as necessary.
+
+- **Risk:** Incompatibilities between existing code and Flask 3.x.
+  - **Mitigation:** Review Flask 3.x migration guide. Unit/integration testing of key flows.
+- **Risk:** Incompatibilities with third-party Flask extensions.
+  - **Mitigation:** Audit and test all critical Flask extensions for compatibility; update or swap as needed.
+- **Risk:** Unknown Flask usage due to limited codebase knowledge.
+  - **Mitigation:** Use code analysis tools to inventory Flask usage, peer review changes.
 
 ## Timeline Estimate
-- **Preparation & Analysis:** 1 week
-- **Framework & Dependency Upgrade:** 1 week
-- **Code Refactoring & Issue Resolution:** 1–2 weeks
-- **Testing & QA:** 1 week
-- **Deployment & Documentation:** 1 week
-- **Total Estimated Duration:** 4–6 weeks
+
+- Audit and impact analysis: 2–3 days
+- Code and dependency updates: 2–4 days
+- Testing and bug fixing: 3–5 days
+- Documentation and deployment: 1–2 days
+
+**Total Estimate:** 8–14 business days
 
 ---
-*Sections not included above:*  
-N/A — not applicable to this task
+
+Sections not explicitly covered above are:
+
+- Tech stack details (language/runtime/build tool):  
+  N/A — not applicable to this task
+
+- Broader architectural changes:  
+  N/A — not applicable to this task
+
+- Upgrade options analysis beyond Flask 3.x:  
+  N/A — not applicable to this task
