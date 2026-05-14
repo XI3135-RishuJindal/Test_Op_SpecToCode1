@@ -2,64 +2,66 @@
 
 ## Overview
 
-This proposal outlines the effort to remove hardcoded secrets from the codebase and transition to using environment variables for all sensitive configuration data. This will enhance application security and support more flexible deployment practices.
+This proposal recommends refactoring the application to eliminate hardcoded secrets in code and configurations, migrating all sensitive values to environment variables. This effort aims to improve security, maintainability, and compliance practices.
 
 ## Business Motivation
 
-- **Security Compliance:** Storing secrets in code poses a security risk and may violate best practices and regulations (e.g., GDPR, PCI-DSS).
-- **Operational Flexibility:** Using environment variables enables straightforward configuration management per environment (dev, test, prod).
-- **Auditability:** Reduces risk of accidental secret exposure in version control.
+- **Security:** Reduce the risk of credential leaks due to secrets embedded in source code or version control.
+- **Compliance:** Align with industry best practices and security frameworks (e.g., OWASP, SOC2, PCI-DSS).
+- **Operational flexibility:** Enable easier changes of secrets without modifying the codebase or redeploying artifacts.
+- **Reduce Tech Debt:** Address existing technical debt relating to secret management.
 
 ## Scope
 
 ### In Scope
 
-- Identify and remove all hardcoded secrets (API keys, passwords, tokens, etc.) from the application codebase.
-- Update code to read secrets from environment variables.
-- Document any required environment variables in project documentation.
-- Basic testing to ensure existing functionality is unaffected.
+- Identification of all hardcoded secrets throughout the application codebase and configuration files.
+- Refactoring code and configuration to source all secrets (API keys, tokens, passwords, etc.) from environment variables.
+- Documentation update for environment variable setup and usage.
+- Developer guideline updates for secret management.
+- Regression testing for affected functionality.
 
 ### Out of Scope
 
-- Refactoring non-secret configuration management.
-- Architectural changes unrelated to secret management.
-- Integration with external secret management tools (e.g., Vault, AWS Secrets Manager).
-- Updates to deployment infrastructure for automated secret provisioning.
+- Introduction of secret management vaults or external secret-management services.
+- Broader refactoring not related to configuration or secret handling.
+- Re-architecting configuration loading mechanisms beyond what is required to support environment variables.
+- Major upgrades of language, frameworks, or build tools.
 
 ## Stakeholders
 
-- **Engineering Team:** Implements and reviews code changes.
-- **Security Team:** Verifies removal of hardcoded secrets and advises on best practices.
-- **DevOps/Operations:** Manages provision of environment variables in deployment environments.
-- **Product Owner:** Approves proposal and verifies business needs are met.
+- **Engineering/Development Team**: Responsible for code changes and testing.
+- **Security Team**: Verifies compliance improvements and security posture.
+- **DevOps/Operations**: Manages deployment environments and environment variable provisioning.
+- **Product Owner/Project Manager**: Approves and tracks implementation progress.
 
 ## Success Criteria
 
-- All hardcoded secrets are removed from the codebase and .git history (where feasible).
-- Configuration through environment variables is properly documented.
-- No regression in application functionality.
-- Successful review and sign-off from Security and Engineering stakeholders.
+- All secrets are sourced exclusively from environment variables (no hardcoded secrets remain).
+- No functional regressions after the change.
+- Internal documentation clearly describes how to supply secrets using environment variables.
+- Positive review from the security team.
 
 ## Risks & Mitigations
 
-- **Risk:** Secrets remain undiscovered in code or history.
-  - *Mitigation:* Use static analysis and manual code review to identify all occurrences.
-- **Risk:** Environment variable misconfiguration leads to outages.
-  - *Mitigation:* Thorough documentation and pre-deployment testing.
-- **Risk:** Legacy code may be difficult to refactor to environment-based config.
-  - *Mitigation:* Prioritize easier wins, escalate blockers early.
+- **Risk: Secret discovery is incomplete.**  
+  *Mitigation:* Conduct codebase-wide search and peer review to ensure all secrets are identified.
+- **Risk: Environment variables not set correctly in all environments.**  
+  *Mitigation:* Update environment setup procedures and validate in staging/testing prior to production.
+- **Risk: Short-term increase in deployment complexity during transition.**  
+  *Mitigation:* Provide detailed deployment instructions and rollback plan.
 
 ## Timeline Estimate
 
-- Analysis & Discovery: 1 week
-- Refactoring & Code Updates: 1-2 weeks
-- Documentation: 1-2 days
-- Testing & Validation: 3-5 days
-- Review & Sign-Off: 2-3 days
-
-**Total Estimate: 3-4 weeks**
+- Secret identification: 2 days
+- Code & config refactoring: 3 days
+- Documentation & deployment update: 1 day
+- Testing & review: 2 days
+- **Total estimated time:** 8 business days
 
 ---
 
-For unrelated sections:  
-N/A — not applicable to this task
+**N/A — not applicable to this task:**  
+- Language, runtime, and build tool upgrades  
+- Adoption of secret management tools beyond environment variables  
+- Comprehensive modernization or redesign outside secret handling
