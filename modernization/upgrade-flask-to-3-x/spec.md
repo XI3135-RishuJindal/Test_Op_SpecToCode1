@@ -1,113 +1,75 @@
-# Flask 3.x Upgrade SPEC
+# Flask Modernization Spec: Upgrade to 3.x
 
 ## Current State
 
-### Interfaces & APIs
-- **Framework version:** Flask 2.x (assumed based on upgrade target)
-- **App import:** Typically uses `from flask import Flask`.
-- **Request/Response flow:** Handled via flask.Request, flask.Response objects.
-- **Error handling:** Uses Werkzeug exceptions and `@app.errorhandler`.
-- **CLI commands:** Uses `flask` command-line.
-- **Route decorators:** `@app.route`, `@app.before_request`, `@app.after_request`.
-- **Extensions:** Various Flask extensions (version compatibility varies).
-- **Jinja2 templates:** Default templating system.
-- **Blueprint registration:** Via `app.register_blueprint`.
-- **Testing:** Uses `flask.testing.FlaskClient`.
-
-### Data Models
-- **N/A — not applicable to this task**
-  - The upgrade does not directly affect ORM or database models.
-
-### Key Behaviours
-- Application startup and teardown using `@app.before_first_request`, `@app.teardown_appcontext`.
-- Synchronous view function support (async support present but limited).
-- Uses Werkzeug 2.x as dependency.
+- **Flask Version:** 2.x  
+- **Interfaces/APIs:**  
+  - Application instances via `Flask(__name__)`
+  - Blueprints, `@app.route`, view functions
+  - Extensions: Possible usage of Flask extensions (not exhaustively known)
+  - Usage of imports such as `from flask import ...`
+- **Data Models:**  
+  - N/A — Flask is a web framework, does not define core data models in the app
+- **Key Behaviours:**  
+  - Synchronous request handling
+  - Implicit reloading behaviours
+  - Legacy API imports: usage of e.g., `flask.json`, `flask.ext`, or direct access to config objects
 
 ## Target State
 
-### Interfaces & APIs
-- **Framework version:** Flask 3.x
-- **App import/API:** Largely unchanged, but several deprecations and stricter contract.
-- **Request/Response flow:** `flask.Request`/`flask.Response`, with changes to error handling and some API cleanups.
-- **Error handling:** Some exception classes moved/removed, error handling behavior cleaned up.
-- **CLI commands:** Largely unchanged.
-- **Route decorators:** Synchronous *and* asynchronous view functions are first-class.
-- **Extensions:** Must be compatible with Flask 3.x (see Compatibility section).
-- **Jinja2 changes:** Avoid legacy APIs in blueprints/templates.
-- **Blueprint registration:** More stringent error-throwing on misusage.
-- **Testing:** `flask.testing.FlaskClient` improved for async; legacy methods deprecated.
-
-### Data Models
-- **N/A — not applicable to this task**
-
-### Key Behaviours
-- App startup/teardown hooks continue to work; slight changes for async/await.
-- **Werkzeug 3.x** required by Flask 3.x.
+- **Flask Version:** 3.x
+- **Interfaces/APIs:**  
+  - Application instantiation is unchanged
+  - `flask.ext.*` is **not supported**; all extensions must use fully-qualified import paths.
+  - Some built-in methods (e.g., error handlers, JSON handling) have stricter type requirements.
+  - All deprecated aliases and apis removed (ex: `flask.json` moved to `flask.json.provider`)
+- **Data Models:**  
+  - N/A — not applicable to this task
+- **Key Behaviours:**  
+  - Stricter type checking and validation
+  - Removal of long-since-deprecated APIs
+  - Some previously synchronous hooks MAY now offer (or require) async support
 
 ## Compatibility & Breaking Changes
 
-### 1. Werkzeug Dependency
-- **Breaking change:** Flask 3.x requires Werkzeug 3.x. Some objects/functions/classes may have moved or been removed.
-- **Migration:** Upgrade Werkzeug to 3.x and update imports/usages per Werkzeug changelog.
-
-### 2. Removed/Changed APIs
-- **Deprecation removals:** Several APIs deprecated in Flask 2.x are now removed. Notably:
-  - `flask.safe_join` has been removed (use `werkzeug.utils.safe_join`).
-  - `flask.json_available` removed.
-  - `app.session_cookie_name` property removed; use `app.config["SESSION_COOKIE_NAME"]`.
-- **Migration:** Refactor all uses per the [Flask 3.0 Migration Guide](https://flask.palletsprojects.com/en/3.0.x/changes/#version-3-0-0).
-
-### 3. Error Handling and Exceptions
-- **Breaking change:** Some exceptions moved/removed; application code may need updated import statements.
-- **Migration:** Update import paths and usages per Flask 3.x and Werkzeug 3.x docs.
-
-### 4. Async View Functions
-- **Change:** Async views now fully supported and may require async test clients.
-- **Migration:** For code/tests using async, ensure `await`/`async` patterns are correct as per [Flask async docs](https://flask.palletsprojects.com/en/3.0.x/async-await/).
-
-### 5. Extension Compatibility
-- **Breaking change:** Extensions not compatible with Flask 3.x will break.
-- **Migration:** Upgrade all Flask extensions to latest versions supporting Flask 3.x.
-
-### 6. Testing API Changes
-- **Change:** Some test client APIs deprecated/removed.
-- **Migration:** Update tests to use current `app.test_client()` patterns.
-
-### 7. Import Changes
-- **Breaking change:** Several imports moved/removed (see above).
-- **Migration:** Search codebase for deprecated/removed APIs and update.
+| Breaking Change | Migration Path |
+|-----------------|---------------|
+| Removal of `flask.ext` imports | Replace `from flask.ext.foo import bar` with `from flask_foo import bar` (use the new extension import syntax) |
+| Removal of `flask.json.*` | Update imports from `from flask.json import ...` to `from flask.json.provider import ...` or recommended alternative |
+| Removal of deprecated APIs | Replace use of APIs flagged as deprecated in Flask 2.x (see release notes for details) |
+| Some APIs now keyword-only | Refactor call sites to pass arguments explicitly by name per Flask 3.x release notes |
+| Extensions must be compatible with Flask 3.x | Upgrade all Flask extensions to their Flask-3.x compatible versions |
+| Synchronous-only hooks may change | For request hooks (`before_request`, etc.), validate whether async implementation is required/beneficial. |
 
 ## Key Flows (before vs after)
 
-### 1. View Registration and Routing
+### App/Extension Import  
+**Before:**  
+```python
+from flask.ext.foo import bar
+```
+**After:**  
+```python
+from flask_foo import bar
+```
 
-**Before (Flask 2.x):**
-1. Define view functions (sync or async).
-2. Register with `@app.route`.
-3. Extension loading/blueprint registration.
+### JSON Import  
+**Before:**  
+```python
+from flask.json import jsonify
+```
+**After:**  
+```python
+from flask.json.provider import jsonify
+# Or: from flask import jsonify (if still supported by extension)
+```
 
-**After (Flask 3.x):**
-1. Define view functions (sync or async, async now fully supported).
-2. Register as before with `@app.route`.
-3. Extension/blueprint registration as before (but extensions must be Flask 3.x compatible).
+### Extension Compatibility  
+**Before:**  
+- Extension installed at any version, possibly pre-Flask-3.x
 
-### 2. Exception Handling
-
-**Before (Flask 2.x):**
-- Use `from flask import abort`, handle errors with `@app.errorhandler`.
-
-**After (Flask 3.x):**
-- Same, but ensure all exception classes exist in their new locations (may need to import from Werkzeug).
-
-### 3. Testing
-
-**Before (Flask 2.x):**
-- Use `app.testing = True; client = app.test_client()`.
-- Use legacy send patterns.
-
-**After (Flask 3.x):**
-- Use updated FlaskClient.
-- When using async, tests should be async as per Flask 3.x testing docs.
+**After:**  
+- All extensions upgraded to Flask-3.x compatible release
 
 ## Data Model Changes
 
@@ -115,20 +77,10 @@ N/A — not applicable to this task
 
 ## Configuration Changes
 
-### 1. SESSION_COOKIE_NAME
-- **Before:** `app.session_cookie_name`
-- **After:** Use `app.config["SESSION_COOKIE_NAME"]`
+- **Requirements**:  
+  - `Flask>=3.0.0` in requirements.txt (or equivalent build file)
+  - All Flask extensions versions audited and updated for Flask 3.x compatibility
 
-### 2. Extension-Related Configs
-- **Migration:** Update any extension configs as needed per their Flask 3.x compatibility docs.
-
-### 3. Environment Variables, Feature Flags
-- N/A — not applicable to this task unless extension upgrades specify changes.
+- **No new environment variables or config keys** introduced by core Flask.
 
 ---
-
-*References:*
-- https://flask.palletsprojects.com/en/3.0.x/changes/
-- https://werkzeug.palletsprojects.com/en/3.0.x/changes/
-- https://flask.palletsprojects.com/en/3.0.x/async-await/
-- https://flask.palletsprojects.com/en/3.0.x/migrating/
