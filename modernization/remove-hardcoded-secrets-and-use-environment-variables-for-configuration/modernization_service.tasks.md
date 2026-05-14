@@ -1,38 +1,39 @@
 # Modernization_Service.Tasks
 
 ## Prerequisites
-- [ ] [S] Identify and document all locations in the codebase where secrets are hardcoded (e.g., API keys, database passwords).
-- [ ] [S] Obtain a secure method/system for securely managing environment variables (e.g., .env files, cloud secrets manager, CI/CD secret store).
+
+- [ ] [S] Identify all locations in the codebase where secrets (API keys, passwords, tokens, etc.) are hardcoded
 
 ## Phase 1 — Preparation
-- [ ] [S] Audit application configuration files and source code for hardcoded secrets.
-- [ ] [XS] Confirm best practice guidelines for secret management with the security team, if available.
-- [ ] [S] Determine all runtime environments (local/dev/test/prod) that require secret configuration.
+
+- [ ] [S] Prepare a list of all configuration secrets to be migrated to environment variables, specifying their names and usage context
+- [ ] [XS] Create a `.env.example` file listing all required environment variables without values
 
 ## Phase 2 — Core Upgrade
-- [ ] [M] Refactor application code to retrieve secrets from environment variables instead of hardcoded values.
-- [ ] [S] Remove all hardcoded secrets from the codebase and replace them with appropriate environment variable lookups.
-- [ ] [S] Update configuration files to reference environment variables as needed.
+
+- [ ] [M] Refactor codebase to remove all hardcoded secrets and replace them with lookups from environment variables
+- [ ] [S] Implement fallback/error handling for missing environment variables in configuration code
 
 ## Phase 3 — Testing & Validation
-- [ ] [S] Manually verify application launches and connects to required services using environment-variable-based secrets in local and test environments.
-- [ ] [S] Write or update automated tests to confirm the application fails gracefully if required secrets are missing or invalid.
-- [ ] [XS] Ensure that no secrets are logged or exposed in error messages.
+
+- [ ] [S] Write or update unit tests to ensure secrets are loaded exclusively from environment variables
+- [ ] [S] Manually test all features that rely on secrets to confirm correct behavior when secrets are sourced from environment variables
 
 ## Phase 4 — CI/CD & Infrastructure
-- [ ] [S] Update CI/CD pipeline scripts to provide secrets via environment variables or secret management facilities.
-- [ ] [S] Remove any secrets from version control and add them to .gitignore or equivalent ignore files.
-- [ ] [S] Secure storage of production secrets in the deployment environment (e.g., secrets manager, CI/CD secrets).
+
+- [ ] [S] Update CI/CD pipeline configuration to securely inject required environment variables for all build and deploy jobs
+- [ ] [S] Audit deployment environments (e.g., docker-compose, Kubernetes, cloud) to ensure secrets are provided as environment variables and not hardcoded
 
 ## Phase 5 — Documentation & Rollout
-- [ ] [XS] Update development and deployment documentation to instruct on using and configuring secrets via environment variables.
-- [ ] [XS] Communicate secret management changes to all developers, ops, and relevant stakeholders.
+
+- [ ] [XS] Update project README and internal documentation to explain new secret management approach and necessary environment variables
+- [ ] [S] Provide migration steps for local development and deployment environments to transition to env-based configuration
 
 ## Post-Migration Cleanup
-- [ ] [XS] Double-check that no secrets remain in version control history or code review artifacts.
-- [ ] [S] Remove all obsolete configuration or documentation references to hardcoded secrets.
+
+- [ ] [S] Remove obsolete documentation referencing hardcoded secrets
+- [ ] [M] Audit commit history and configuration files to ensure no secrets remain in codebase or repository history (optionally using automated secret scanning tools)
 
 ---
 
-All other potential modernization topics:  
-N/A — not applicable to this task
+_Note: All sections have been populated strictly according to relevance for the task._
