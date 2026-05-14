@@ -1,66 +1,68 @@
-# Design Document: Migration for SQLAlchemy 2.x Compatibility
-
----
+# SQLAlchemy 2.x Compatibility Migration Design Document
 
 ## Architecture Overview
 
-**Before:**  
-The application uses SQLAlchemy 1.x for ORM and database connectivity. Code patterns rely on the old API (implicit session management, legacy Core/ORM behaviors, potential use of synchronous and/or blocking calls).
+### Before Migration
+- The application uses SQLAlchemy version 1.x.
+- SQLAlchemy APIs are called in **imperative mode** (session management, query APIs, etc.).
+- Implicit execution binding is common (e.g., `engine.execute()`).
+- Synchronous ORM interfaces are predominantly used.
+- Transactions and connections may be handled implicitly.
 
-**After:**  
-The application will be updated for full compatibility with SQLAlchemy 2.x. This includes:
-- Use of the new-style 2.0 API (Session as context manager, explicit engine/session management).
-- Replacement of deprecated or removed APIs.
-- Alignment with stricter typing and behavioral changes introduced in 2.x.
-
-No major change to the application's high-level architecture, but **data access layers and models will be directly affected**.
+### After Migration
+- The application uses SQLAlchemy version 2.x.
+- APIs utilize the **2.0 style** (major breaking changes, including explicit connection/session management, changed query construction, and execution).
+- No reliance on deprecated patterns (such as `engine.execute` or implicit database connections).
+- Code is prepared for future async adoption but remains synchronous unless otherwise specified.
+- Complete removal of patterns and symbols depreciated or removed in SQLAlchemy 2.x.
 
 ---
 
 ## Migration Strategy
 
-**Approach:**  
-_Strangler Fig_ strategy.  
-- Incrementally refactor affected components in isolated branches.
-- Maintain a feature branch for the SQLAlchemy 2.x migration.
-- Merge completed batches of compatible code after confirming tests pass.
-- Avoid mixing unrelated refactorings.
+**Chosen Approach:** Strangler Fig Pattern
+
+- Incrementally update modules/components to the 2.x-style APIs.
+- Maintain test coverage and deploy in phases to reduce risk.
+- All code paths interacting with SQLAlchemy must be upgraded before full 2.x version switch.
+- CI ensures no regressions or use of deprecated features at each migration step.
 
 ---
 
 ## Component Changes
 
-Describe per affected component/class/module:
-
-| Component            | Change Summary                                                                                            | Rationale                                      |
-|----------------------|----------------------------------------------------------------------------------------------------------|------------------------------------------------|
-| Database Models      | Update syntax for `declarative_base()`, import paths, data type usage, explicit relationships, etc.      | Align models with new declarative system.      |
-| Session Management   | Replace legacy session creation/closing with context manager (`with Session(engine) as session:`...)      | Session 2.x best practices & deterministic use.|
-| Query Execution      | Update to `select()`/`update()` constructs, avoid `.execute()` on session, prefer ORM-style queries.      | Deprecated patterns removed in 2.x.            |
-| Transaction Handling | Use `with session.begin():`, avoid implicit commits/flushes. Update error handling for transaction scope. | Required by 2.x transaction patterns.          |
-| Raw SQL/Core         | Update any usage of `engine.execute()` (removed in 2.x) to use `connection.execute()` with context.      | Enforced by 2.x API surface.                   |
-| Import Paths         | Update deprecated imports (e.g., from `sqlalchemy.ext.declarative` to `sqlalchemy.orm`).                 | Module reorganization in 2.x.                  |
-| Type Annotations     | Add/adjust type hints for improved code safety with new 2.x typing.                                      | 2.x has improved support for typing.           |
+| Component               | Change Description | Rationale |
+|--------------------------|--------------------------|-----------|
+| **Database Session Management** | Refactor all code to use explicit session objects, leveraging `Session()` context managers. Remove use of `session.begin(subtransactions=True)`, `session.autocommit` etc. | SQLAlchemy 2.x requires explicit session and transaction hierarchies. |
+| **Query Construction** | Replace all usage of `Query` objects with direct use of `select`, `update`, `delete` constructs. Modify result handling: replace `query.first()`/`query.one()` with updated equivalents. | 2.x enforces Core style constructs and changes ORM query mechanisms. |
+| **Session/Engine Execution** | Remove all `engine.execute()` and `connection.execute()` in favor of `Session.execute()` or explicit connections. | Deprecated in SQLAlchemy 2.x. |
+| **Bindings & Reflection** | Remove or update `bind` parameters, move reflection to current idioms, e.g., `inspect(engine)`. | `bind` is removed; central connection patterns have changed. |
+| **Row/Result Handling** | Change result handling to use `scalars()`, `mappings()`, or `all()` as required by the new Result API. | New result proxy object in 2.x differs from previous tuple behavior. |
+| **Declarative Base** | Update `declarative_base()` import paths, prefer `from sqlalchemy.orm import declarative_base`. | Module locations moved in 2.x. |
+| **Autocommit/Autoflush** | Remove usage of `autocommit` mode (no longer supported). Ensure transactions are explicit. | NO autocommit/implicit transactions in 2.x. |
 
 ---
 
 ## Dependency Upgrade Plan
 
-| Dependency    | Current Version | Target Version | Migration Notes                                              |
-|---------------|-----------------|---------------|-------------------------------------------------------------|
-| SQLAlchemy    | 1.x             | 2.x           | Major breaking changes; test thoroughly.                    |
-| alembic       | (if present)    | Latest        | Upgrade for full SQLAlchemy 2.x compatibility.              |
-| Other DB libs | (as detected)   | N/A           | Confirm driver compatibility; minimal expected changes.      |
+| Dependency     | Current Version | Target Version | Migration Notes |
+|----------------|----------------|---------------|----------------|
+| SQLAlchemy     | 1.x            | 2.x           | Needs codebase refactor for incompatible API changes. |
+| Alembic        | (If applicable) existing | Latest compatible | Update for compatibility with SQLAlchemy 2.x; may require migration script adjustments. |
+| Any ORM Plugins| unknown        | Latest compatible | Audit for SQLAlchemy 2.x support and upgrade or replace as needed. |
 
 ---
 
 ## CI/CD Pipeline Changes
 
-- Update dependency pins in `requirements.txt`, `pyproject.toml`, or equivalent.
-- Add a pipeline stage executing tests with SQLAlchemy 2.x.
-- (Optional) Run tests on both 1.x and 2.x during transition.
-- If possible, enable stricter linter/type checks for data access modules to catch deprecated patterns.
-- No change to deployment or artifact storage is expected.
+- **Static Checks:**  
+  Add tools/scripts to scan for deprecated SQLAlchemy 1.x idioms (such as `engine.execute`).
+- **Dependencies:**  
+  Update dependency management (requirements.txt, requirements.in, setup.py, etc.) to require SQLAlchemy >=2.0,<3.0.
+- **Tests:**  
+  Run the full test suite against SQLAlchemy 2.x. Fail the build if deprecated or removed APIs are detected.
+- **Optional:**  
+  Add a job to run tests for both 1.x and 2.x during migration phase for increased safety.
 
 ---
 
@@ -72,32 +74,26 @@ N/A — not applicable to this task
 
 ## Rollback Plan
 
-- Preserve a stable production branch locked to SQLAlchemy 1.x.
-- If critical issues are found post-deploy:
-   - Roll back application release to the last version using SQLAlchemy 1.x.
-   - Revert dependency pins/lockfiles to previous state.
-   - Redeploy successful last-known-good build.
-- Document any DB migration incompatibilities that might need attention, though this should not be needed for ORM code-only changes.
+- Ensure all migration code is committed in feature branches and releases are tracked/tagged.
+- If errors or regressions are found after SQLAlchemy 2.x deployment:
+    - Roll back application code to pre-migration tag.
+    - Revert SQLAlchemy version pin to 1.x in dependency management files.
+    - Redeploy using approved CI/CD pipeline with the known-good (1.x-compatible) artifact.
+- Maintain a parallel requirements file for SQLAlchemy 1.x for immediate rollback if necessary.
 
 ---
 
 ## Testing Strategy
 
-- **Unit Tests**  
-  Refactor or add tests covering:
-    - ORM model initialization and CRUD operations
-    - Query and filter logic
-    - Transaction contexts
-- **Integration Tests**  
-  Validate:
-    - End-to-end DB access
-    - Session and connection lifecycle
-    - Authentication/authorization via DB (if applicable)
-- **Regression Tests**  
-  Ensure:
-    - No change to public API/data shape
-    - No breakage in application workflows due to ORM changes
-- **Performance Tests (if applicable)**  
-  Confirm:
-    - No major performance regressions due to session/query pattern changes
-- Ensure full test coverage pre- and post-migration.
+- **Unit Tests:**  
+  Ensure all data access and ORM logic are adequately covered. Update or replace tests failing due to API changes.
+- **Integration Tests:**  
+  Test all data flows end-to-end with an actual or in-memory database using SQLAlchemy 2.x to ensure functional correctness.
+- **Regression Tests:**  
+  Compare behavior/outputs between SQLAlchemy 1.x and 2.x code paths to confirm compatibility.
+- **Performance Tests:**  
+  Benchmark database-heavy endpoints to detect regressions due to ORM-level changes.
+- **Code Review:**  
+  Enforce peer review for all SQLAlchemy-related code changes to verify no deprecated patterns remain.
+
+---
