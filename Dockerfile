@@ -1,1 +1,1 @@
-No base source code or existing Dockerfile was provided. Please supply the current Dockerfile or relevant source code so I can generate an updated Dockerfile tailored to your upgrade goal.
+No base Dockerfile or source code was provided. Please supply the existing Dockerfile or relevant source code to proceed with the requested modernization upgrade.
