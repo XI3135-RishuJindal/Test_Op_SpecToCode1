@@ -1,0 +1,122 @@
+import sys
+import importlib
+import types
+import pytest
+
+import flask
+
+# If possible, import the actual app for integration/endpoint tests.
+try:
+    from app import app as flask_app  # Assumes app.py defines 'app'
+except ImportError:
+    flask_app = None
+
+TARGET_FLASK_VERSION = "3."
+
+@pytest.fixture
+def client():
+    if flask_app is None:
+        pytest.skip("Flask app instance not found for endpoint testing")
+    flask_app.config["TESTING"] = True
+    with flask_app.test_client() as client:
+        yield client
+
+def test_flask_active_version():
+    # Check active Flask version matches target
+    actual_version = flask.__version__
+    assert actual_version.startswith(TARGET_FLASK_VERSION), (
+        f"Active Flask version is {actual_version}; expected {TARGET_FLASK_VERSION}x"
+    )
+
+def test_flask_import_semantics():
+    # Validate that only 'from flask import X' works (no flask.ext support)
+    # 'flask.ext' was removed in Flask 1.0+, so its presence is definitely forbidden in Flask 3.x
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module('flask.ext')
+
+def test_request_json_semantics():
+    # In Flask 3.x, Request.json will never raise BadRequest; will return None on invalid/missing, unless force=True
+    # We'll simulate a request with invalid JSON and ensure no exception is raised
+    from flask import Request
+    environ = {
+        "REQUEST_METHOD": "POST",
+        "CONTENT_TYPE": "application/json",
+        "wsgi.input": types.SimpleNamespace(read=lambda self=-1: b"{invalid"),
+        "CONTENT_LENGTH": "8",
+        "PATH_INFO": "/",
+        "SERVER_NAME": "localhost",
+        "SERVER_PORT": "80",
+        "SERVER_PROTOCOL": "HTTP/1.1",
+    }
+    req = Request(environ)
+    try:
+        _ = req.json
+    except Exception as e:
+        pytest.fail(f"Request.json raised exception in Flask 3.x: {e}")
+
+def test_errorhandler_deprecated_api_absence():
+    # Verify errorhandler API works per Flask 3.x and old catch-all patterns don't work
+    # Specifically, Flask 3.x changed error handler registration for base Exception
+    from flask import Flask
+    app = Flask(__name__)
+    def error_fn(error): return "handled", 500
+    app.register_error_handler(Exception, error_fn)
+    # Should not allow registering via deprecated patterns (e.g., exception string names)
+    with pytest.raises((TypeError, ValueError)):
+        app.register_error_handler('Exception', error_fn)
+
+def test_new_config_keys_load_without_errors():
+    # Flask 3.x adds new config keys, like TEMPLATES_AUTO_RELOAD now defaults to None
+    from flask import Flask
+    app = Flask(__name__)
+    try:
+        auto_reload = app.config['TEMPLATES_AUTO_RELOAD']
+        # Should be None or a bool, not raise a KeyError
+        assert auto_reload is None or isinstance(auto_reload, bool)
+    except KeyError:
+        pytest.fail("TEMPLATES_AUTO_RELOAD config key not found in Flask 3.x")
+
+@pytest.mark.integration
+def test_critical_root_path(client):
+    # Validate the "/" route (should be public and basic health/hello in common Flask apps)
+    response = client.get("/")
+    assert response.status_code in (200, 404), "Unexpected status code for root endpoint"
+    # If present, expect a minimal HTML/text body, or at least no error
+    assert response.data is not None
+
+@pytest.mark.integration
+def test_critical_404_error_path(client):
+    # Flask 3.x changed some error handler behaviors; ensure 404 path returns expected
+    response = client.get("/unlikely-to-exist-xyz123")
+    assert response.status_code == 404
+
+# Optionally, check the CLI context, if present
+def test_flask_cli_is_registered():
+    # Flask >= 3.0 still provides flask.cli, but deprecated patterns should not exist.
+    import flask.cli
+    assert hasattr(flask.cli, 'main'), "Flask CLI 'main' missing (should be present in Flask 3.x)"
+    # Deprecated management command
+    assert not hasattr(flask.cli, 'FlaskGroupExt'), "FlaskGroupExt should not exist in Flask 3.x"
+
+# Check that removed APIs are truly absent
+def test_removed_flask_extensions_namespace():
+    # flask.ext namespace removed since 1.x, must not be present
+    assert not hasattr(flask, 'ext')
+
+# Sample: check that Blueprint registration still works and old patterns error
+def test_blueprint_registration_path():
+    from flask import Flask, Blueprint
+    bp = Blueprint("example", __name__)
+
+    @bp.route("/bp-test")
+    def bp_index():
+        return "ok"
+
+    app = Flask(__name__)
+    try:
+        app.register_blueprint(bp)
+    except Exception as e:
+        pytest.fail(f"register_blueprint failed in Flask 3.x: {e}")
+    # Try registering as a tuple (deprecated 1.x pattern); should raise
+    with pytest.raises(TypeError):
+        app.register_blueprint((bp, {}))
