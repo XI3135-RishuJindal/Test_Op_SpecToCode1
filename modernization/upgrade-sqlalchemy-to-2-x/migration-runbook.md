@@ -2,172 +2,191 @@
 
 ## Pre-Migration Checklist
 
-All items must be ✅ before proceeding.
-
-- [ ] ✅ Current test suite passes against latest 1.x SQLAlchemy version
-- [ ] ✅ All direct `sqlalchemy` dependencies are specified in `requirements.txt`/`pyproject.toml`
-- [ ] ✅ No use of SQLAlchemy APIs or patterns [removed or deprecated in v2.x](https://docs.sqlalchemy.org/en/20/changelog/changelog_20.html)
-- [ ] ✅ Complete codebase backup available (VCS branch, artifact backup, and database snapshot if applicable)
-- [ ] ✅ Stakeholders notified about upgrade window/downtime
+- [ ] ✅ All application dependencies are compatible with SQLAlchemy 2.x (check libraries like Alembic, Flask-SQLAlchemy, etc.)
+- [ ] ✅ Complete codebase search for deprecated 1.x patterns (see [SQLAlchemy 2.0 Migration Guide](https://docs.sqlalchemy.org/en/20/changelog/migration_20.html))
+- [ ] ✅ Ensure latest, passing full suite of automated tests
+- [ ] ✅ Backup of current production database and migration scripts
+- [ ] ✅ Rollback procedure is reviewed and tested on staging
+- [ ] ✅ Change is approved per standard SDLC processes
 
 ---
 
 ## Environment Setup
 
-Follow these steps to prep for migration:
+- Update SQLAlchemy in your local environment:
 
-**Local:**
-```bash
-# Create and activate a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
+  ```sh
+  pip install --upgrade "SQLAlchemy>=2.0,<3.0"
+  ```
 
-# Install existing dependencies
-pip install -r requirements.txt
+- In CI (add/update requirements):
 
-# (Optional) Pin SQLAlchemy to latest 1.x to validate baseline
-pip install 'SQLAlchemy<2.0'
-pytest  # Or your relevant test command
-```
+  ```
+  # requirements.txt
+  SQLAlchemy>=2.0,<3.0
+  ```
 
-**CI:**
-- Ensure clean build and test pipeline with pinned 1.x SQLAlchemy before migration.
-- Confirm you can update CI scripts/config to allow SQLAlchemy 2.x.
+  _OR_ in `pyproject.toml`:
+
+  ```toml
+  [project.dependencies]
+  SQLAlchemy = ">=2.0,<3.0"
+  ```
+
+- Clean install after updating dependencies:
+
+  ```sh
+  pip install -r requirements.txt
+  # OR
+  pip install .
+  ```
+
+  _Verify version:_
+
+  ```sh
+  python -c "import sqlalchemy; print(sqlalchemy.__version__)"
+  ```
 
 ---
 
 ## Step-by-Step Migration Procedure
 
-1. **Bump SQLAlchemy to 2.x**
+1. **Upgrade SQLAlchemy version**
 
-    - **Action:**  
-      Update dependency specification to `SQLAlchemy>=2.0,<3.0`, e.g. in `requirements.txt` or `pyproject.toml`.
-    - **Expected outcome:**  
-      The environment now installs SQLAlchemy 2.x.
-    - **Verification command:**  
-      `pip freeze | grep SQLAlchemy`
-    - **Rollback action:**  
-      Revert dependency file and reinstall with `SQLAlchemy<2.0`.
+   - Action: Bump SQLAlchemy dependency to `>=2.0,<3.0` in project config.
+   - Expected outcome: SQLAlchemy 2.x is installed.
+   - Verification command:
+     ```sh
+     python -c "import sqlalchemy; print(sqlalchemy.__version__)"
+     # Output should start with '2.'
+     ```
+   - Rollback: Revert dependency to previous 1.x version and re-install.
 
-2. **Upgrade Dependencies for SQLAlchemy 2.x Compatibility**
+2. **Update code for 2.x API breaking changes**
 
-    - **Action:**  
-      Upgrade or patch any ORM-related dependencies (e.g., Alembic, Flask-SQLAlchemy) that require support for SQLAlchemy 2.x.
-    - **Expected outcome:**  
-      All dependencies are up to date and compatible.
-    - **Verification command:**  
-      `pip check`
-    - **Rollback action:**  
-      Reinstall previous dependency versions.
+   - Action: Refactor code to comply with SQLAlchemy 2.x patterns:
+     - Change `session.execute(text("..."))` to follow new style.
+     - Replace deprecated ORM/query interfaces (e.g., `.execute`, `.scalar`, `.first` are now methods on `Session`).
+     - Use Core-style “future” connection/session patterns.
+     - Remove deprecated imports/usages.
+     - Ensure engine/session/context managers use `with` blocks.
+   - Expected outcome: Codebase does not reference deprecated 1.x-only APIs; all syntax is compatible with 2.x.
+   - Verification command:
+     ```sh
+     pytest
+     # or your test runner
+     ```
+   - Rollback: Revert source code changes to previous branch/commit.
 
-3. **Update Codebase for 2.x API Changes**
+3. **Upgrade and test migration scripts (if applicable)**
 
-    - **Action:**  
-      Refactor the code to comply with 2.x syntax (see [SQLAlchemy 2.0 Migration Guide](https://docs.sqlalchemy.org/en/20/changelog/migration_20.html)), e.g.:
-        - Use `select()` or `from sqlalchemy import select`
-        - Avoid implicit legacy `session.query()`
-        - Replace `engine.execute()` with new patterns
-        - Address type and import changes
-    - **Expected outcome:**  
-      No deprecated or removed 1.x usage remains; code compiles/passes lint.
-    - **Verification command:**  
-      Run linter and static checks, e.g.:
-      ```bash
-      python -m compileall .
-      flake8 .
-      ```
-    - **Rollback action:**  
-      Restore code from backup or VCS.
+   - Action: Ensure Alembic or other migration tool scripts work with SQLAlchemy 2.x.
+   - Expected outcome: Migration scripts run without error; new migrations can be generated and applied.
+   - Verification command:
+     ```sh
+     alembic upgrade head
+     # or equivalent
+     ```
+   - Rollback: Pin Alembic and/or revert to tool versions compatible with SQLAlchemy 1.x.
 
-4. **Run and Fix Tests**
+4. **Deploy to staging and validate application**
 
-    - **Action:**  
-      Execute the automated test suite (`pytest`, `unitest`, etc.) and resolve breakages due to 2.x changes.
-    - **Expected outcome:**  
-      All tests pass under SQLAlchemy 2.x.
-    - **Verification command:**  
-      `pytest`
-    - **Rollback action:**  
-      Revert to backup branch, original dependency versions.
+   - Action: Deploy the updated branch to a staging environment which uses SQLAlchemy 2.x.
+   - Expected outcome: Application starts, connects to database; all DB interactions work as expected.
+   - Verification command:
+     - Application-specific smoke tests, e.g.:
+       ```sh
+       curl -f http://staging-app/health
+       ```
+     - Endpoints that trigger DB CRUD (create/read/update/delete).
+   - Rollback: Redeploy previous artifact/environment with SQLAlchemy 1.x.
 
-5. **Deploy to Staging and Validate Application**
+5. **Deploy to production**
 
-    - **Action:**  
-      Deploy upgraded code to staging/pre-production; run critical workflows.
-    - **Expected outcome:**  
-      Application runs without errors, database access is functional.
-    - **Verification command:**  
-      Application logs/health checks, key smoke tests (see next section).
-    - **Rollback action:**  
-      Revert deploy, restore backup dependencies/code.
+   - Action: Deploy with change when all staging checks pass.
+   - Expected outcome: Production system using SQLAlchemy 2.x with no functional regression.
+   - Verification command:
+     - Automated smoke/health checks, monitor errors, run regression suite.
+   - Rollback: Redeploy previous production release and dependency versions.
 
 ---
 
 ## Verification & Smoke Tests
 
-Run after staging deploy and initial production rollout:
+- Run all existing unit, integration, and end-to-end tests:
 
-```bash
-# Confirm SQLAlchemy 2.x is installed
-python -c 'import sqlalchemy; print(sqlalchemy.__version__)'
+  ```sh
+  pytest
+  # or
+  nosetests
+  # or your test runner
+  ```
 
-# Basic connectivity test
-python -c 'from sqlalchemy import create_engine; create_engine("DB_URL").connect()'
-
-# Run representative CRUD test case
-pytest tests/test_db_integration.py
-
-# Application-specific smoke checks
-curl -f http://YOUR_APP/ping
-curl -f http://YOUR_APP/some-db-backed-endpoint
-```
-
-Success: All checks pass, endpoints respond, no tracebacks in logs.
+- Manual or automated smoke tests:
+  - Validate key DB interactions (list, create, update, delete).
+  - Example HTTP check:
+    ```sh
+    curl -f http://<app-url>/health
+    ```
+  - Application logs: Ensure no warnings/errors from SQLAlchemy.
 
 ---
 
 ## Rollback Procedure
 
-If migration fails at any point, execute these rollback steps:
+1. **Revert dependency changes**
+   - Roll back to previous SQLAlchemy 1.x version in all environment files.
 
-1. Restore dependency file(s) to prior version (where SQLAlchemy is `<2.0`).
-2. Reinstall production dependencies:
+     ```sh
+     pip install "SQLAlchemy<2.0"
+     ```
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+2. **Revert code changes**
+   - If code was refactored for 2.x and is incompatible with 1.x, revert source code from VCS to stable pre-migration commit or branch.
 
-3. Restore application code from backup or revert the VCS branch/commit, as needed:
+     ```sh
+     git checkout <pre-migration-commit>
+     ```
 
-    ```bash
-    git checkout <pre-migration-commit>
-    ```
+3. **Redeploy previous builds/artifacts**
+   - Build and deploy prior app version (pre-migration) to staging/production using CI/CD as standard.
 
-4. Re-deploy the application/service.
-5. Confirm application health and database access as normal.
-6. Verify logs to ensure normal operation.
+4. **Verify application**
+   - Run health checks and DB operations to confirm functionality has returned to normal.
+
+5. **Monitor for residual issues**
+   - Check logs for migration/caching/connection pool warnings or errors.
+   - Run targeted regression tests.
 
 ---
 
 ## Post-Migration Monitoring
 
-For 24-48 hours after deployment, monitor:
+- **Metrics to monitor:**
+  - Application error rate (especially DB exceptions)
+  - Latency for DB operations (CRUD)
+  - Connection pool/server errors
 
-- **Application logs**: Look for SQLAlchemy-related errors, warnings.
-- **Database logs/performance**: Monitor for increased errors, invalid queries, or performance degradation.
-- **Key metrics**:
-    - Error rates on database operations
-    - Latency or timeout increases for DB-backed endpoints
-    - ORM session/connection pool exhaustion
-- **Alerts**: Set up temporary alerts for new SQLAlchemy error patterns (search for `sqlalchemy.exc`, `DeprecationWarning`, etc.)
-- **Bug/incident intake**: Have an engineer on-call for rapid triage of new issues.
+- **Logs:**
+  - Application logs for SQLAlchemy errors, deprecation warnings, or stack traces
+  - Database logs for connection errors or transaction issues
+
+- **Alerts:**
+  - Automated alerts on increased error/exception rates
+  - Alert on database connection exhaustion/exceptions
+
+  _Monitor for at least 24–48 hours post-deployment._
 
 ---
 
 ## Known Issues & Workarounds
 
-- **Removed/Changed APIs**: Some methods (e.g., `engine.execute()`, legacy `session.query`) are removed or changed in 2.x. [Migration guide](https://docs.sqlalchemy.org/en/20/changelog/migration_20.html) provides code modernization tips.
-- **Third-party Incompatibility**: Some libraries/plugins may require their own upgrades. Check their documentation.
-- **Legacy Mode as Temporary Workaround**: To unblock migration, you may set `SQLALCHEMY_WARN_20=1` or use legacy mode ([docs](https://docs.sqlalchemy.org/en/20/glossary.html#term-legacy-mode)), but this is not recommended except as a last resort.
+- **Deprecation Warnings:** Review logs for deprecation warnings; some APIs are removed entirely in 2.x, not just deprecated—review [2.0 Migration Guide](https://docs.sqlalchemy.org/en/20/changelog/migration_20.html).
+- **Third-Party Compatibility:** Some related libraries (e.g., Flask-SQLAlchemy <3.0, Alembic <1.8) may not support 2.x—upgrade these as needed.
+- **Python Version:** SQLAlchemy 2.x requires Python 3.7+.
+- **Implicit Execution:** “Implicit” connections/transactions are not supported; all DB activity must occur within explicit connection/session scope.
+- **Old Query Patterns:** Legacy `session.query().from_self()` and some ORM chaining may be broken—refactor to recommended 2.x style per [docs](https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#orm-query-usage).
 
 ---
+
+For further troubleshooting, consult the [SQLAlchemy 2.0 Migration Guide](https://docs.sqlalchemy.org/en/20/changelog/migration_20.html).
