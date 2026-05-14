@@ -1,35 +1,48 @@
 # Modernization_Service.Tasks
 
 ## Prerequisites
-- [ ] [S] Prepare a list of all modules, packages, and scripts in the codebase that use SQLAlchemy.
-- [ ] [XS] Verify current SQLAlchemy version and document all pinned versions in requirements files or dependency descriptors.
-- [ ] [XS] Ensure access to up-to-date SQLAlchemy 2.x documentation and migration guides.
+
+- [ ] [XS] Verify current SQLAlchemy version and list all direct dependencies on SQLAlchemy in requirements or dependency files.
+- [ ] [S] Identify all Python modules and files in the codebase that import SQLAlchemy or use SQLAlchemy APIs.
+- [ ] [S] Set up a local development environment with a dedicated branch for SQLAlchemy 2.x migration.
+- [ ] [XS] Ensure the availability of a comprehensive test suite (unit/integration tests) covering ORM/database interactions, or document test coverage gaps.
 
 ## Phase 1 — Preparation
-- [ ] [S] Review and catalog all deprecated or changed SQLAlchemy APIs used in the codebase (e.g., Session, query, engine usage patterns).
-- [ ] [S] Identify and flag any usage of removed legacy constructs (e.g., use of `session.query().filter_by()` style or legacy connection execution).
+
+- [ ] [S] Update SQLAlchemy to latest 2.x version in requirements or dependency files without modifying application code.
+- [ ] [M] Analyze and document main usage patterns in the application that may require refactor due to SQLAlchemy 2.x changes (e.g., session handling, query results, ORM syntax).
 
 ## Phase 2 — Core Upgrade
-- [ ] [M] Update all `session.query()` usages to the new SQLAlchemy 2.x style (`select()`, `Session.execute()`).
-- [ ] [M] Refactor any raw SQL execution code to comply with SQLAlchemy 2.x connection patterns.
-- [ ] [S] Replace all deprecated imports and method calls according to the 2.x migration guide.
-- [ ] [S] Update ORM model definitions where field/property or mapper changes are required for compatibility.
-- [ ] [M] Revise transaction and session management to comply with the new 2.x approach (context managers, etc.).
-- [ ] [S] Upgrade all dependency descriptors (requirements.txt, setup.py, pyproject.toml) to specify SQLAlchemy 2.x, resolving version constraints as needed.
+
+- [ ] [M] Refactor all database session usage to comply with SQLAlchemy 2.x context management requirements (use of context managers or Session.begin()).
+- [ ] [M] Update all usages of deprecated or removed methods, attributes, or query patterns per the SQLAlchemy 2.x migration guide.
+- [ ] [M] Replace or refactor all direct execution calls (`engine.execute()`, `connection.execute()`, etc.) that are no longer supported.
+- [ ] [S] Update any custom type definitions, model declarations, or base imports to match SQLAlchemy 2.x syntax.
+- [ ] [S] Refactor all legacy string-based query arguments to use modern SQLAlchemy Core or ORM constructs as required.
+- [ ] [XS] Remove or update import statements that reference deprecated/removed modules from SQLAlchemy.
+- [ ] [S] Apply fixes for breaking changes related to ORM relationships, mapping configuration, or eager/lazy loading patterns.
 
 ## Phase 3 — Testing & Validation
-- [ ] [S] Run existing test suite to identify failing tests related to SQLAlchemy upgrade.
-- [ ] [M] Fix broken tests by addressing SQLAlchemy 2.x API changes in test code.
-- [ ] [S] Add or update tests to cover code paths affected by migration, especially queries and database transactions.
+
+- [ ] [M] Run the full existing test suite and address all test failures related to SQLAlchemy 2.x migration.
+- [ ] [S] Add or update tests to cover newly refactored session usage and query execution code paths.
+- [ ] [S] Perform manual validation of core application CRUD workflows against a test database to confirm correct data access logic.
+- [ ] [S] Verify correct handling of transactions and rollback/retry logic with new session patterns.
 
 ## Phase 4 — CI/CD & Infrastructure
-- [ ] [S] Update CI configuration to use an environment with SQLAlchemy 2.x installed.
-- [ ] [S] Validate that all automated deployment and testing steps pass with upgraded dependencies.
+
+- [ ] [XS] Update CI pipeline configuration to install and cache the new SQLAlchemy 2.x dependencies.
+- [ ] [S] Ensure all container images or runtime environments specify the correct SQLAlchemy 2.x version.
+- [ ] [XS] Validate that database migration tooling (e.g., Alembic, if present) operates correctly with SQLAlchemy 2.x.
 
 ## Phase 5 — Documentation & Rollout
-- [ ] [S] Update developer documentation to reflect SQLAlchemy 2.x code patterns and migration decisions.
-- [ ] [XS] Communicate migration completion and any required developer actions to the team.
+
+- [ ] [S] Document all key migration changes, including new session handling patterns and any new APIs used.
+- [ ] [XS] Update developer onboarding and contribution guides to reflect new SQLAlchemy 2.x requirements.
+- [ ] [S] Communicate migration impact and deployment timelines to stakeholders and affected teams.
 
 ## Post-Migration Cleanup
-- [ ] [XS] Remove or archive any compatibility shims or legacy SQLAlchemy code that is no longer needed.
-- [ ] [XS] Close or update all related tracking issues and epics in the task management system.
+
+- [ ] [XS] Remove dead code and obsolete workarounds that were required for previous SQLAlchemy versions.
+- [ ] [XS] Audit and update type hints and docstrings to accurately reflect updated function signatures and class attributes.
+- [ ] [S] Close tracking issues and merge final migration branch into mainline.
