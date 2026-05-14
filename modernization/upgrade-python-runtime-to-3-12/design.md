@@ -2,101 +2,119 @@
 
 ## Architecture Overview
 
-**Before:**  
-- Application stack runs on an unspecified (older) Python runtime (pre-3.12).
-- Existing dependencies/libraries are compatible with the currently deployed Python version.
+### Before Upgrade
+- **Runtime:** Python (version unknown, but < 3.12)
+- **Frameworks:** Not specified
+- **Dependencies:** Not specified
 
-**After:**  
-- Application stack runs on Python 3.12.
-- All dependencies and build processes are updated as needed for Python 3.12 compatibility.
+### After Upgrade
+- **Runtime:** Python 3.12
+- **Frameworks:** Not specified, assumed compatible
+
+**Summary:**  
+The application will be re-based to execute under Python 3.12. Application logic and architecture remain unchanged. No modifications to frameworks/component structure unless required for Python 3.12 compatibility.
 
 ---
 
 ## Migration Strategy
 
-- **Chosen Approach:** Strangler Fig/Parallel Run (Blue-Green Deployment)
-  - Stand up new environments with Python 3.12 alongside existing ones.
-  - Validate application functionality and stability under Python 3.12.
-  - Gradually switch production traffic to Python 3.12 environment after all tests pass.
-  - Fall back to previous environment in case of critical issues.
+**Chosen Approach:**  
+_Strangler Fig Pattern_ (Side-by-side deployment during migration period)
+
+**Rationale:**  
+- Allows comparison between pre- and post-upgrade environments.
+- Reduces risk by enabling rapid rollback.
+- Permits thorough testing in production-like settings.
+
+**Steps:**  
+1. Provision parallel environment with Python 3.12.
+2. Update application code, if required for Python 3.12 compatibility.
+3. Update dependency versions as needed.
+4. Deploy and run system and smoke tests on Python 3.12 environment.
+5. Monitor behavior.
+6. Switch production traffic to Python 3.12 runtime.
+7. Decommission legacy environment after successful migration.
 
 ---
 
 ## Component Changes
 
-- **Application Code:**  
-  - Audit for syntax or library usage incompatible with Python 3.12 (use `python3.12 -Wall`).
-  - Update or refactor any deprecated/removed features identified in Python 3.12 [What's New](https://docs.python.org/3.12/whatsnew/3.12.html).
-- **Dependencies:**  
-  - Upgrade libraries/pins requiring Python 3.12 support (detailed in table below).
-- **Build Scripts:**  
-  - Update shebangs or interpreter paths (e.g., `#!/usr/bin/env python3.12`).
-  - Update Dockerfiles, CI/CD scripts, and local dev documentation to target Python 3.12.
+### Application Code
+- **Code audit required:**  
+  Review for incompatible/removed Python APIs, deprecated syntax, and language changes in Python 3.12.
+- **Refactorings:**  
+  - Update any code that uses removed/deprecated built-ins or modules.
+  - Address changes in typing, error handling, and third-party module requirements as needed.
+
+### Third-Party Libraries
+- **Upgrade as needed:**  
+  If certain dependencies are not compatible with Python 3.12, update or replace those libraries.
 
 ---
 
 ## Dependency Upgrade Plan
 
-| Dependency      | Current Version | Target Version | Migration Notes                                                        |
-|-----------------|----------------|---------------|------------------------------------------------------------------------|
-| All Python deps | ?              | Latest        | Audit all requirements for Py3.12 compatibility; upgrade as needed      |
-| pip/setuptools  | ?              | Latest        | Upgrade for full Python 3.12 support                                   |
-| (add others…)   | ?              | ?             | Complete audit post-analysis of code and CI logs                        |
+| Dependency   | Current Version | Target Version | Migration Notes                                   |
+|--------------|----------------|---------------|---------------------------------------------------|
+| Python       | <unknown>      | 3.12          | Must update Docker base image, runtime packages.   |
+| [Other deps] | Unknown        | Compatible    | Update to ensure compatibility with Python 3.12.   |
+
+_Note: Dependency names and versions to be updated as discovered during audit phase._
 
 ---
 
 ## CI/CD Pipeline Changes
 
-- Update pipeline runtime to use Python 3.12 VM images, containers, or interpreters.
-- Update build/test steps to reference Python 3.12 explicitly.
-- Ensure CI scripts install and verify dependency versions supporting Python 3.12.
-- Add regression smoke test stages to catch runtime errors.
+- **Build Stage:**  
+  - Update CI build agents/runners to use Python 3.12.
+  - Update Dockerfiles (if used) to `FROM python:3.12`.
+- **Test Stage:**  
+  - Run all test suites (unit, integration, regression) under Python 3.12.
+- **Deployment:**  
+  - Ensure that deployment environments (staging, production) use Python 3.12 interpreter/runtime.
 
 ---
 
 ## Infrastructure Changes
 
-- Update Dockerfiles (`FROM python:3.12-slim` or equivalent).
-- Update runtime images or VMs on Kubernetes/VM instances to use Python 3.12 base.
-- Validate that all config/monitoring scripts are compatible with Python 3.12 environment.
+- **Docker:**  
+  - Update base images to `python:3.12`.
+- **Kubernetes/Cloud:**  
+  - Update runtime images to those containing Python 3.12 if using containers.
+  - Update any environment configuration referencing specific Python versions.
+- **Bare Metal/VMs:**  
+  - Install Python 3.12 and repoint application launchers/binaries.
 
 ---
 
 ## Rollback Plan
 
-- Retain pre-upgrade Python environment and artifacts.
-- In the event of issues:
-    - Roll deployments back to environments running the previous Python version.
-    - Revert Docker image tags, VM templates, or deployment configs.
-    - Restore dependencies and build scripts to pre-upgrade state.
-- Document any code or dependency changes to make rollback deterministic.
-- Restore from last-known-good artifacts or backups if required.
+1. **Maintain Legacy Environment:**  
+   Keep the previous Python environment available until migration is validated.
+2. **Switch Traffic Back:**  
+   In case of issues, revert to running the application with the legacy Python version.
+3. **Dependency Reversion:**  
+   Downgrade any modified dependencies to pre-upgrade versions as needed.
+4. **CI/CD Revert:**  
+   Roll CI/CD pipeline changes back to reference previous Python and dependency versions.
 
 ---
 
 ## Testing Strategy
 
-**Unit Tests:**  
-- Run complete test suite under Python 3.12.
-- Fix failures related to syntax/runtime incompatibilities.
-
-**Integration Tests:**  
-- Revalidate all service integrations and third-party libraries in Python 3.12.
-
-**Regression Tests:**  
-- Run end-to-end tests to confirm no new regressions.
-
-**Performance Tests:**  
-- Run performance benchmarks if application is performance sensitive.
-
-- Gate production cutover on passing all automated and smoke tests on Python 3.12.
+- **Unit Tests:**  
+  Run complete unit test suite under Python 3.12 to ensure correctness.
+- **Integration Tests:**  
+  Validate that integrated components work as expected in upgraded environment.
+- **Regression Tests:**  
+  Run end-to-end and user-facing regression suites to catch behavioral changes.
+- **Performance Tests:**  
+  Compare application latency and resource usage pre- and post-upgrade.
+- **Smoke Tests:**  
+  Run minimal set of tests immediately after deployment to confirm basic functionality.
 
 ---
 
-<!--  
-N/A Sections (do not expand scope):  
-- Frameworks  
-- Language  
-- Build tool  
-- Cloud resources  
--->
+**Note:**  
+Sections not explicitly listed above are considered  
+N/A — not applicable to this task.
