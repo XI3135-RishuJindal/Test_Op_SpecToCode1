@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, flask-3-upgrade ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip==22.0.4
+          pip install -r requirements.txt
+          pip install flake8
+      - name: Run lint
+        run: flake8 .
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip==22.0.4
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Run tests
+        run: pytest
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip==22.0.4
+          pip install -r requirements.txt
+      - name: Build app
+        run: |
+          echo "Add build commands here (if applicable)"
+          # e.g., python setup.py sdist bdist_wheel
+
+  sast:
+    runs-on: ubuntu-latest
+    needs: build
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip==22.0.4
+          pip install -r requirements.txt
+          pip install bandit
+      - name: Run SAST (Bandit)
+        run: bandit -r .
