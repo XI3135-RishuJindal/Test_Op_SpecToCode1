@@ -2,17 +2,19 @@ FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+COPY requirements.txt ./
+RUN pip install --user --upgrade pip \
+    && pip install --user --no-cache-dir -r requirements.txt
+
+COPY . .
 
 FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY --from=builder /wheels /wheels
-COPY --from=builder /app/requirements.txt .
-RUN pip install --no-cache-dir --find-links=/wheels -r requirements.txt
+ENV PATH="/root/.local/bin:$PATH"
 
+COPY --from=builder /root/.local /root/.local
 COPY . .
 
 CMD ["python", "app.py"]
