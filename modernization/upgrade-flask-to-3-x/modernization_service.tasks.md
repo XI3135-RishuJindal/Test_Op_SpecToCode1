@@ -2,44 +2,56 @@
 
 ## Prerequisites
 
-- [ ] [S] Identify all codebases/repos using Flask
-- [ ] [S] Determine current Flask version(s) in use
-- [ ] [S] Audit third-party Flask extensions and dependencies for Flask 3.x compatibility
-- [ ] [S] Document Python versions in use and confirm Flask 3.x compatibility
+- [ ] [S] Identify and document the current Flask version in use by inspecting requirements.txt or Pipfile.
+- [ ] [S] List all direct Flask dependencies and extensions used in the application (e.g., Flask-Login, Flask-WTF).
+- [ ] [S] Ensure a clean, up-to-date local clone of the main repository, matching the latest production state.
+- [ ] [XS] Verify Python version compatibility for Flask 3.x, and document if Python needs to be upgraded.
+
+---
 
 ## Phase 1 — Preparation
 
-- [ ] [S] Pin current Flask version in requirements.txt or equivalent file for safe rollback
-- [ ] [S] Create a new project branch for the Flask 3.x upgrade effort
-- [ ] [S] Take inventory of all Flask app initialization patterns in the codebase
+- [ ] [S] Review Flask 3.x release notes for breaking changes relevant to current usage in the application.
+- [ ] [S] Audit application code for deprecated Flask APIs or patterns that require refactoring for 3.x compatibility.
+
+---
 
 ## Phase 2 — Core Upgrade
 
-- [ ] [M] Upgrade Flask to 3.x in requirements.txt or equivalent dependency file
-- [ ] [M] Update code to address breaking changes (e.g., import paths, removed APIs, updated configuration patterns) in all Flask apps
-- [ ] [M] Upgrade Flask extension packages to latest versions compatible with Flask 3.x
-- [ ] [S] Refactor any deprecated usage in Flask Blueprints, error handlers, or custom CLI commands
+- [ ] [M] Update Flask version to 3.x in requirements.txt or Pipfile.
+- [ ] [S] Update all Flask extensions in use to the latest versions compatible with Flask 3.x.
+- [ ] [M] Refactor application code to address all breaking changes and deprecated APIs identified in Flask 3.x release notes.
+- [ ] [S] Run `pip install -r requirements.txt` (or equivalent) and resolve any installation errors related to Flask or its extensions.
+
+---
 
 ## Phase 3 — Testing & Validation
 
-- [ ] [M] Run all existing unit tests and integration tests on the upgraded codebase
-- [ ] [M] Fix failing tests and resolve compatibility issues arising from Flask 3.x upgrade
-- [ ] [S] Manually verify app startup and core endpoints in local/dev environment
-- [ ] [S] Smoke test critical user flows (authentication, API endpoints, etc.) post-upgrade
+- [ ] [S] Run all existing unit tests locally and document any failures related to the Flask upgrade.
+- [ ] [M] Fix all test failures directly caused by the Flask 3.x upgrade.
+- [ ] [S] Manually verify the main application flows in a development environment for expected behavior.
+- [ ] [S] Smoke-test endpoints to ensure fundamental application functionality after upgrade.
+
+---
 
 ## Phase 4 — CI/CD & Infrastructure
 
-- [ ] [S] Update CI pipeline to use/test against Flask 3.x and supported Python versions
-- [ ] [S] Update Dockerfile(s) or runtime configurations if Python or Flask runtime versions change
+- [ ] [S] Update CI/CD pipeline configuration to use Flask 3.x (and updated Python version if applicable).
+- [ ] [S] Validate that build, test, and deployment jobs succeed with the upgraded Flask.
+
+---
 
 ## Phase 5 — Documentation & Rollout
 
-- [ ] [S] Document all Flask 3.x-related migrations and key code changes in CHANGELOG.md
-- [ ] [S] Update README/setup docs to specify new Flask and dependency requirements
-- [ ] [S] Communicate upgrade plan and validation results to stakeholders
+- [ ] [S] Update README and any developer onboarding documentation to reference Flask 3.x.
+- [ ] [XS] Document any manual steps required for developers related to the Flask upgrade.
+- [ ] [S] Notify downstream consumers or stakeholders of the framework upgrade and possible impacts.
+
+---
 
 ## Post-Migration Cleanup
 
-- [ ] [S] Remove unused or obsolete code related to removed/deprecated Flask APIs
-- [ ] [S] Delete the upgrade project branch after successful merge and deploy
-- [ ] [S] Remove temporary pinning for rollback (if no longer needed)
+- [ ] [XS] Remove any obsolete code or dependencies related to prior Flask versions.
+- [ ] [XS] Archive or delete any migration scripts or notes that are no longer relevant after the upgrade.
+
+---
