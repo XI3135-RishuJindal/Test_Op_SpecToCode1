@@ -2,77 +2,89 @@
 
 ## Architecture Overview
 
-**Before Modernization:**  
-- Secrets (API keys, passwords, tokens) are directly hardcoded in the application source code or configuration files tracked in version control.
-- Exposure risk if codebase is leaked or shared.
+#### Before Modernization
+- Application secrets (e.g., API keys, passwords, tokens) are embedded directly in source code files or static configuration files present in source control.
+- Secrets are exposed to anyone with access to the codebase and are not environment-specific, increasing the risk of leaks and improper credential usage.
 
-**After Modernization:**  
-- All secrets are injected at runtime via environment variables.
-- Application reads required secrets from the process environment.
-- No secrets exist in code, configuration files, or version control.
-- Application documentation is updated to specify required environment variables.
+#### After Modernization
+- All secrets are retrieved at runtime from environment variables, not code or static config files.
+- Environment-specific secrets are managed outside the codebase, reducing exposure.
+- Application configuration supports reading sensitive values using standard environment variable interfaces provided by the operating system or deployment scripts.
 
 ---
 
 ## Migration Strategy
 
-- **Strangler Fig Approach:**  
-  Replace hardcoded secrets with environment variable access incrementally, component by component.  
-  No downtime expected; fallback can be implemented if environment variables unset during initial migration for safety.
+- **Approach:** Strangler Fig Pattern
+    - Incrementally refactor code to replace hardcoded secrets with environment variable lookups, on a per-component basis.
+    - Legacy secrets remain temporarily for fallback but will be systematically removed after validation.
+    - No in-place “big bang” change—enables testing and rollback on a per-secret or per-component basis.
 
 ---
 
 ## Component Changes
 
-| Component               | Change Description                                                                                          | Reason                                                   |
-|-------------------------|------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|
-| Source Code (all)       | Replace all literal secret values with code reading the value from process environment at runtime.          | Eliminate exposure of secrets in codebase.               |
-| Configuration Files     | Remove hardcoded secrets; replace with documented environment variable references.                          | Prevent check-in of secrets to source control.           |
-| Documentation           | Add/update documentation to list new required environment variables and their descriptions.                 | Enable configuration without code changes.               |
-| Logging/Error Handling  | Ensure application logs do not unintentionally print secret values loaded from environment.                 | Prevent leaks via logs.                                  |
+### Application Source Code
+- Replace references to hardcoded secrets with calls to read from environment variables:
+    - E.g., change `password = "hardcoded123"` to `password = os.environ.get("DB_PASSWORD")` (syntax varies by language).
+- Remove any non-secret configuration from this change; only secrets are refactored.
+
+### Configuration Files
+- Remove any plaintext secrets from config files that are checked into source control.
+- Update application help docs and README to declare the new required environment variables.
+
+### Secret Management
+- Document the list of required environment variables per environment (local, staging, production).
+- Optionally, introduce dotenv (`.env`) support for local development only, with that file excluded from source control (if supported in the language/tooling).
 
 ---
 
 ## Dependency Upgrade Plan
 
-N/A — not applicable to this task
+| dependency         | current version | target version | migration notes              |
+|--------------------|----------------|---------------|-----------------------------|
+| N/A — not applicable to this task |                |               |                             |
 
 ---
 
 ## CI/CD Pipeline Changes
 
-- Update deployment scripts (build, test, deploy stages) to supply required secrets as environment variables rather than file edits or code changes.
-- Inject secrets from secure storage (e.g., CI/CD environment variable store, cloud secret manager) into runtime environments for builds, tests, and deployments.
-- Remove any legacy scripts or stubs that previously set configuration by directly modifying source with secrets.
+- Update pipeline scripts to inject secrets as environment variables at build and deploy stages, instead of storing or templating secrets into config files.
+- Remove pipeline steps that write secrets to files.
+- For local builds, provide documentation on using a `.env` or export commands.
+- For production, integrate with the CI/CD's environment variable or secret manager functionality (e.g., GitHub Actions Secrets, GitLab CI variables, Jenkins Credentials).
 
 ---
 
 ## Infrastructure Changes
 
-- Container orchestration (if used):  
-  Update Docker Compose / Kubernetes manifests to reference required environment variables for secrets rather than hardcoded values.
-- Secret storage (optional):  
-  Integrate with managed secret storage (e.g., AWS Secrets Manager, Azure KeyVault) if available, exporting values as environment variables to application container or runtime.
+- Ensure deployment orchestrators (Docker, Kubernetes, etc.) are configured to provide secrets via environment variables (e.g., `env` in Docker Compose, `envFrom`/`secretRef` in Kubernetes).
+- Remove any file-mounting or pre-seeding of secrets into config files.
+- (If not currently used) Recommend a secret store for fuller future improvements, but not in scope for this task.
 
 ---
 
 ## Rollback Plan
 
-- If issues arise, revert to the previous commit/branch/tag with hardcoded secrets.
-- Restore previous deployment and configuration scripts.
-- Ensure all code and configuration with hardcoded secrets remain secured and are not exposed in version control.
-- Communicate rollback procedures to project stakeholders and ensure environment variables are removed from runtime.
+- Retain a branch/tag before changes for fast rollback.
+- Keep hardcoded secrets commented (not deleted) until environment-variable-based secret handling is verified in production; uncomment if quick revert is needed.
+- In the event of post-deploy failure attributable to secret loading, revert code and config to pre-migration versions, and redeploy with the previously used process for handling secrets.
 
 ---
 
 ## Testing Strategy
 
-- **Unit Tests:** Mock environment variable access and test that secrets are correctly read from the environment and not from code/config.
-- **Integration Tests:** Verify end-to-end that application operates correctly when secrets are provided only via environment variables.
-- **Regression Tests:** Ensure existing functionality dependent on secret values remains unaffected.
-- **Security Tests:**  
-  - Scan codebase to confirm removal of hardcoded secrets.  
-  - Review logs and error messages to ensure secrets are not exposed.
-- **Deployment Tests:** Simulate deployment environments with secrets supplied as environment variables to validate configuration.
+### Unit Tests
+- Mock or inject environment variables as needed to test code paths that consume secrets from environment variables.
+- Ensure missing variable behavior is handled gracefully (fail with clear error).
+
+### Integration Tests
+- In test deployments, ensure environment variables propagate to the app and are parsed/read correctly.
+
+### Regression Tests
+- Use existing application tests to ensure no service functionality is broken by configuration change.
+
+### Performance Tests
+- N/A — not applicable to this task
 
 ---
