@@ -1,197 +1,172 @@
-# Migration Runbook: Migrate Application Code for SQLAlchemy 2.x Compatibility
-
----
+# Migration Runbook: SQLAlchemy 2.x Compatibility
 
 ## Pre-Migration Checklist
 
-- [ ] ✅ Inventory all application entry points that use SQLAlchemy.
-- [ ] ✅ Identify direct and transitive dependencies on SQLAlchemy (including plugins and extensions).
-- [ ] ✅ Verify database access credentials and backup current database(s).
-- [ ] ✅ Confirm test suite covers all database interactions.
-- [ ] ✅ Document all SQLAlchemy usage patterns in the codebase (ORM, Core/Engine, custom queries, etc).
-- [ ] ✅ Install SQLAlchemy 2.x in a development environment.
-- [ ] ✅ Review official [SQLAlchemy 2.0 Migration Guide](https://docs.sqlalchemy.org/en/20/changelog/whatsnew_20.html#migration) for breaking changes relevant to your codebase.
-- [ ] ✅ Communicate planned migration and windows to all stakeholders.
-- [ ] ✅ Validate rollback plan readiness.
-
----
+- [ ] ✅ Inventory all code paths that import or utilize SQLAlchemy APIs.
+- [ ] ✅ Ensure test coverage for all ORM/database interactions.
+- [ ] ✅ Freeze current production and development requirements.
+- [ ] ✅ Backup all source code repositories and databases.
+- [ ] ✅ Review SQLAlchemy 2.x [Migration Guide](https://docs.sqlalchemy.org/en/20/changelog/migration_20.html).
+- [ ] ✅ Communicate maintenance window and migration plan to stakeholders.
+- [ ] ✅ Confirm all developers are aware of migration and have a rollback plan.
 
 ## Environment Setup
 
-1. **Clone the repository and create a new feature branch**
-   ```bash
-   git checkout -b sqlalchemy2-migration
-   ```
+1. **Update Local Environment**
+    - Create and activate a new virtual environment (if applicable).
+    - Upgrade pip:
+      ```sh
+      pip install --upgrade pip
+      ```
+    - Backup the requirements file:
+      ```sh
+      cp requirements.txt requirements.txt.pre-sqlalchemy2
+      ```
 
-2. **Update SQLAlchemy to 2.x in your dependency manifest. Example:**
-   - `requirements.txt`
-     ```
-     SQLAlchemy>=2.0,<3.0
-     ```
-   - Or, for other languages/build tools, adapt accordingly.
+2. **Update SQLAlchemy Package**
+    ```sh
+    pip install 'sqlalchemy>=2.0,<2.1'
+    ```
 
-3. **(Optional, but recommended) Set up a Python virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   ```
+3. **Update CI Configuration**
+    - Update your CI pipeline to use SQLAlchemy 2.x.
+    - Example for requirements:
+      ```
+      sqlalchemy>=2.0,<2.1
+      ```
 
-4. **Install updated dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+    - If applicable, update Docker or environment specifications accordingly.
 
-5. **In CI/CD pipeline config:**  
-   - Update the build image/client to ensure SQLAlchemy 2.x is installed.
-   - Run tests with `--fail-fast` to catch migration issues early.
-
----
+4. **Dependencies Audit**
+    - Audit and update any libraries or ORMs that depend on SQLAlchemy to their SQLAlchemy 2.x-compatible versions.
 
 ## Step-by-Step Migration Procedure
 
-1. **Update Import Statements**
-   - **Action:** Ensure all usage imports from `sqlalchemy` and `sqlalchemy.orm` use newer patterns (no deprecated `sqlalchemy.ext.*`, etc).
-   - **Expected outcome:** Code runs without ImportError/DeprecationWarnings.
-   - **Verification command:**  
-     ```bash
-     grep "sqlalchemy.ext" -R your_project/
-     ```
-   - **Rollback:** Revert import statement changes.
+1. **Update Imports and Engine/Session Usage**
+    - **Action:** Refactor all imports to use modern locations (e.g., `from sqlalchemy.orm import sessionmaker`), update engine and session creation to follow SQLAlchemy 2.x patterns.
+    - **Expected outcome:** No deprecated import/module access; all session and engine usage conforms to 2.x API.
+    - **Verification command:**
+      ```sh
+      grep -RI "from sqlalchemy.ext.declarative" . # Should return no results
+      ```
+    - **Rollback:** Revert source code files to previous commit.
 
-2. **Update Engine & Session Usage**
-   - **Action:** Refactor `Session` instantiation to use `Session(engine)` instead of legacy patterns like `sessionmaker()` without binding.
-   - **Expected outcome:** Session usage aligns with 2.x API.
-   - **Verification command:**  
-     ```bash
-     grep -R "sessionmaker" your_project/
-     ```
-   - **Rollback:** Restore original session creation logic.
+2. **Replace Deprecated `session.query()` Syntax**
+    - **Action:** Refactor queries to use `select()` and session execution where applicable. Example:
+      ```python
+      # Before
+      session.query(User).filter_by(id=1).first()
+      # After
+      session.execute(select(User).filter_by(id=1)).scalar_one_or_none()
+      ```
+    - **Expected outcome:** No usage of deprecated query patterns.
+    - **Verification command:**
+      ```sh
+      grep -RI "session.query" .
+      ```
+    - **Rollback:** Undo changes, restore previous query code.
 
-3. **Refactor Transaction Patterns**
-   - **Action:** Update legacy transaction blocks (`session.begin()`, explicit commits) to use context managers:
-     ```python
-     with Session(engine) as session:
-         with session.begin():
-             ...
-     ```
-   - **Expected outcome:** Database writes/reads work as expected using the context manager.
-   - **Verification command:**  
-     Run tests covering commits and rollbacks.
-   - **Rollback:** Revert to pre-migration transaction handling.
+3. **Adopt Explicit Transaction Blocks**
+    - **Action:** Replace implicit transaction scopes with `with Session.begin():` blocks where needed.
+    - **Expected outcome:** All DB writes are within explicit transaction blocks.
+    - **Verification command:**
+      ```sh
+      grep -RI "with Session" .
+      ```
+    - **Rollback:** Revert affected files.
 
-4. **Update Query API**
-   - **Action:** Replace deprecated `.execute()`, `.scalar()`, `.first()`, `.all()` usages per [2.0 Query API](https://docs.sqlalchemy.org/en/20/changelog/whatsnew_20.html#orm-query-api).
-   - **Expected outcome:** Query logic works and does not raise deprecation warnings or errors.
-   - **Verification command:**  
-     ```bash
-     grep -n "execute\|scalar\|first\|all" your_project/
-     ```
-   - **Rollback:** Restore original query logic.
+4. **Remove Deprecated `commit()` on Connections**
+    - **Action:** Remove `commit()` calls on connections (should only be on session).
+    - **Expected outcome:** No direct commits on connections.
+    - **Verification command:**
+      ```sh
+      grep -RI "connection.commit" .
+      ```
+    - **Rollback:** Restore previous DB transaction usage.
 
-5. **Replace ORM Bulk Methods**
-   - **Action:** Replace deprecated ORM bulk methods (`bulk_save_objects`, `bulk_insert_mappings`, etc.) with supported alternatives or Core-level bulk operations.
-   - **Expected outcome:** Bulk operations perform as expected.
-   - **Verification command:**  
-     Run relevant test cases.
-   - **Rollback:** Restore previous bulk operation code.
+5. **Update All Custom Declarative Base Usages**
+    - **Action:** Use `sqlalchemy.orm.declarative_base` instead of legacy import.
+    - **Expected outcome:** All model base classes use the new import path.
+    - **Verification command:**
+      ```sh
+      grep -RI "declarative_base" .
+      ```
+    - **Rollback:** Revert to old base definition.
 
-6. **Address Deprecated/Removed Features**
-   - **Action:** Remove or refactor usage of features removed in 2.x (e.g., `convert_unicode`, implicit autocommit, etc).
-   - **Expected outcome:** Application runs without errors or removed feature usage.
-   - **Verification command:**  
-     Run application and observe logs for `DeprecationWarning` or `RemovedIn20Warning`.
-   - **Rollback:** Restore code and dependencies to pre-migration versions.
-
-7. **Run Full Test Suite**
-   - **Action:** Execute all automated tests (unit, integration, e2e).
-   - **Expected outcome:** All tests pass.
-   - **Verification command:**  
-     ```bash
-     pytest
-     # or other project-specific test command
-     ```
-   - **Rollback:** Revert all code and dependency changes.
-
----
+6. **Run and Fix Application Test Suite**
+    - **Action:** Execute all automated tests; fix any broken due to migration.
+    - **Expected outcome:** All tests pass under SQLAlchemy 2.x.
+    - **Verification command:**
+      ```sh
+      pytest  # or relevant test command
+      ```
+    - **Rollback:** Analyze test output, revert relevant code.
 
 ## Verification & Smoke Tests
 
-- **Run all automated tests:**
-  ```bash
-  pytest
-  # or equivalent
+- **Run basic database connectivity check:**
+  ```sh
+  python -c "from your_app import Session; with Session() as session: session.execute('SELECT 1')"
   ```
-- **Start the application and perform manual smoke tests:**
-  - Basic DB CRUD flows (create, read, update, delete).
-  - Application startup: should succeed with no SQLAlchemy deprecation/fatal errors in logs.
-  - If API, hit endpoints that rely on DB access.
-
-- **Check logs for any SQLAlchemy-related tracebacks or backward-compatibility warnings**
-  - Example:
-    ```bash
-    grep "sqlalchemy" logs/app.log
-    ```
-
----
+- **Execute core functional tests:**
+  ```sh
+  pytest tests/
+  ```
+- **Manual UI smoke test:** (if applicable)
+    - Log in, create, update and delete representative records.
+- **API test:** (if applicable)
+    - Invoke endpoints that exercise database reads/writes.
 
 ## Rollback Procedure
 
-1. **Checkout main branch**
-   ```bash
-   git checkout main
-   ```
+1. **Deactivate migrated environment:**
+    ```sh
+    deactivate  # If using virtualenv/venv
+    ```
 
-2. **Revert SQLAlchemy version in dependency manifest to pre-migration version**
-   - Example: In `requirements.txt`, set specific previous version.
-     ```
-     SQLAlchemy==<previous_version>
-     ```
+2. **Restore backup requirements:**
+    ```sh
+    mv requirements.txt.pre-sqlalchemy2 requirements.txt
+    pip install -r requirements.txt
+    ```
 
-3. **Re-install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+3. **Revert source code changes:**
+    ```sh
+    git checkout <last-known-good-commit>
+    ```
 
-4. **Revert source code changes**
-   ```bash
-   git reset --hard <last-known-good-commit>
-   ```
+4. **Restart application/services as needed.**
 
-5. **Run test suite to confirm stability**
-   ```bash
-   pytest
-   ```
-
-6. **Re-deploy previous, stable build/package to production**
-   - Use existing CI/CD procedures.
-
-7. **Notify stakeholders of rollback completion.**
-
----
+5. **Verify application is operational and database access functions as pre-migration:**
+    ```sh
+    pytest
+    ```
 
 ## Post-Migration Monitoring
 
-- **Metrics to watch:**
-  - Application error rates, especially DB-related exceptions.
-  - Response times for DB-backed endpoints/workloads.
-- **Logs:**
-  - SQLAlchemy stack traces or warnings in application logs.
-- **Alerts:**
-  - Increased DB error rates (e.g., connection errors, transaction failures).
-  - User-reported issues related to data access or save operations.
+- **Key Metrics:**
+  - DB query error rates (e.g., via APM)
+  - Application exception/error logs referencing SQLAlchemy
+  - Application performance latency for DB-bound endpoints
 
-Monitor for at least 24-48 hours post-deployment.
+- **Logs/Alerts:**
+  - Monitor for log entries containing SQLAlchemy warnings or errors
+  - Enable and watch for alerts on DB connection errors or failed migrations
 
----
+- **Recommended Duration:**  
+  - Closely monitor for 24–48 hours post-deployment
 
 ## Known Issues & Workarounds
 
-- **Removed/Modified APIs:** Certain APIs removed or changed in 2.x; see [SQLAlchemy What's New 2.0](https://docs.sqlalchemy.org/en/20/changelog/whatsnew_20.html).
-  - **Workaround:** Use official migration guide for code conversion examples.
-- **Extensions/Plugins Compatibility:** Some third-party extensions may not be 2.x-compatible.
-  - **Workaround:** Pin extension versions or search for compatible forks/upgrades.
-- **Legacy Transaction Handling:** Legacy transaction functions (`session.commit()` outside of context managers) may fail.
-  - **Workaround:** Refactor to use context managers (`with session.begin()`).
+- **Issue:** Some third-party libraries may not yet fully support SQLAlchemy 2.x.
+   - **Workaround:** Pin those packages to compatible versions, or delay upgrade until upstream support is available.
+
+- **Issue:** Object session handling semantics have changed; unexpected lazy loading failures.
+    - **Workaround:** Wrap DB modifications in explicit `with Session.begin()` blocks; review SQLAlchemy 2.x docs for session state handling.
+
+- **Issue:** Legacy string-based queries (`session.execute("SELECT * FROM table")`) require `text()` wrapper.
+    - **Workaround:** Use `from sqlalchemy import text` and wrap queries as `session.execute(text("SELECT * FROM table"))`.
 
 ---
 
+**End of Runbook**
