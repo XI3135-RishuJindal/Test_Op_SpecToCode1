@@ -4,188 +4,185 @@
 
 ## Pre-Migration Checklist
 
-- [ ] ✅ **Inventory All Hardcoded Secrets**  
-  Search source code for secrets (passwords, API keys, tokens, private keys, etc). Document file, variable name, and usage for each.
-- [ ] ✅ **Gather Required Secrets**  
-  Obtain all secrets and confirm their current/valid values.
-- [ ] ✅ **Agree on Environment Variable Names**  
-  Standardize names (e.g., `DATABASE_PASSWORD`, `API_KEY`, etc).
-- [ ] ✅ **Update .env or Secret Injection Mechanism in all Environments**  
-  Add required variables to local `.env` files and CI/CD secrets injectors (e.g., GitHub Actions secrets, Docker Secrets, Kubernetes Secrets).
-- [ ] ✅ **Backup Current Source Code**  
-  Ensure VCS (e.g., Git) is up to date and code is backed up.
-- [ ] ✅ **Notify Team and Schedule Downtime (if needed)**  
-  Communicate planned migration window and potential impact.
+All items **must** be ✅ before proceeding.
+
+- [ ] ✅ Source code has been fully backed up and stored in a secure location.
+- [ ] ✅ You have reviewer/owner approval to proceed.
+- [ ] ✅ All locations with hardcoded secrets have been identified across the codebase.
+- [ ] ✅ A secure secret store (or .env file) solution and inject/load approach has been agreed upon.
+- [ ] ✅ CI/CD pipelines support passing environment variables securely.
+- [ ] ✅ All necessary secrets have been provisioned and are available as environment variables in each target environment (dev, staging, prod).
+- [ ] ✅ Unit and integration test environments are available and support env var injection.
+- [ ] ✅ All internal documentation references to hardcoded secrets have been updated to mention new environment variable use.
 
 ---
 
 ## Environment Setup
 
-### Local Development
+**Local Development:**
 
-1. **Add all required environment variables:**  
-   Update `.env` or equivalent file with:
+1. Install dotenv loader or similar tool for your language/runtime (if required).  
+   _Example (Node.js):_  
+   ```bash
+   npm install dotenv
    ```
-   SECRET_ONE=value1
-   SECRET_TWO=value2
+2. Create a `.env` file at the project root (do **not** commit this file):
    ```
+   SECRET_KEY=your-local-secret
+   API_TOKEN=your-local-token
+   ```
+3. Ensure `.env` is listed in `.gitignore`.
 
-2. **Ensure application loads environment variables:**  
-   Install dependencies if using a loader (e.g., `python-dotenv`, `dotenv` npm package).
+**CI/CD Pipeline:**
 
-### Continuous Integration (CI) / Production
-
-1. **Add secrets to CI/CD tool:**  
-   Use secured secrets manager (e.g., GitHub Actions Secrets, GitLab CI variables, AWS Secrets Manager).
-
-2. **Ensure environment variables are available at app startup:**  
-   Configure deployment scripts or manifests to export/retrieve secrets.
+1. In your CI/CD provider, securely add all required secrets as protected environment variables.
+2. Remove hardcoded secrets from build scripts and pipeline YAML/config files.
+3. Update any scripts that used secrets as plaintext to pull from the environment.
 
 ---
 
 ## Step-by-Step Migration Procedure
 
-1. **Identify and Remove Hardcoded Secrets**
-   - **Action:**  
-     Search for and replace all hardcoded secrets (API keys, DB passwords, etc.) with corresponding environment variable lookups in source code.
-   - **Expected outcome:**  
-     No secrets remain in plaintext within the codebase.
-   - **Verification command:**  
-     ```sh
-     git grep -i -E 'password|secret|key|token|api' | grep '='
-     ```
-     All findings should reference environment variable access (e.g., `process.env.SECRET`, `os.environ["SECRET"]`).
-   - **Rollback action if it fails:**  
-     Revert affected files to pre-migration commit.
+### 1. Locate and Remove Hardcoded Secrets
 
-2. **Update Configuration and Dependency Files**
-   - **Action:**  
-     Update all configuration files to reference environment variables instead of literal secret values.
-   - **Expected outcome:**  
-     Config files (e.g., `config.js`, `settings.py`) now load secrets from the environment.
-   - **Verification command:**  
-     Manually review config files. Optionally, run:
-     ```sh
-     git diff <pre-migration-commit> | grep -E 'password|secret|key|token|api'
-     ```
-   - **Rollback action if it fails:**  
-     Restore configuration files from backup or version control.
+- **Action**:  
+  Search for all plain secrets directly embedded in source code, config files, or scripts. Replace each instance with a reference to an environment variable.
 
-3. **Test Application with Environment Variables Locally**
-   - **Action:**  
-     Start application locally with `.env` or exported environment variables containing secrets.
-   - **Expected outcome:**  
-     Application starts and functions as expected, retrieving secrets from environment.
-   - **Verification command:**  
-     Application log should confirm secrets loaded from environment, not default values. 
-   - **Rollback action if it fails:**  
-     Double-check variable names or restore environment file and code.
+- **Expected outcome**:  
+  No secrets remain hardcoded; only environment variable references exist.
 
-4. **Update CI/CD and Deployment Manifests**
-   - **Action:**  
-     Add secrets to CI/CD pipeline, container orchestration, or deployment descriptors to inject at runtime.
-   - **Expected outcome:**  
-     Build and deployments have the required secrets set as environment variables.
-   - **Verification command:**  
-     Trigger pipeline and inspect environment, e.g.:
-     ```sh
-     echo $SECRET_ONE
-     ```
-   - **Rollback action if it fails:**  
-     Remove variables, restore prior deployment setup.
+- **Verification command**:  
+  _Generic (assuming git):_  
+  ```bash
+  git grep 'your-secret-value'
+  ```
+  _Replace `your-secret-value` with actual previous secret values to confirm removal._
 
-5. **Commit and Push Changes**
-   - **Action:**  
-     Commit the code with secrets removed and environment variable logic implemented.
-   - **Expected outcome:**  
-     Codebase is updated, secrets not in code, ready for deployment.
-   - **Verification command:**  
-     ```sh
-     git log -p
-     git grep -i 'SECRET='
-     ```
-     Ensure only non-production values in code, actual secrets are not present.
-   - **Rollback action if it fails:**  
-     Revert commit(s).
+- **Rollback action**:  
+  Restore original source files from backup.
+
+---
+
+### 2. Load Environment Variables in Application
+
+- **Action**:  
+  Implement (if necessary) loading of environment variables in your application entrypoint or configuration loader.
+
+- **Expected outcome**:  
+  At runtime, application reads secrets exclusively from environment variables.
+
+- **Verification command**:  
+  _Generic example (adjust to your language):_  
+  ```bash
+  printenv | grep SECRET_KEY
+  ```
+  Or test application startup:
+  ```bash
+  ./start-application
+  ```
+  Confirm no errors regarding missing secrets.
+
+- **Rollback action**:  
+  Revert loader/config changes, re-add previous config.
+
+---
+
+### 3. Update Deployment and Runtime Environments
+
+- **Action**:  
+  Ensure all non-local environments (staging, production) have secrets available as environment variables (via secure injection method).
+
+- **Expected outcome**:  
+  Application runs successfully in each target environment with environment-provided secrets.
+
+- **Verification command**:  
+  - For containerized environments:  
+    ```bash
+    docker exec <container> printenv | grep SECRET_KEY
+    ```
+  - For cloud deployment:  
+    Use platform CLI/UI to inspect env vars.
+
+- **Rollback action**:  
+  Restore previous deployment configuration with hardcoded or legacy secret passing.
+
+---
+
+### 4. Test All Affected Functionality
+
+- **Action**:  
+  Re-run all relevant unit, integration, and smoke tests, focusing on components that consume secrets.
+
+- **Expected outcome**:  
+  All tests pass; application behaves as before.
+
+- **Verification command**:  
+  ```bash
+  ./run-tests
+  ```
+
+- **Rollback action**:  
+  Rollback to previously tested version.
 
 ---
 
 ## Verification & Smoke Tests
 
-- Start application in all target environments (dev/staging/production) and confirm key functionality:
-  * Authentication/login (if secrets used for identity)
-  * External API calls
-  * Database/connectivity
-
-- **Verify environment variables loaded:**
-  - For UNIX-based systems, ssh into container/VM and:
-    ```sh
-    printenv | grep 'SECRET'
-    ```
-  - For logs, confirm "Loaded X from environment" messages.
-
-- Automated smoke tests (run as applicable):
+- Start the application and verify no errors related to secrets/config.
+- Manually test all paths that require secrets (e.g., authentication, API calls).
+- Run automated regression and security tests:
+  ```bash
+  ./run-tests
   ```
-  ./run_smoke_tests.sh
-  ```
-
-- Confirm _absence of hardcoded secrets_:
-  ```
-  git grep -i -E 'password|secret|key|token|api'
-  # Output should NOT show secrets assigned directly in code/config
-  ```
+- If possible, try intentionally omitting one secret to confirm the application logs a clear error.
 
 ---
 
 ## Rollback Procedure
 
-1. **Revert Source Code**
-   - Checkout previous commit:
-     ```sh
-     git checkout <pre-migration-commit>
+1. **Restore Source Code**  
+   - Use version control to revert to the previous commit:  
+     ```bash
+     git checkout <previous_commit>
      ```
 
-2. **Restore Configuration Files**
-   - Replace updated configuration files with pre-migration versions.
+2. **Restore Deployment Configurations**  
+   - Revert to previous hardcoded secrets/config files in all environments.
 
-3. **Remove Injected Environment Secrets**
-   - Remove new environment variables from `.env`, CI/CD secrets, and deployment configs.
+3. **Remove Environment Variable Setup**  
+   - Remove newly-added environment variable configurations from all CI/CD and deployment systems.
 
-4. **Redeploy Application**
-   - Deploy/restart application with prior configuration.
+4. **Restart Application/Services**  
+   - Deploy or restart services to restore previous working state.
 
-5. **Verify Application Functionality**
-   - Run standard smoke tests to ensure system is operational.
+5. **Verify Functionality**  
+   - Run smoke tests to ensure the app is working as before.
 
 ---
 
 ## Post-Migration Monitoring
 
-- **Metrics to Watch:**
-  - Application start failures or crashes
-  - Authentication/connection errors (e.g., "invalid credentials", "failed to connect to DB/API")
-  - Unauthorized/forbidden errors in logs
-
-- **Logs:**
-  - Application logs for errors on secrets retrieval
-  - Monitor for missing or unset environment variable errors
-
-- **Alerts:**
-  - Configure alerting for increased error rate, authorization failures, or secrets not found
-
-- Monitor intensively for **24-48 hours** after deployment.
+- Monitor authentication/API failure rates (any increase may indicate a secret misconfiguration).
+- Check application error logs for missing environment variables or failed secret access.
+- Set alerts for:
+  - Application startup failures
+  - 5xx errors
+  - Unauthorized or forbidden API calls
+- Validate that no secrets are written to logs or error messages.
 
 ---
 
 ## Known Issues & Workarounds
 
-- **Issue:** Some frameworks require additional configuration to load environment variables (e.g. using dotenv packages).  
-  **Workaround:** Ensure required loaders (e.g., `dotenv`, `python-dotenv`) are installed and initialized before config loads.
+- **Issue**: Application process does not see environment variables.
+  - **Workaround**: Confirm the secret is set in the correct scope (process/user/system), restart the application, or reconfigure your secrets injection mechanism.
 
-- **Issue:** Secrets may not propagate in some CI/CD environments without a restart or pipeline variable refresh.  
-  **Workaround:** Clear pipelines' cache, force variable reload, or restart relevant runners/agents.
+- **Issue**: Secrets unintentionally checked into version control (.env or config).
+  - **Workaround**: Add `.env` and all similar files to `.gitignore`. Contact security to rotate any exposed secrets immediately.
 
-- **Issue:** Legacy code may reference removed hardcoded secrets.  
-  **Workaround:** Grep the entire codebase after migration to ensure no residual hardcoded secrets remain.
+- **Issue**: Old hardcoded secrets left in dead code/configs.
+  - **Workaround**: Use `git grep` or equivalent to re-audit source and configuration files for string remnants.
 
 ---
+
+**END OF RUNBOOK**
