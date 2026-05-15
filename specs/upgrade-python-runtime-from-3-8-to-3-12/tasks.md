@@ -1,44 +1,43 @@
-# TASKS: Python 3.8 to 3.12 Upgrade
+# TASKS: Python 3.8 → 3.12 Runtime Upgrade
 
 ## Prerequisites
 
-- [ ] [S] Install Python 3.12.x on all development, CI, and deployment environments
-- [ ] [XS] Verify access to repository and required configuration files (e.g., requirements.txt, setup.cfg, pyproject.toml, Dockerfile, runtime.txt)  
-- [ ] [XS] Confirm availability of virtual environment tooling compatible with Python 3.12 (e.g., venv >= 3.12, pip >= 23.3)
+- [ ] [S] Ensure Python 3.12.x is installed and available on all developer and CI systems
+- [ ] [XS] Verify write access to requirements.txt, setup.py, and Dockerfile (if present)
 
 ## Phase 1 — Preparation
 
-- [ ] [XS] Create `upgrade/python3.12` feature branch from main
-- [ ] [XS] Freeze current Python 3.8 dependency versions in requirements.txt for baseline reference
-- [ ] [S] Capture baseline test results using Python 3.8 (`pytest` or equivalent, if present)
-- [ ] [XS] Verify current CI configuration is discoverable (`.github/workflows/`, `.gitlab-ci.yml`, etc.)
+- [ ] [XS] Create `feature/python312-upgrade` branch from latest `main`
+- [ ] [XS] Capture current test baseline using Python 3.8 environment via `pytest` (or other configured test runner)
+- [ ] [XS] Pin current Python version (`python==3.8.*`) in requirements.txt or runtime.txt if present, to serve as downgrade reference
 
 ## Phase 2 — Core Upgrade
 
-- [ ] [S] Update runtime version to 3.12 in all relevant config files (e.g., `.python-version`, `runtime.txt`, `Dockerfile`)
-- [ ] [XS] Rebuild and re-lock dependencies using Python 3.12 (e.g., recreate virtual environment and regenerate pip lockfile if used)
-- [ ] [S] Update CI pipeline configuration to use Python 3.12 in `.github/workflows/` and/or equivalent files
+- [ ] [S] Update local Python version reference from 3.8 to 3.12 in `.python-version` (if exists)
+- [ ] [S] Change Python runtime version to 3.12 in `runtime.txt` (Heroku or similar, if exists)
+- [ ] [S] Update `Dockerfile` base image from `python:3.8` to `python:3.12` if Dockerfile exists
+- [ ] [S] Modify CI configuration (`.github/workflows/*` or `.gitlab-ci.yml`) to use Python 3.12 runner
+- [ ] [S] Update setup.py or pyproject.toml to set `python_requires='>=3.12'` (if present)
 
 ## Phase 3 — Testing & Validation
 
-- [ ] [S] Execute full project test suite with Python 3.12 and capture new results
-- [ ] [S] Compare Python 3.8 and 3.12 test results for regressions in `tests/`
-- [ ] [XS] Verify application startup and key workflows using Python 3.12 in `main.py` or entry module
+- [ ] [S] Reinstall all dependencies in a clean Python 3.12 virtual environment
+- [ ] [M] Run all existing tests with Python 3.12 and record results
+- [ ] [S] Compare Python 3.12 test results against captured 3.8 baseline, noting regressions if any
+- [ ] [XS] Review deprecation warnings and update code only if new runtime errors appear (else, defer changes)
 
 ## Phase 4 — CI/CD & Infrastructure
 
-- [ ] [S] Update production and staging Dockerfiles to use Python 3.12 base images if applicable
-- [ ] [XS] Redeploy staging environment with Python 3.12 runtime and validate application health
-- [ ] [S] Update any IaC scripts (e.g., Terraform, Ansible, cloud-init) specifying Python runtime version
+- [ ] [S] Update any deployment IaC files (e.g., `.ebextensions/*`, `app.yaml`) specifying Python 3.8 → 3.12 (if present)
+- [ ] [XS] Verify build and release pipeline success under Python 3.12 in CI
 
 ## Phase 5 — Documentation & Rollout
 
-- [ ] [XS] Update README.md and developer onboarding docs to reference Python 3.12
-- [ ] [XS] Add upgrade details to CHANGELOG.md highlighting runtime version change
-- [ ] [XS] Review and update runbooks to address Python 3.12 operational nuances
-- [ ] [S] Monitor application post-deploy and verify no Python 3.12-related errors in logs
+- [ ] [XS] Add upgrade notes to `CHANGELOG.md` specifying runtime change to Python 3.12
+- [ ] [XS] Review and update `README.md` and `CONTRIBUTING.md` setup instructions for Python 3.12
+- [ ] [S] Monitor application logs for runtime-specific errors in staging for at least 24 hours post-deploy
 
 ---
 
-Tasks are atomic, actionable, and grounded strictly in the context of the Python 3.8 to 3.12 upgrade.  
-All sections or components not relevant to this specific task are marked as N/A.
+Sections for frameworks, libraries, application code, and other components are  
+N/A — not applicable to this task.
