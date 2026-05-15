@@ -1,13 +1,8 @@
-## Tasks (auto-derived from plan — review and refine)
+**XI3135-RishuJindal/Test_Op_SpecToCode1**
 
-- [ ] Perform a lightweight code and endpoint review to confirm there are no CHD-related fields, handlers, or integrations. Document evidence with file paths and brief notes.
-- [ ] Define and draw a simple boundary diagram illustrating ApiGateway, clients, logging, and an explicit absence of CHD flows. Export PNG and commit editable .drawio.
-- [ ] Author the scope-statement document using a PCI DSS v4.0-aligned template with sections for definitions, boundary, in/out of scope, N/A requirement mapping, risks, and approvals.
-- [ ] Security: reviews scoping, N/A mappings, and risk notes; final approver.
-- [ ] Product: confirms MVP features and roadmap; final approver.
-- [ ] Engineering: validates repository review notes; peer reviewer.
-- [ ] Legal/Compliance (optional per org policy): terminology and policy alignment.
-- [ ] GitHub (repo changes, PR reviews).
-- [ ] Diagramming: draw.io (diagrams.net).
-- [ ] Optional static search: ripgrep or IDE search for patterns like card, pan, track, cvv.
-- [ ] Optional knowledge base (e.g., Confluence) can mirror the final doc; source of truth remains in-repo.
+- [ ] Draft specs/draft-pci-scope-statement/PCI_SCOPE.md: Write a PCI DSS scope statement declaring no CHD is stored, processed, or transmitted by the MVP.
+- [ ] Review Program.cs, Controllers, and Models for any handling of card-related data, confirming the assertion is accurate.
+- [ ] Circulate the draft PCI_SCOPE.md to both technical and compliance stakeholders, collect and incorporate feedback.
+- [ ] Reference PCI_SCOPE.md in README.md ("Compliance" or "PCI DSS Scope" section).
+- [ ] Add a note or link to the new file in any compliance or documentation index if maintained outside README.md.
+- [ ] Commit and push the new/updated documentation with an appropriate commit message.

@@ -1,50 +1,28 @@
-US-007: Draft PCI scope statement
+## PCI Scope Statement Draft – Functional Specification
 
-What
-- Produce an auditable PCI DSS v4.0 scope statement for the MVP in this repository (ApiGateway).
-- The statement must clearly assert that the MVP does not store, process, or transmit Cardholder Data (CHD) or Sensitive Authentication Data (SAD).
-- Provide explicit scoping boundaries, in-scope and out-of-scope components, justifications, and “N/A” mapping for PCI DSS requirements directly tied to CHD storage/processing/transmission.
-- Include a simple boundary diagram and evidence references to code review.
+### What & Why
 
-Why
-- To document PCI scope early and avoid unintended expansion of the PCI footprint.
-- To support audit readiness and ensure stakeholder alignment on constraints around payment-related features.
-- To set guardrails for future features so that any payment capability is implemented through a segmented third-party provider and triggers a new scope review.
+This deliverable is a written PCI DSS scope statement for the MVP release of the ApiGateway system. The purpose is to declare—in a manner fit for audit and compliance review—that the MVP does not store, process, or transmit Cardholder Data (CHD) or Sensitive Authentication Data (SAD), thus placing the system out-of-scope for most PCI DSS requirements. Such clear documentation ensures alignment with risk assessment procedures, satisfies auditor expectations, and reduces compliance burden for the team now and in the future.
 
-Context summary from repository review
-- Endpoints: /api/health (status only), /api/auth/token (username/password for demo JWT), /api/test (message and optional MedicationDTO). None reference CHD or payment fields.
-- Data models: MedicationDTO and TestRequest/Response contain no CHD fields. TestRequest.AdditionalData could accept arbitrary input; documentation must prohibit sending CHD.
-- Logging: Serilog to console and file. No code logs payment details; statement must emphasize prohibition on logging CHD and note that no CHD should be sent.
-- No payment SDKs or third-party payment integrations present.
+#### User Story Reference
+US-007: As a technical/compliance lead, I must be able to demonstrate through an authoritative scope statement that our system does not handle CHD.
 
-Acceptance criteria
-- A repository document exists at docs/compliance/pci/scope-statement.md containing:
-  - Purpose, scope, definitions (CHD, SAD, CDE), system overview of ApiGateway.
-  - Boundary statement: ApiGateway is outside the CDE; no CHD/SAD stored, processed, or transmitted by MVP.
-  - Explicit in-scope list (ApiGateway service, its logs) with “reason: outside CDE, general security practices still apply.”
-  - Explicit out-of-scope list (CDE, payment processors, payment UIs/SDKs, tokenization, storage of PAN, SAD).
-  - N/A mapping: PCI DSS v4.0 sections for CHD storage/processing/transmission (e.g., Req. 3.x for storage, portions of Req. 4.x for transmission of CHD) marked N/A with justification.
-  - Data flow diagram (saved as docs/diagrams/pci-scope-boundary.png) showing no CHD flows.
-  - Risks and mitigations: warn against sending CHD to any endpoint, call out AdditionalData as free-form and prohibited for CHD.
-  - Approval block with named approvers and dates (Security, Product; Legal optional).
-  - Versioning metadata and links to this spec and PR.
-- README updated with a short “Compliance” section linking to the scope statement.
-- Evidence of code review supporting assertions is included in the scope statement (paths, notes).
-- Stakeholder sign-offs recorded in the PR or in the document metadata.
+### Acceptance Criteria
 
-Out of scope
-- Implementing payment features, tokenization, or PAN/SAD handling.
-- Adding runtime CHD pattern detection or WAF rules (may be follow-up items).
-- Changes to application authentication or authorization unrelated to PCI scope.
+- The statement must explicitly state that the ApiGateway system (MVP) does not store, process, or transmit Cardholder Data or Sensitive Authentication Data.
+- The document must clarify the current architecture and data flows, demonstrating the absence of CHD or SAD at any logical or physical layer.
+- The scope boundaries must be unambiguous—there must be no language that could introduce uncertainty about system posture.
+- Any planned future features that could alter scope must be declared out-of-scope for this version.
+- The statement must be suitable for sharing with compliance auditors, risk managers, and security stakeholders.
+- The location and versioning of the statement must be in accordance with repository documentation practices.
 
-Dependencies and cross-service considerations
-- None for MVP. If/when a payment provider is introduced (e.g., Stripe, Adyen), the provider and any payment UI/SDKs would be in-scope for a new review; the ApiGateway must remain segmented from the CDE or only handle non-sensitive tokens.
+### Out-of-Scope
 
-Non-functional requirements
-- Discoverable in repository; written in clear language; ready for audit; approved by stakeholders; version-controlled.
+- Policies or technical controls for systems storing/processing CHD.
+- Details about non-MVP or planned future features which MIGHT introduce PCI scope (if/when these are implemented, a new review will be triggered).
+- Legal review and submission to external auditors (covered by separate process).
 
-Deliverables
-- docs/compliance/pci/scope-statement.md
-- docs/diagrams/pci-scope-boundary.png (plus editable source docs/diagrams/pci-scope-boundary.drawio)
-- README Compliance section update
-- PR with Security and Product approvals
+### Dependencies/Cross-Service Considerations
+
+- Alignment with any architecture documents, data flow diagrams, or system boundary definitions currently maintained by the team.
+- Should be referenced in CI/CD pipelines or compliance documentation as a formal artifact.
