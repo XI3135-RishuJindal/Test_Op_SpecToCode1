@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -26,39 +27,44 @@ namespace ApiGateway.Controllers
         /// <param name="request">Login request</param>
         /// <returns>JWT token</returns>
         [HttpPost("token")]
+        [AllowAnonymous]
         [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public IActionResult GenerateToken([FromBody] LoginRequest request)
         {
-            _logger.LogInformation("Token generation requested for user: {Username}", request.Username);
+            _logger.LogInformation("Token generation requested for user: {Username}", request?.Username);
 
             try
             {
-                // Simple validation for demo purposes
-                if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+                if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 {
+                    _logger.LogWarning("Invalid credentials provided for token generation.");
                     return BadRequest(new ErrorResponse
                     {
                         Error = "InvalidCredentials",
                         Message = "Username and password are required",
-                        StatusCode = 400
+                        StatusCode = StatusCodes.Status400BadRequest
                     });
                 }
 
-                // For demo purposes, accept any non-empty credentials
-                // In production, this would validate against a user store
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default-secret-key-for-development");
-                
+                var keyString = _configuration["Jwt:Key"] ?? "default-secret-key-for-development";
+                var key = Encoding.UTF8.GetBytes(keyString);
+
+                var claims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.Name, request.Username),
+                    new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+                    new Claim("username", request.Username)
+                };
+
+                var expires = DateTime.UtcNow.AddHours(1);
+
                 var tokenDescriptor = new SecurityTokenDescriptor
                 {
-                    Subject = new ClaimsIdentity(new[]
-                    {
-                        new Claim(ClaimTypes.Name, request.Username),
-                        new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-                        new Claim("username", request.Username)
-                    }),
-                    Expires = DateTime.UtcNow.AddHours(1),
+                    Subject = new ClaimsIdentity(claims),
+                    Expires = expires,
                     Issuer = _configuration["Jwt:Issuer"],
                     Audience = _configuration["Jwt:Audience"],
                     SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
@@ -71,28 +77,22 @@ namespace ApiGateway.Controllers
 
                 return Ok(new
                 {
-                    Token = tokenString,
-                    Expires = tokenDescriptor.Expires,
-                    TokenType = "Bearer"
+                    accessToken = tokenString,
+                    tokenType = "Bearer",
+                    expiresAtUtc = token.ValidTo
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
-                
-                return StatusCode(500, new ErrorResponse
+                _logger.LogError(ex, "Error generating token.");
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
                 {
-                    Error = "TokenGenerationError",
-                    Message = "An error occurred while generating the token",
-                    StatusCode = 500
+                    Error = "TokenGenerationFailed",
+                    Message = "An error occurred while generating the token.",
+                    StatusCode = StatusCodes.Status500InternalServerError,
+                    Details = ex.Message
                 });
             }
         }
-    }
-
-    public class LoginRequest
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
     }
 }
