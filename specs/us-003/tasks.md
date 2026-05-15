@@ -1,5 +1,18 @@
 Repository: XI3135-RishuJindal/Test_Op_SpecToCode1
-- [ ] add Tests/Compliance/RouteInventoryTests.cs: Reflection-based tests to enumerate routes and assert absence of payment/webhook endpoints; also assert no payment/webhook SDK packages in ApiGateway.csproj.
-- [ ] add docs/ROUTE_INVENTORY.md: Human-readable route inventory with explicit statement that no payment endpoints or webhooks exist in MVP.
-- [ ] modify README.md: Add link to docs/ROUTE_INVENTORY.md and brief instructions to run tests to verify the audit.
-- [ ] add .specify/memory/README-US-003.txt: Short summary of the audit outcome and how the guardrail tests work for future contributors.
+
+Test enforcement
+- [ ] add Tests/RouteInventoryTests.cs: implement reflection-based scanner that discovers all [ApiController] classes and their HTTP actions, resolves route templates (class-level + method-level), and fails if any prohibited keywords are detected in controller/action names or route templates
+- [ ] add Tests/RouteDiscovery.cs: helper to encapsulate attribute parsing, [controller] token substitution, and auth detection ([Authorize]/[AllowAnonymous])
+- [ ] run dotnet test locally and ensure the new tests pass and list the discovered routes in test output
+
+Documentation
+- [ ] add openspec/changes/api-gateway/route-inventory.md: record current endpoints (method, route, controller.action, auth), audit date, and commit SHA
+- [ ] update README.md: add “Route Inventory Guard” section linking to specs/audit-api-route-inventory/spec.md and openspec/changes/api-gateway/route-inventory.md, describing the banned keywords and how the test works
+
+Review and governance
+- [ ] review acceptance criteria with product owner and security lead; confirm the prohibited keyword list covers their concerns
+- [ ] add PR checklist item in openspec/changes/api-gateway/tasks.md noting “Route Inventory tests pass; no payment/webhook routes present”
+- [ ] ensure ApiGateway.sln includes the Tests project (already present); verify CI executes tests and, if missing, document how to run locally
+
+Audit follow-ups (if violations are found)
+- [ ] if any prohibited routes are discovered, remove or rename them and update the inventory before merging

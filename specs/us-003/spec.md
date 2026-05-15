@@ -1,51 +1,48 @@
-Story summary
-- Jira: JT-5951 (30313)
-- Story ID: US-003
-- Type: Technical
-- Title: Audit API route inventory
-- As a Solution Architect, I want to audit the API route inventory, so that we confirm no payment endpoints or webhooks exist.
+US-003: Audit API route inventory
 
-Problem/Why
-- The MVP must not include any payment processing surfaces or inbound webhooks. We need an authoritative route inventory and automated guardrails to prevent accidental inclusion.
+What
+- Produce a definitive inventory of all API routes exposed by the ApiGateway service and verify that no payment-related endpoints or webhooks are present in the MVP.
+- Add an automated test guard that fails the build if any prohibited payment/webhook routes are introduced.
+- Document the current inventory and governance rules to guide future PR reviews.
 
-In-scope
-- Produce a current inventory of all HTTP routes exposed by the API Gateway.
-- Define criteria that classify payment- or webhook-related endpoints.
-- Automate verification that no such endpoints or dependencies exist.
-- Update repository documentation to include the route inventory.
+Why
+- To ensure scope control and compliance: the MVP must not include any payment processing or webhook integration surfaces.
+- To prevent regressions: a test-enforced contract is necessary to avoid accidental introduction of out-of-scope routes.
 
-Out of scope
-- Adding, removing, or refactoring business endpoints unrelated to audit.
-- Introducing payment capabilities or webhook frameworks.
-- Modifying authentication/authorization flows.
-
-Current route inventory (expected)
-- GET /api/health
-- POST /api/auth/token
-- POST /api/test (requires authorization)
+Context snapshot (from current source)
+- Controllers/HealthController.cs
+  - GET api/health (no auth)
+- Controllers/AuthController.cs
+  - POST api/auth/token (no auth; generates JWT for testing)
+- Controllers/TestController.cs
+  - POST api/test (requires [Authorize])
+- Swagger is enabled only in Development (Program.cs).
 
 Acceptance criteria
-- AC1: The documented API route inventory contains no endpoints whose path, controller, or action name match prohibited payment/webhook patterns.
-- AC2: No package references in the API project include known payment/webhook SDKs.
-- AC3: Automated tests enforce AC1 and AC2; CI fails on violation.
-- AC4: Route inventory documentation is added and linked from the README.
-- AC5: Stakeholder approval of the audit deliverable.
+1) Route inventory artifact
+- A documented list of all routes discovered from controller/action attributes that includes:
+  - HTTP method, resolved route template, controller.action, and whether [Authorize] is required.
+- The document is stored in-repo and references the commit SHA and date of inventory.
 
-Payment/webhook detection criteria
-- Route intent keywords (case-insensitive): payment, pay, billing, charge, checkout, invoice, refund, transaction, wallet, subscription, webhook, webhooks, callback.
-- Provider keywords (case-insensitive): stripe, paypal, braintree, square, razorpay, adyen, mollie, authorize.net, worldpay.
-- Project package names containing the above provider names.
+2) No payment/webhook routes present
+- The inventory contains no endpoints whose controller name, action name, or route template contains any of the prohibited keywords (case-insensitive):
+  - payment, payments, pay, billing, checkout, invoice, card, stripe, paypal, webhook, hooks, callback, subscription, charge, refund.
+- If any are found, the story is blocked until they are removed.
 
-Constraints
-- No new externally accessible routes introduced by this story.
-- Only tests and documentation changes are expected.
+3) Automated enforcement
+- An xUnit test in the Tests project reflects over the ApiGateway assembly, resolves route templates, and fails if any prohibited keywords are detected.
+- The test output includes a readable list of discovered routes for PR review logs.
 
-Dependencies
-- None across repositories; changes confined to XI3135-RishuJindal/Test_Op_SpecToCode1.
+4) Documentation
+- This specification and the generated inventory are committed.
+- README is updated with a short “Route Inventory Guard” note explaining the intent and where to find the inventory and test.
 
-Definition of Ready
-- API routes documented and accessible for audit.
-- Criteria for payment endpoints is defined (see above).
+Out of scope
+- Implementing or integrating any payment provider or webhook handler.
+- Changing authentication/authorization logic beyond inventory and documentation.
+- Non-API surfaces (e.g., message buses) unless they manifest as HTTP endpoints.
 
-Definition of Done
-- All acceptance criteria pass; updated documentation reflecting route inventory; stakeholder approval.
+Dependencies and cross-service notes
+- No external service dependency for the audit. Uses reflection on ApiGateway assembly.
+- CI is assumed to run dotnet test; adding the test ensures gating without needing additional CI config.
+- Swagger is not used for the guard (dev-only); reflection makes the guard environment-agnostic.

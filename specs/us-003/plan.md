@@ -1,46 +1,40 @@
-Architecture and approach
-- Strategy: Create an automated guardrail in the test project to:
-  1) Reflect over controllers/actions to enumerate effective route templates and assert no prohibited keywords are present.
-  2) Inspect ApiGateway.csproj package references to assert no payment/webhook SDKs are present.
-- Documentation: Add a ROUTE_INVENTORY.md capturing current routes and explicit confirmation that no payment endpoints or webhooks exist.
-- CI: Tests run as part of existing test suite; no pipeline modification required.
+Delivery approach
 
-Component design
-- Route inventory scanner (test-only):
-  - Discover controllers: Types assignable to ControllerBase with [ApiController].
-  - Determine base route: Read [Route] attributes; resolve token [controller] to controller name minus "Controller", lowercased.
-  - Determine action routes: Check for Http{Verb}Attribute(s) and optional templates (e.g., "token"). If none, use controller base route.
-  - Compose effective route: join base route and action route; normalize to "/api/...".
-  - Collect (method, path) pairs for assertions and for human-readable logging on failure.
+Architecture decisions
+- Use compile-time reflection in the test project to discover controllers ([ApiController]) and HTTP method attributes (HttpGet, HttpPost, HttpPut, HttpDelete, HttpPatch, HttpHead, HttpOptions).
+- Resolve route templates by combining class-level [Route("api/[controller]")] with method-level templates (e.g., [HttpPost("token")]) and substituting [controller] with the controller name sans “Controller”.
+- Determine authorization by checking for [Authorize] on controller or action; treat [AllowAnonymous] on the action as overriding.
 
-- Package reference scanner (test-only):
-  - Load ApiGateway.csproj as XML.
-  - Iterate <PackageReference Include="..."> items.
-  - Assert none contain known provider/payment keywords (case-insensitive).
+Prohibited keyword enforcement
+- Maintain a centralized, case-insensitive banned keyword list in the test.
+- Assert that neither the resolved route, controller name, nor action name contains any banned term.
+- On violation, fail the test and print the offending entries and the full discovered route list.
 
-API contracts
-- No new or changed API endpoints. This is an audit/verification-only change.
+Artifacts and documentation
+- Create a human-readable route inventory document capturing:
+  - The discovered routes in the current commit
+  - Per-route auth requirement
+  - Audit date and commit SHA placeholder to be filled during PR
+- Update README with a Route Inventory Guard section linking to the spec and inventory.
 
-Data model
-- No changes.
+Implementation details
+- Files to add under Tests:
+  - Tests/RouteInventoryTests.cs: The xUnit test that scans and asserts.
+  - Optionally a small helper class inside the same file or a new file (Tests/RouteDiscovery.cs) to keep logic readable.
+- Do not modify runtime code paths for this story. The enforcement is test-only and documentation.
+- Keep the test deterministic by avoiding server bootstrapping; rely solely on reflection of attribute metadata.
 
-Integration points
-- None added.
+Current expected inventory (from code context)
+- POST api/auth/token (anonymous)
+- GET api/health (anonymous)
+- POST api/test (requires authorization)
 
-Test cases
-- RouteInventory_HasNoPaymentOrWebhookEndpoints
-  - Arrange: load assembly ApiGateway.
-  - Act: enumerate routes.
-  - Assert: no route path, controller name, or action name contains any prohibited keyword.
+Process
+- Implement tests locally, run dotnet test to validate.
+- Capture the inventory into a markdown file under openspec/changes/api-gateway/route-inventory.md during PR, including the commit SHA.
+- Have product and security reviewers sign off on the inventory and acceptance criteria.
 
-- PackageReferences_DoNotContainPaymentProviders
-  - Arrange: open ApiGateway.csproj.
-  - Assert: no package name includes prohibited provider/payment tokens.
-
-Operationalization
-- Document the route inventory in docs/ROUTE_INVENTORY.md with timestamp and commit hash placeholder to update on change.
-- Link the document from README.md for quick discovery.
-
-Risk and mitigations
-- False negatives due to unconventional routing: Mitigate by scanning both controller-level and method-level attributes, and checking names as a fallback.
-- Future regressions: Guardrail tests ensure CI fail-fast on prohibited additions.
+Rollout and verification
+- Open PR with tests and docs.
+- Ensure CI runs tests and they pass.
+- Post-merge, any future introduction of banned endpoints will fail tests automatically.
