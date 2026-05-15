@@ -1,22 +1,23 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+FROM ubuntu:24.04
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
-COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
+# Set environment variables for noninteractive install
+ENV DEBIAN_FRONTEND=noninteractive
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+# Install basic dependencies for CI workflows: build-essential, git, curl, and python3/pip for basic linting/testing
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        git \
+        curl \
+        python3 \
+        python3-pip \
+    && rm -rf /var/lib/apt/lists/*
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+# Use /workspace as the working directory
+WORKDIR /workspace
+
+# Copy project files
+COPY . /workspace
+
+# Set default command (override in your CI as needed)
+CMD ["/bin/bash"]

@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Setup language (unknown, latest stable)
+      # Replace the following with the specific setup-* action if known, e.g., setup-python, setup-node, etc.
+      # - name: Set up Unknown language at latest stable
+      #   uses: actions/setup-unknown@v1
+      - name: Run Lint (replace with real linter)
+        run: echo "Run your linting tool here"
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      # Setup language (unknown, latest stable)
+      # Replace the following with the specific setup-* action if known
+      # - name: Set up Unknown language at latest stable
+      #   uses: actions/setup-unknown@v1
+      - name: Run Unit Tests (replace with real test command)
+        run: echo "Run your test command here"
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      # Setup language (unknown, latest stable)
+      # Replace the following with the specific setup-* action if known
+      # - name: Set up Unknown language at latest stable
+      #   uses: actions/setup-unknown@v1
+      - name: Build Project (replace with real build command)
+        run: echo "Run your build command here"
+
+  sast:
+    runs-on: ubuntu-latest
+    needs: build
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      # Setup language (unknown, latest stable)
+      # Replace the following with the specific setup-* action if known
+      # - name: Set up Unknown language at latest stable
+      #   uses: actions/setup-unknown@v1
+      - name: Run SAST Scan (optional, replace with the real scanner)
+        run: echo "Run your SAST security scan here"
