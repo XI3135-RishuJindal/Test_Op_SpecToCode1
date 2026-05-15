@@ -2,73 +2,58 @@
 
 ## Project Identity
 
-**Name:** Environment Variable Parameterization  
-**Purpose:** Refactor application configuration to use environment variables in place of hard-coded or static settings.  
-**High-Level Goal:** Enable the application to read configurable parameters from environment variables, thereby improving deployment flexibility, security, and operational portability.
+**Name:** Parameterize Configuration Modernization  
+**Purpose:** Enable system configuration to be provided via environment variables rather than hardcoded or static sources.  
+**High-Level Goal:** Refactor application code to read all relevant configuration from environment variables, supporting best practices in portability, deployment flexibility, and compliance.
 
 ---
 
 ## Guiding Principles
 
-1. **Prefer environment variables over hard-coded values because this decouples configuration from source and enables deployment-time changes.**  
-   *(Grounded in the task objective of parameterizing configuration.)*
-
-2. **Favor minimal application logic changes to maintain stability, given unknown language/runtime.**  
-   *(Grounded in the lack of known tech stack; reduces risk during refactor.)*
-
-3. **Do not expand configuration scope – only replace existing hard-coded/static parameters with environment variant, due to scope and upgrade urgency.**  
-   *(Grounded in stated modernization goal and urgency level.)*
-
-4. **Avoid introducing external secrets managers or config providers, since only environment variable parameterization is in scope.**  
-   *(Grounded in absence of related frameworks in tech analysis.)*
+1. **Prefer environment variables over static configurations because this enables 12-factor compliance and cloud portability.**
+2. **Prefer minimizing code changes to only configuration access points because the system’s general architecture and logic is not under review for this task.**
+3. **Prefer reviewing all configuration keys for runtime impact to avoid accidental functional regressions.**
+4. **Prefer clearly documented variable names over implicit conventions because the language and framework are unknown, and explicitness prevents misconfiguration.**
 
 ---
 
 ## Constraints
 
-- **Timeline/Effort Ceiling:**  
-  Must not exceed the person-days estimate specified in upgrade option "moderate".  
-  *(Exact value: TODO – requires detail from option.)*
-
+- **Timeline/Effort Ceiling:** Must not exceed the "moderate" option effort (actual person-day estimate: TODO).
 - **Technology Mandates:**  
-  - Must use environment variables for all affected configuration.
-  - No requirement to upgrade language or runtime (unknown).
-  - No new dependencies or third-party tools unless mandated by environment variable support.
-
-- **Budget/Scope Freeze:**  
-  - Do not add new configuration parameters: only parameterize existing ones.  
-  - Do not alter application functionality or business logic.
+  - Must read configuration exclusively from environment variables where practical.
+  - Underlying language, build tool, or cloud-specific mandates are unknown — TODO.
+  - No specific runtime or cloud provider requirements stated.
+- **Budget / Scope:**  
+  - Scope is strictly limited to parameterizing configuration — no functionality expansion or architectural change.
+  - No explicit budget information given — TODO.
 
 ---
 
 ## Quality Standards
 
-- **Testing:**  
-  - All affected configuration code must be covered by at least one automated test confirming environment variable behavior.  
-  - Minimum: Test each parameterized configuration for correct default and overridden values.
-
-- **Code Review:**  
-  - Every change must have at least one peer reviewed approval before merge.
-
-- **Documentation:**  
-  - Application README must list all environment variables used, with descriptions and default values (if any).
-
+- **Testing Coverage Floor:**  
+  - All changes must have test coverage verifying configuration is successfully read from environment variables (minimum: 100% of configuration code paths affected).
+- **Code Review Requirement:**  
+  - Every code submission must be reviewed and approved by at least one designated reviewer.
+- **Documentation Must-Haves:**  
+  - Every environment variable introduced or required must be listed and described in a single, discoverable documentation file (e.g., `ENVIRONMENT.md`).
 - **Deployment Gates:**  
-  - Application must start successfully (smoke test) with an empty environment and with all configuration variables set.
+  - No release or deployment may proceed unless all configuration can be set via environment variables as specified and passes automated testing relevant to this change.
 
 ---
 
 ## Decision Log
 
-| ID   | Decision                                                                 | Rationale                                                                           | Status    |
-|------|--------------------------------------------------------------------------|-------------------------------------------------------------------------------------|-----------|
-| 1    | Use environment variables to parameterize configuration                  | Directly aligns with modernization goal and guiding principles                      | Accepted  |
-| 2    | Avoid introducing secrets managers or other config providers             | Not part of the current scope as per analysis and constraints                       | Accepted  |
-| 3    | Scope limited to reparameterizing existing configuration, not adding new | Upgrade option and tech analysis do not call for adding or expanding configuration   | Accepted  |
-| 4    | Test only the updated configuration paths for envvar correctness         | Targets only what is necessary for this refactor, limiting unnecessary expansion     | Accepted  |
+| ID   | Decision                                   | Rationale                                                         | Status     |
+|------|--------------------------------------------|-------------------------------------------------------------------|------------|
+| 001  | All configuration must be read from environment variables | Core modernization goal; enables cloud-native practices             | accepted   |
+| 002  | No language- or framework-specific mechanisms mandated    | Language/runtime/build tool is unknown and thus not yet specified   | accepted   |
+| 003  | Effort is limited to "moderate" option                    | Upgrade option selected to constrain person-days and avoid overrun  | accepted   |
 
 ---
 
-*Sections not applicable to this task:*
+**Sections not applicable to this task:**  
+N/A — not applicable to this task
 
-N/A — not applicable to this task (for all aspects not covered above, such as language-specific mandates, compliance, non-configuration functionality, performance targets, etc.).
+---
