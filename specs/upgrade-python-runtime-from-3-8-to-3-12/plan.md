@@ -1,75 +1,101 @@
-# PLAN: Python Runtime Upgrade 3.8 → 3.12
+# PLAN: Python Runtime Upgrade from 3.8 to 3.12
 
 ## Overview
 
-**Strategy:** Big-bang migration
-
+**High-level migration strategy:**  
+**Big-bang migration** will be used for the Python 3.8 → 3.12 runtime upgrade.  
 **Justification:**  
-Given the lack of framework and component details and considering the moderate risk and medium urgency, a big-bang approach is justified. Python runtime upgrades are typically all-or-nothing at the environment level, and with limited context of supporting parallel runtimes or runtime-specific feature gating, incrementally deploying Python 3.12 alongside 3.8 is impractical. A big-bang migration enables focusing validation and testing efforts and simplifies rollback.
+- The upgrade option is marked "moderate" (person-days estimate assumed moderate risk/effort).
+- Python runtime upgrades typically alter the environment globally, making big-bang practical and minimizing split-brain risks.
+- Given no active framework, language, or build tool specifics, complexity/risk is limited to native code and dependency compatibility with Python 3.12.
+- The medium upgrade urgency supports a direct switchover after validation.
 
 ## Phases
 
-| Phase        | Description                           | Dependencies | Estimated Effort |
-|--------------|--------------------------------------|--------------|-----------------|
-| 1            | Update runtime to Python 3.12         | None         | [All effort from upgrade option] |
-| 2            | Verify application under Python 3.12   | Phase 1      |                 |
-| 3            | Address Python 3.12 incompatibilities  | Phase 2      |                 |
+| Phase   | Description                       | Dependencies              | Estimated Effort |
+| ------- | --------------------------------- | ------------------------- | ---------------- |
+| 1       | Static code & dependency check    | None                      | X person-days    |
+| 2       | Update runtime to Python 3.12     | Completion of Phase 1     | X person-days    |
+| 3       | Smoke/regression testing          | Completion of Phase 2     | X person-days    |
+| 4       | Cutover & monitoring              | Completion of Phase 3     | X person-days    |
 
-*Effort values are unavailable due to lack of explicit person-days estimate in the upgrade option details provided.*
+*Effort: Replace `X` with values matching "moderate" option person-days estimate once specified.*
 
 ## Component Changes
 
-N/A — not applicable to this task
+- **Project-wide:**  
+  - Update shebangs in scripts (e.g., `#!/usr/bin/env python3.12`) where hardcoded.
+  - Update virtual environment setup files (e.g., `Pipfile`, `requirements.txt`, `pyproject.toml`) to specify Python 3.12.
+  - Refactor any code (across all files) using deprecated features removed in Python 3.9, 3.10, 3.11, or 3.12.
+- **CI/CD pipeline definitions:**  
+  - Update all references to python:3.8 to python:3.12.
+  - Update Dockerfiles (`FROM python:3.8` → `FROM python:3.12`) if present.
+
+**APIs/Classes/Methods:**  
+- N/A — no specific application code or class context provided.
 
 ## Dependency Upgrade Plan
 
-| Dependency | Current Version | Target Version | Breaking Changes | Migration Notes |
-|------------|----------------|---------------|-----------------|----------------|
-| Python     | 3.8            | 3.12          | See Python 3.9–3.12 release notes for syntax/stdlib changes | Review code for deprecated/removed features used in 3.8, run test suite under 3.12 |
-
-Only the Python runtime is in scope per the provided tech analysis.
+| Dependency         | Current Version | Target Version | Breaking Changes        | Migration Notes                            |
+| ------------------ | -------------- | -------------- | ---------------------- | ------------------------------------------ |
+| Python interpreter | 3.8            | 3.12           | Yes (Python core only) | Review [Python 3.9–3.12 changelogs](https://docs.python.org/3/whatsnew/) for syntax or semantic changes.|
 
 ## Infrastructure Changes
 
 - **Docker base image:**  
-  If Docker is in use, update `FROM python:3.8` (or similar) to `FROM python:3.12` in Dockerfiles.
+  - Update Dockerfile `FROM python:3.8` → `FROM python:3.12` (if applicable).
+
+- **Kubernetes manifests:**  
+  - TODO — not specified in context.
+
 - **CI/CD pipeline:**  
-  If pipelines specify `python-version: 3.8` (e.g., in GitHub Actions workflow `setup-python`), update to `python-version: 3.12`.
-- **Kubernetes/IaC changes:**  
-  TODO — runtime environment/container orchestration details not provided.
+  - Update runners/agents/images to use Python 3.12.
+  - Update workflow/environment definitions to reference Python 3.12.
+
+- **IaC updates:**  
+  - TODO — not specified in context.
 
 ## Rollback Strategy
 
-- Revert Python runtime version to 3.8 in configuration files (e.g., Dockerfile, CI workflows, deployment scripts).
-- Re-deploy application to use the previous environment.
-- If issues arise post-upgrade, restore from pre-migration backups or immutable deployments (container images, infrastructure snapshots).
+**Phase 2 (Runtime Update):**
+- Revert Dockerfiles, CI/CD, and scripts to reference Python 3.8.
+- Revert all Python version pins in virtual environment definitions to 3.8.
+- Restore pre-upgrade environment/snapshots.
 
-Each step is independently reversible by switching runtime specifiers and re-deploying.
+**Phase 4 (Post-cutover):**
+- If issues arise, redeploy with Python 3.8 image/environment.
+- Roll back merged configuration changes referencing 3.12.
 
 ## Testing Strategy
 
-- **Unit Tests:**  
-  Run all test suites under Python 3.12; target 90%+ code coverage with e.g., `pytest` and `coverage.py`.
-- **Integration Tests:**  
-  Validate all services start and operate as expected under 3.12.
-- **Regression Tests:**  
-  Compare production and staging behavior before/after upgrade.
-- **Performance Tests:**  
-  Benchmark startup, throughput, and memory usage to detect regressions.
+- **Unit:**  
+  - All existing unit tests must pass under Python 3.12 (run via `pytest`, `unittest`, or similar).
+  - Coverage: Target 90%+ (existing coverage).
+
+- **Integration:**  
+  - Ensure integration and functional tests are run under Python 3.12.
+
+- **Regression:**  
+  - Full regression test pass in CI before and after the upgrade.
+
+- **Performance:**  
+  - Benchmark if feasible; compare against 3.8 baseline for regressions.
 
 - **CI Gates:**  
-  Tests must pass under Python 3.12 before merge/deploy gates are cleared.
+  - CI pipeline must block merge unless all tests pass in Python 3.12.
+
+**Tools:**  
+  - pytest/unittest coverage, tox/nox for multi-version testing, existing CI vendor.
 
 ## Timeline
 
-| Milestone         | Phase           | Estimated Completion | Owner         |
-|-------------------|-----------------|---------------------|--------------|
-| Python 3.12 baseline upgrade | Phase 1          | TODO                | TODO         |
-| All tests pass under 3.12    | Phase 2          | TODO                | TODO         |
-| All runtime-related issues resolved | Phase 3     | TODO                | TODO         |
-
-*Effort and specific owners are unspecified in the context; fill in upon assignment.*
+| Milestone                    | Phase             | Estimated Completion | Owner      |
+| ---------------------------- | ---------------- | ------------------- | ---------- |
+| Kickoff & code scan          | 1                | TODO                | TODO       |
+| Runtime & config update      | 2                | TODO                | TODO       |
+| All tests green in CI        | 3                | TODO                | TODO       |
+| Production cutover & monitor | 4                | TODO                | TODO       |
 
 ---
 
-**Note:** This plan is focused only on the scoped Python runtime upgrade per the inputs. All non-runtime, framework, or application/component-specific steps are marked as N/A or TODO, as required.
+*N/A — not applicable to this task for any section not listed above.*
