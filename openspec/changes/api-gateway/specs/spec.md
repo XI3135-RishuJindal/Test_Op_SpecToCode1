@@ -1,35 +1,11 @@
-# API Gateway Specification
+# API Gateway — Change Spec
 
-## Purpose
-The API Gateway serves as the entry point for client requests, managing routing, aggregation, and authentication.
+## Payments Epic (Deferred) — US-008
 
-### Requirement
-#### Scenario: Handle POST request
-- **Given** a client sends a POST request to `/api/test`
-- **When** the request is processed
-- **Then** the API Gateway should route the request to the appropriate service and return the response.
+Payments are explicitly out of scope for the current MVP. The API Gateway does not expose any payment routes today and no payment routes will be added during MVP. This update is documentation-only and does not introduce any runtime behavior or API surface in the gateway.
 
-## Technologies
-- C# with .NET Core Web API
+Refer to the deferred Payments epic for problem statement, goals, draft (future) interfaces, and sequencing:
+- Epic Spec: ../../../../specs/create-deferred-payments-epic/spec.md
+- Epic Plan: ../../../../specs/create-deferred-payments-epic/plan.md
 
-## Components
-- API Gateway: Handles incoming requests and routes them.
-
-## APIs
-### POST /api/test
-- **Purpose**: To test the layered architecture flow.
-- **Inputs**: Request body (specific structure TBD).
-- **Outputs**: Response body (specific structure TBD).
-
-## Data Models
-- **MedicationDTO**: Represents medication data.
-- **ErrorResponse**: Represents error responses from the API.
-
-## Interactions with Dependencies
-- No external services or data stores are involved.
-
-## Key Flows
-1. Client sends a POST request to `/api/test`.
-2. API Gateway authenticates the request.
-3. The request is routed to the appropriate backend service.
-4. The response is returned to the client.
+No further action is required in the API Gateway for MVP beyond maintaining this documentation pointer.
