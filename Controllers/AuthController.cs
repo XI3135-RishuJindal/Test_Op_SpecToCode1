@@ -4,6 +4,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using ApiGateway.Models;
+using ApiGateway.Utilities;
 
 namespace ApiGateway.Controllers
 {
@@ -30,10 +31,21 @@ namespace ApiGateway.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         public IActionResult GenerateToken([FromBody] LoginRequest request)
         {
-            _logger.LogInformation("Token generation requested for user: {Username}", request.Username);
+            // Never log secrets/passwords or any potentially sensitive user-provided fields
+            _logger.LogInformation("Token generation requested for user: {Username}", SensitiveDataMasker.Safe(request.Username));
 
             try
             {
+                if (request == null)
+                {
+                    return BadRequest(new ErrorResponse
+                    {
+                        Error = "InvalidRequest",
+                        Message = "Request body cannot be null",
+                        StatusCode = 400
+                    });
+                }
+
                 // Simple validation for demo purposes
                 if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 {
@@ -45,11 +57,9 @@ namespace ApiGateway.Controllers
                     });
                 }
 
-                // For demo purposes, accept any non-empty credentials
-                // In production, this would validate against a user store
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default-secret-key-for-development");
-                
+
                 var tokenDescriptor = new SecurityTokenDescriptor
                 {
                     Subject = new ClaimsIdentity(new[]
@@ -67,32 +77,26 @@ namespace ApiGateway.Controllers
                 var token = tokenHandler.CreateToken(tokenDescriptor);
                 var tokenString = tokenHandler.WriteToken(token);
 
-                _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
+                _logger.LogInformation("Token generated successfully for user: {Username}", SensitiveDataMasker.Safe(request.Username));
 
                 return Ok(new
                 {
-                    Token = tokenString,
-                    Expires = tokenDescriptor.Expires,
-                    TokenType = "Bearer"
+                    access_token = tokenString,
+                    token_type = "Bearer",
+                    expires_in = (int)TimeSpan.FromHours(1).TotalSeconds
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
-                
-                return StatusCode(500, new ErrorResponse
+                _logger.LogError(ex, "Error generating token");
+                return BadRequest(new ErrorResponse
                 {
-                    Error = "TokenGenerationError",
+                    Error = "TokenGenerationFailed",
                     Message = "An error occurred while generating the token",
-                    StatusCode = 500
+                    StatusCode = 400,
+                    Details = null
                 });
             }
         }
-    }
-
-    public class LoginRequest
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
     }
 }
