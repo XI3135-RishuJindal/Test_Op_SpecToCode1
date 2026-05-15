@@ -1,45 +1,45 @@
 ## Summary
 
-This spec covers the modernization of the application's configuration system to leverage environment variables for parameterization, replacing hardcoded or static configuration values. The expected outcome is a configuration approach where operational parameters (such as database URLs, API keys, feature toggles, or secrets) are sourced from environment variables at runtime, enabling improved flexibility, security, and alignment with 12-factor app principles.
+This SPEC covers the parameterization of configuration by introducing environment variable support across the application's configuration components. The expected outcome is that all relevant configuration values—previously hardcoded or set via static configuration files—can now be overridden via environment variables, providing flexibility to adapt the application to several deployment and runtime environments without code changes.
 
 ## Motivation
 
-Moving configuration into environment variables addresses the following drivers:
-
-- **Compliance:** Reduces risk of sensitive information leakage (e.g., secrets in source control), aids in adherence to security best practices.
-- **Operational Flexibility:** Enables distinct configuration per environment (development, staging, production) without code changes.
-- **Tech Debt:** Legacy static configurations make deployments error-prone and limit deployment automation.
-- **Upgrade Urgency:** Rated "medium" per the tech analysis, as configuration inflexibility represents non-critical but important tech debt.
+Parameterizing configuration through environment variables addresses several technical and operational needs:
+- **Industry Best Practice:** Use of environment variables aligns with the Twelve-Factor App methodology for modern application design.
+- **Environment Flexibility:** Allows seamless configuration in various environments (development, staging, production) without modifying code or configuration files.
+- **Security and Compliance:** Reduces risk of sensitive values (e.g., credentials, tokens) being committed to source repositories.
+- **Upgrade Urgency:** Rated "medium" based on tech analysis. There is no EOL, CVE, or compliance deadline currently driving this change, but alignment with contemporary deployment tooling is necessary.
+- **Tech Debt:** Resolves accumulated rigidity in configuration handling.
 
 ## Current State
 
-Configuration in the current state is not parameterized via environment variables. Specific implementation details, such as the names of configuration classes, config keys, or schema locations, are not available per the tech analysis.
+N/A — not applicable to this task
 
 ## Proposed Changes
 
-| Component  | Before                                          | After                                                         | Breaking? |
-|------------|-------------------------------------------------|----------------------------------------------------------------|-----------|
-| All configuration parameters | Values are hardcoded or defined in static config files. | Values are read from environment variables at runtime when available. | Y         |
-| Configuration loading logic | No support for environment substitution. | Supports reading configuration from environment variables, with fallback to defaults or legacy config as applicable. | Y         |
+| Component           | Before                                                         | After                                            | Breaking? (Y/N) |
+|---------------------|----------------------------------------------------------------|--------------------------------------------------|-----------------|
+| Configuration Layer | Relies solely on static files or hardcoded values for config.  | Supports overriding config values via environment variables, falling back to existing mechanism if unset. | N               |
+| Secrets Handling    | N/A (no environment variable support).                         | Sensitive config (e.g., secrets) can be supplied via environment variables.            | N               |
+| Documentation       | Does not mention environment variable configuration.            | Updated to document new environment variable keys and precedence.                      | N               |
 
 ## Compatibility & Breaking Changes
 
-| Breaking Change Description                                      | Migration Path / Mitigation         |
-|------------------------------------------------------------------|-------------------------------------|
-| Config values must now be provided through environment variables; legacy config files may be deprecated or ignored. | TODO — Define a migration utility or backward-compatible fallback for existing deployments. |
+N/A — not applicable to this task
 
 ## Acceptance Criteria
 
-1. Given a configuration parameter with a matching environment variable set, when the application starts, then the application uses the value from the environment variable.
-2. Given a configuration parameter with no matching environment variable set, when the application starts, then the application falls back to the default or legacy method (if supported).
-3. Given incorrect or missing required environment variables, when the application starts, then the application logs an explicit error and fails to start (if variable is mandatory).
-4. Given a CI deployment with environment variables populated, when tests are executed, then the application operates using those CI-supplied values without requiring changes to static configuration files.
+1. Given an unset environment variable and a value set in the static config, when the application is started, then the config value must be taken from the static config.
+2. Given an environment variable set to a value, when the application is started, then the config mechanism must use the value from the environment variable, overriding any value in the static config.
+3. Given no environment variable and no value in the static config, when the application is started, then the config value must be empty or default as per documented behavior.
+4. Given documentation of configuration options, when a new environment variable is supported, then the documentation must include its usage and precedence rules.
+5. All supported environment variables must be verifiable in CI by setting them and checking their effect on the application's runtime configuration.
 
 ## Open Questions
 
-| # | Question                                                                 | Owner           | Due Date   |
-|---|--------------------------------------------------------------------------|-----------------|------------|
-| 1 | What are the exact configuration parameters to be parameterized?          | TODO            | TODO       |
-| 2 | Is fallback to legacy config files required, or will env-vars be mandatory? | TODO            | TODO       |
-| 3 | What frameworks/parsing libraries (if any) will be used to bind environment variables? | TODO            | TODO       |
-| 4 | How will secrets management be enforced or audited during this transition? | TODO            | TODO       |
+| #  | Question                                                 | Owner (or TODO)           | Due Date (or TODO) |
+|----|----------------------------------------------------------|---------------------------|--------------------|
+| 1  | What are the names and expected formats of the targeted configuration keys to parameterize? | TODO                      | TODO               |
+| 2  | Are there constraints on which environment variables require masking (e.g. secrets)?         | TODO                      | TODO               |
+| 3  | Should command-line arguments override environment variables if both are provided?           | TODO                      | TODO               |
+| 4  | Is there a list of configuration values which must not be settable by environment variable?  | TODO                      | TODO               |
