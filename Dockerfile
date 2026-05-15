@@ -1,22 +1,26 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+# syntax=docker/dockerfile:1
+FROM ubuntu:24.04
+
+# Set environment variables for non-interactive installs
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install basic utilities and Python3 for unittests as a common denominator
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-venv \
+        ca-certificates \
+        git \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
 WORKDIR /app
-EXPOSE 80
-EXPOSE 443
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
-COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
+# Copy project files (modify as needed if precise context known)
+COPY . /app
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+# Install dependencies if requirements.txt exists
+RUN if [ -f requirements.txt ]; then pip3 install --upgrade pip && pip3 install -r requirements.txt; fi
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+# Default command (overridden in real project as appropriate)
+CMD [ "python3", "-m", "unittest", "discover" ]

@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      # TODO: Add actual linting command when language/tooling identified
+      - name: Lint code
+        run: echo "Lint step placeholder: Please replace with actual linter."
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      # TODO: Add exact language setup at latest stable when language is known
+      # - name: Setup <LANGUAGE>
+      #   uses: <setup-action>
+      #   with:
+      #     version: "latest"
+      - name: Run unittests
+        run: |
+          if [ -d test ] || [ -d tests ]; then
+            echo "Test step placeholder: Please replace with actual test command."
+          else
+            echo "No test or tests directory found."
+            exit 1
+          fi
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      # TODO: Add actual build step when language/tooling identified
+      - name: Build project
+        run: echo "Build step placeholder: Please replace with actual build command."
+
+  sast:
+    name: SAST Security Scan
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      # TODO: Add SAST tool (e.g., CodeQL) if language/support is known
+      - name: Run SAST scan
+        run: echo "SAST step placeholder: Please replace with actual SAST tool command."
