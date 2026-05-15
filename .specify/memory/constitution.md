@@ -1,29 +1,29 @@
 Quality principles
-- Security by default: deny inclusion of prohibited SDKs/libraries (payment providers) and fail CI on detection.
-- Supply-chain hygiene: continuously scan dependencies for known vulnerabilities and keep them updated.
-- Reproducibility: deterministic builds, pinned action versions, and version-controlled scan policies.
-- Fail fast with clear diagnostics: CI should provide actionable summaries and logs.
-- Minimal privileges: CI secrets and permissions restricted to read-only where possible.
-- Observability of the SDLC: scans run on PRs, main, and on a schedule; results are visible in PR checks and documentation.
+- Security-first CI: All pull requests and pushes must run automated dependency scanning. The pipeline must fail fast for high-risk findings (payment SDKs/libraries) unless an explicit, audited override is set.
+- Explicit allow/deny: Introduce a curated denylist of payment-related SDKs/libraries across ecosystems. Add a controlled override mechanism (PR label allow-payment-sdks) for exceptional cases with auditability.
+- Deterministic scans: Use repeatable CLI commands (dotnet list package) and a repository-pinned denylist file to ensure consistent results across runners and time.
+- Observability: Publish human-friendly summaries and store machine-readable artifacts for traceability.
+- Minimal friction: Scans run in parallel with build/test and complete within 3 minutes on typical hardware.
+- Extensibility: The scanning workflow supports additional ecosystems (e.g., Node.js) when corresponding manifests appear (package.json, yarn.lock, pnpm-lock.yaml).
 
-Technology guardrails
-- CI platform: GitHub Actions only; use official actions pinned by major version or commit SHA where possible.
-- Scanners: .NET built-in dependency vulnerability reporting (dotnet list package) plus a custom prohibited-dependency detector.
-- Policy-as-code: central JSON policy file for banned packages/patterns committed in repo.
-- No external paid scanners or services; Dependabot is enabled for nuget and docker ecosystems.
-- No calls to untrusted third-party endpoints from CI steps.
-- Jobs must be cross-platform capable; scripts use PowerShell Core for portability on GitHub-hosted runners.
+Coding standards
+- Workflows: Use GitHub Actions YAML, lowercase job and step ids, and explicit versions of actions.
+- Scripts: Implement scanning logic in PowerShell Core (pwsh) for cross-platform compatibility. Prefer pure CLI and standard JSON parsing (ConvertFrom-Json).
+- Config files: Keep patterns/denylist in repo under .github/dependency-rules to allow code review and governance.
+- Logging: Emit concise findings to console and $GITHUB_STEP_SUMMARY; avoid secrets or sensitive values in logs.
 
-Coding standards for CI scripts
-- PowerShell Core, strict mode, exit non-zero on policy violations.
-- Clear console output and GitHub step summary for developer feedback.
-- Input validation and defensive parsing of tool output.
-- Keep business policy (banned list) outside the script in a JSON file.
-- Avoid duplicating logic; shared logic in scripts/ci.
+Architecture guardrails
+- No network access to third-party services during scanning beyond package restore from official registries.
+- No dynamic code execution introduced by scanning scripts.
+- The denylist is applied to both direct and transitive dependencies. Transitive matches are treated as blocking unless overridden.
+- Overrides are explicit: A PR label allow-payment-sdks or a temporary allowlist entry stored in-repo (with reviewer approval) is required to pass.
 
 Non-functional requirements
-- Performance: dependency scanning job completes within 5 minutes on standard runners for this repo size.
-- Reliability: scans run on every PR and on a weekly schedule; deterministic outcomes on identical inputs.
-- Maintainability: policy can be extended without code changes; script has comments and help.
-- Compliance: keep artifacts minimal; do not print secrets; do not upload source externally.
-- Documentation: developer-facing docs describing how
+- Performance: End-to-end dependency scanning must complete in under 180 seconds for this repo on ubuntu-latest.
+- Reliability: Pipeline must not be flaky; any nonzero exit in scanning script must fail the job.
+- Usability: On failure, developers must see the offending package id, version, path/manifests, and suggested remediation.
+- Compliance: All findings and overrides are persisted as workflow artifacts; denylist changes require code review (PR).
+
+Outcomes enforced by this constitution
+- Any introduction of payment-related SDKs/libraries in .NET (NuGet) or, when present, frontend (npm/yarn/pnpm) will break the build unless explicitly allowed.
+- Weekly scheduled scans detect drift or new transitive inclusions even without code changes.
