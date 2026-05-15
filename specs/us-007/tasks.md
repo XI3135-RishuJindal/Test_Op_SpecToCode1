@@ -1,4 +1,5 @@
-## Tasks (auto-derived from plan — review and refine)
+## Tasks
 
-- [ ] Implement changes described in plan.md
-
+- [ ] Implement the feature described in spec.md
+- [ ] Write unit tests for the new functionality
+- [ ] Update documentation as needed

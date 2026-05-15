@@ -1,32 +1,37 @@
-Title: Compliance documentation quality principles for US-007 — Draft PCI scope statement
+Title: Compliance-first engineering constitution for US-007 — Draft PCI scope statement
 
 Purpose
-- Establish review standards, stakeholder expectations, and guardrails for creating and maintaining the PCI scope statement that declares no Cardholder Data (CHD) is stored, processed, or transmitted by the MVP.
+- Establish guardrails ensuring the MVP is definitively out of PCI DSS scope by prohibiting any storage, processing, or transmission of Cardholder Data (CHD) or Sensitive Authentication Data (SAD).
+- Define documentation standards, review gates, and stakeholder expectations for compliance artifacts added to the repository.
 
-Standards and guardrails
-- Authoritative references: Align language and definitions with PCI DSS v4.0 (use the official terms CHD, SAD, PAN, CVV/CVC/CID, track data, PIN/PIN block).
-- Scope clarity: The statement must explicitly declare the MVP’s systems are out of PCI scope because they do not store, process, or transmit CHD/SAD and must describe compensating boundaries (use of a third-party PSP-hosted payment page or no payment capability at all).
-- Negative assertions: Explicitly state what is not present (no PAN, no SAD, no tokens that can be reversed to PAN, no payment forms, no payment SDKs, no iframe capturing PAN).
-- Data flow depiction: Include a simple data-flow diagram showing that users never submit CHD to the MVP. If a PSP exists, show the browser-to-PSP path bypassing MVP backends.
-- Logging and telemetry: Affirm no logs, traces, metrics, or error payloads can contain CHD. Commit to redaction patterns and verify no fields resemble PAN or SAD.
-- Evidence: Reference or link to PSP AOC/Attestation or contractual statement of responsibility (if applicable). If no PSP is used by MVP, explicitly state “no payment capability included in MVP.”
-- Change control: Any future introduction of payment capability requires a new PCI impact assessment before merge; add a “reassessment gate” guideline in the repository.
-- Versioning and approvals: Include document metadata (version, owner, last review date, next review date, approvers). Changes require Security and Product Owner approvals via PR.
-- Repository placement: Store the statement under openspec/compliance/ with diagram sources (e.g., .mmd Mermaid or .drawio). Keep binary exports alongside source or in artifacts.
-- Traceability: Reference this story ID (US-007) in the document header for audit traceability.
+Quality principles
+- Compliance by design: Architectural and process decisions must default to zero-CHD handling. Any future payment capability must be designed as PSP-redirect or tokenized flows and trigger a re-scope assessment.
+- Least data/least functionality: Do not collect, accept, proxy, or log financial data. APIs must avoid parameters that suggest CHD (e.g., cardNumber, pan, cvc, cvv, expiry).
+- Explicit scoping: Document scope boundaries, in-scope components, and out-of-scope items. Maintain a change log and next-review date.
+- Auditability: Compliance documents in-repo with versioning, owner, approvers, effective date. Evidence references (code searches, config, endpoints inventory).
+- Secure by default: TLS 1.2+ enforced, authentication on modification endpoints, structured logging with sensitive-data redaction policies.
+- Observability without leakage: Logs must not include request bodies or fields that could contain CHD. If message bodies must be logged for debugging in dev, mask/disable in prod.
 
-Review expectations
-- Security/Compliance Lead: Verifies accuracy of PCI terminology, negative assertions, boundaries, and evidence references.
-- Engineering Lead: Confirms the implementation matches the statement (no payment code paths, no SDKs, no CHD-like fields).
-- Product Owner: Confirms business scope matches MVP (no payment acceptance).
-- Legal/Privacy (optional): Verifies clarity of shared responsibility with PSP or absence of payment handling.
-- Documentation quality: Clear, concise, single page if possible; include DFD; link to evidence; accessible via README.
+Coding and documentation standards
+- No CHD/SAD data structures: Do not add model properties named or semantically equivalent to cardNumber, pan, primaryAccountNumber, expiry, expMonth, expYear, cvv, cvc, track1, track2, pin, pinBlock.
+- Request/response contracts: Public APIs must not include CHD-like fields. Any addition of “payment” or “billing” fields requires Security/Compliance review prior to merge.
+- Logging: Never log secrets or user-supplied identifiers that could be CHD. Prefer metadata (requestId, status) over payload content.
+- Configuration: No keys/secrets in repo; use secret stores. Ensure no config references to payment endpoints in MVP.
+- Documentation artifacts: Place PCI docs under docs/compliance/pci/*.md with front-matter (Title, Version, Owner, Approvers, Effective Date, Next Review), and sections: Executive Summary, Scope Boundaries, Systems Inventory, Data Flows, Evidence, Governance.
 
-Non-functional requirements for documentation
-- Discoverability: README lists the compliance document and diagram.
-- Maintainability: Next review date within 6–12 months or prior to any payment-related feature work.
-- Auditability: Approvals recorded in PR; diagram/source included and versioned.
+Architecture guardrails
+- No payment processing path: API Gateway must not initiate, proxy, or terminate payment sessions; no forwarding of CHD.
+- Future payments pattern (if ever needed): Use hosted payment page or client-side tokenization by PSP; backend only handles opaque tokens, never PAN. Any change → mandatory PCI re-scope.
+- Network/data flow: No connections to payment processors in MVP; ensure DFD depicts zero CHD ingress/egress.
+- Dependency hygiene: Third-party libraries must not introduce telemetry that can capture payloads containing CHD.
 
-Risk controls
-- Repository search and CI check to ensure no PAN-like patterns or payment SDKs are introduced without review.
-- Logging policy confirmation: ensure app logging settings do not capture request bodies containing payment fields (not applicable now, but guardrail noted).
+Non-functional requirements (NFRs)
+- Security: TLS 1.2+; authenticated/authorized endpoints; no sensitive data at rest/in transit; default-deny for CHD flows.
+- Reliability: Logging and error handling must not echo request bodies.
+- Compliance documentation: Published scope statement with approvals, stored in repo; revalidated each release or scope change.
+- Monitoring: Alerts if new routes with “payment/checkout/card” detected (lint/check as a CI safeguard when introduced in future).
+
+Review standards and stakeholder expectations
+- Stakeholders: Product Owner, Engineering Lead, Security/Compliance Lead (approver), DevOps Lead.
+- Acceptance requires: completed PCI scope statement in repo, evidence of codebase search for CHD indicators, approvals recorded, README link added, next review date set.
+- Change management: Any PR adding payment-adjacent terminology requires Compliance review. Create a follow-up issue to define the re-scope trigger checklist.
