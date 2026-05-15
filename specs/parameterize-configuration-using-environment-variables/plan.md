@@ -3,108 +3,83 @@
 ## Overview
 
 **Migration Strategy:**  
-Strangler-fig
+Strangler-fig pattern.
 
 **Justification:**  
-Given the medium urgency and the moderate upgrade effort indicated by the option, a strangler-fig approach is appropriate. This allows incremental migration of configuration sources to environment variables, reducing risk by leaving existing configuration mechanisms in place until all necessary configuration has been safely parameterized and tested. It provides a rollback-friendly path and minimizes the blast radius in case of misconfiguration.
-
----
+Given the medium upgrade urgency and moderate effort estimate, adopting the strangler-fig pattern allows for incremental migration of configuration parameters from static sources (e.g., hardcoded values or config files) to environment variables. This minimizes risk by enabling component-level validation and rollback. The risk score is moderate and incremental rollout aligns well with this profile.
 
 ## Phases
 
-| Phase         | Description                                                     | Dependencies             | Estimated Effort        |
-|---------------|-----------------------------------------------------------------|--------------------------|------------------------|
-| Phase 1       | Audit and identify all hard-coded or file-based config usages   | None                     | (Moderate/3 phases)*   |
-| Phase 2       | Refactor config to accept/env var or fallback as needed         | Phase 1                  | (Moderate/3 phases)    |
-| Phase 3       | Remove legacy config source after verification                  | Phase 2                  | (Moderate/3 phases)    |
+| Phase | Description                                                  | Dependencies          | Estimated Effort |
+|-------|--------------------------------------------------------------|----------------------|------------------|
+| 1     | Audit all configuration usages                               | None                 | 2 person-days    |
+| 2     | Refactor configuration access to use environment variables   | Phase 1              | 3 person-days    |
+| 3     | Update documentation and developer onboarding                | Phase 2              | 1 person-day     |
+| 4     | Remove old configuration patterns                            | Phase 3, validation  | 2 person-days    |
 
-\* Total effort must align with the "moderate" person-days estimate from the upgrade option.  
-If the option's "moderate" is not numerically specified, estimate as 3 equal phases.
-
----
+*Effort values are inferred proportionally from the "moderate" estimate in the option; specific numbers may need refinement if further context is provided.*
 
 ## Component Changes
 
-| Component/File                        | Structural Changes                                                                                           | APIs Modified                                         |
-|---------------------------------------|-------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|
-| N/A — not applicable to this task     | No specific components or files provided in context.                                                        | N/A                                                   |
-
-- In practice, this phase would touch all configuration reading points (config files, constants).
-- Code must be updated to read from environment variables where appropriate, maintaining fallback to current mechanism until full cutover.
-- No concrete classes or methods specified due to lack of provided code context.
-
----
+- **N/A — not applicable to this task**
+    - No specific components, classes, or files identified in context. The task applies broadly to configuration code.
 
 ## Dependency Upgrade Plan
 
-| Dependency         | Current Version   | Target Version    | Breaking Changes           | Migration Notes              |
-|--------------------|------------------|-------------------|----------------------------|------------------------------|
-| N/A — not applicable to this task     |                  |                           |                              |                              |
-
----
+- **N/A — not applicable to this task**
+    - No dependencies or versions are involved in the parameterization task per the provided context.
 
 ## Infrastructure Changes
 
-- **Docker Base Image:**  
-  TODO — Not specified in context.
-
-- **Kubernetes Manifests:**  
-  TODO — Not specified in context.
-
-- **CI/CD Pipeline:**  
-  TODO — Not specified in context.
-
-- **IaC Updates:**  
-  TODO — Not specified in context.
-
----
+- **TODO**
+    - No details are provided for Docker, Kubernetes, CI/CD, or IaC changes. If using containerized or orchestrated deployment, inject environment variables appropriately.
+    - Update runtime environment configuration to define the new expected environment variables.
 
 ## Rollback Strategy
 
-| Phase     | Rollback Steps                                                                            |
-|-----------|------------------------------------------------------------------------------------------|
-| Phase 1   | N/A — No code changed in this phase                                                      |
-| Phase 2   | Restore previous configuration-loading logic, removing fallback to env vars               |
-| Phase 3   | Re-introduce previous config file/constant mechanism if needed; revert any removals       |
+**Per Phase:**
 
-- Each step is reversible by stashing or reverting git changes to affected configuration code.
-- Keep legacy configuration sources until environment variable handling is fully validated in each environment.
-
----
+1. **Phase 1 (Audit configuration usages):** No changes—no rollback needed.
+2. **Phase 2 (Refactor to use environment variables):**
+   - Restore previous configuration access methods (e.g., revert code to read from files or hardcoded values).
+   - Remove or unset new environment variables if set.
+3. **Phase 3 (Documentation):**
+   - Restore or rollback to prior documentation and onboarding materials.
+4. **Phase 4 (Remove old patterns):**
+   - Reintroduce previous config mechanisms if needed (recover from version control).
 
 ## Testing Strategy
 
 - **Unit Tests:**  
-  - Test configuration loading logic for both environment variable and legacy fallback paths.
-  - Tools: Use the language's standard unit test framework (N/A here due to unknown language).
-  - Coverage: 100% coverage on config-loading code.
+  Test configuration loading logic for both environment variables and fallbacks.  
+  **Tools:** Native test framework (language unknown).  
+  **Coverage Goal:** 90% for configuration-relevant code.
 
 - **Integration Tests:**  
-  - Verify system behavior with environment variables set/missing.
-  - Simulate runtime environments with/without env var values.
+  Validate that all affected modules correctly read from environment variables when set.
 
 - **Regression Tests:**  
-  - Full application regression (“does it work as before”) in both old and new configuration modes.
+  Ensure existing functionality unaffected; compare behavior before/after parameterization.
 
 - **Performance Tests:**  
-  - N/A — Not applicable; configuration lookup not likely performance-critical.
+  Not applicable (no expected performance impact).
 
 - **CI Gates:**  
-  - All test phases must pass for environment-parameterized and legacy configuration pathways before proceeding to the next phase.
-
----
+  - Ensure test pipeline passes with AND without environment variable injection.
 
 ## Timeline
 
-| Milestone            | Phase     | Estimated Completion       | Owner         |
-|----------------------|-----------|---------------------------|---------------|
-| Config Audit         | Phase 1   | Moderate/3 days (TBD)     | TODO          |
-| Config Refactor      | Phase 2   | Moderate/3 days (TBD)     | TODO          |
-| Cutover & Clean-up   | Phase 3   | Moderate/3 days (TBD)     | TODO          |
-
-*Effort/duration based on even split of “moderate” upgrade estimate: fill in real dates/owners as assigned.*
+| Milestone                            | Phase | Estimated Completion | Owner |
+|--------------------------------------|-------|---------------------|-------|
+| Complete configuration audit         | 1     | +2 days             | TODO  |
+| Refactoring to environment variable  | 2     | +5 days             | TODO  |
+| Documentation & onboarding update    | 3     | +6 days             | TODO  |
+| Final cleanup/removal old configs    | 4     | +8 days             | TODO  |
 
 ---
 
-**Note:**  
-This PLAN intentionally focuses only on environment variable parameterization. Code, infra, and dependency details are left at TODO or N/A, as required by the task constraints and limited context.
+**Note:** All schedule durations are approximate and based on the moderate effort estimate in the upgrade option.
+
+---
+
+*End of Plan*
