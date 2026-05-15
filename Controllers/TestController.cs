@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ApiGateway.Models;
-using System.ComponentModel.DataAnnotations;
+using ApiGateway.Utilities;
 
 namespace ApiGateway.Controllers
 {
@@ -30,8 +30,9 @@ namespace ApiGateway.Controllers
         public async Task<IActionResult> Post([FromBody] TestRequest request)
         {
             var requestId = Guid.NewGuid().ToString();
-            
-            _logger.LogInformation("Processing POST request to /api/test with RequestId: {RequestId}", requestId);
+
+            // Log only metadata, never raw user-provided message
+            _logger.LogInformation("Processing POST /api/test with RequestId: {RequestId}", requestId);
 
             try
             {
@@ -58,21 +59,24 @@ namespace ApiGateway.Controllers
                     });
                 }
 
-                // Log request details
-                _logger.LogInformation("Processing request with message: {Message}, RequestId: {RequestId}", 
-                    request.Message, requestId);
+                // Safely log a scrubbed version only
+                var safeMessage = SensitiveDataMasker.ScrubPotentialPan(request.Message);
+                _logger.LogInformation("Validated request for RequestId: {RequestId}. SafeMessagePreview: {Message}", requestId, SensitiveDataMasker.Preview(safeMessage));
+
+                // Simulate async processing
+                await Task.Yield();
 
                 // Process medication if provided
                 MedicationDTO? processedMedication = null;
                 if (request.Medication != null)
                 {
-                    _logger.LogInformation("Processing medication data for RequestId: {RequestId}", requestId);
-                    
-                    // Simulate processing - in a real scenario, this would route to backend services
+                    // Do not log field values; just note presence
+                    _logger.LogInformation("Medication payload present for RequestId: {RequestId}", requestId);
+
                     processedMedication = new MedicationDTO
                     {
                         Id = request.Medication.Id,
-                        Name = request.Medication.Name,
+                        Name = $"{request.Medication.Name} (Processed)",
                         Description = request.Medication.Description,
                         Dosage = request.Medication.Dosage,
                         Unit = request.Medication.Unit,
@@ -81,30 +85,26 @@ namespace ApiGateway.Controllers
                     };
                 }
 
-                // Create response
                 var response = new TestResponse
                 {
                     Status = "Success",
-                    Message = $"Request processed successfully: {request.Message}",
+                    Message = safeMessage,
                     ProcessedMedication = processedMedication,
                     ProcessedAt = DateTime.UtcNow,
                     RequestId = requestId
                 };
 
-                _logger.LogInformation("Successfully processed request with RequestId: {RequestId}", requestId);
-
+                _logger.LogInformation("Successfully processed RequestId: {RequestId}", requestId);
                 return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing request with RequestId: {RequestId}", requestId);
-                
-                return StatusCode(500, new ErrorResponse
+                _logger.LogError(ex, "Unhandled exception while processing RequestId: {RequestId}", requestId);
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
                 {
                     Error = "InternalServerError",
-                    Message = "An error occurred while processing the request",
-                    StatusCode = 500,
-                    Details = ex.Message
+                    Message = "An unexpected error occurred while processing the request",
+                    StatusCode = 500
                 });
             }
         }
