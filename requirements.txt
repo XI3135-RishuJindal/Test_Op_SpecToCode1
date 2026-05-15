@@ -1,0 +1,2 @@
+# requirements.txt
+# (Empty requirements file. No Python dependencies specified for .NET 8.0 migration.)
