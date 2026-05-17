@@ -1,0 +1,64 @@
+name: Dependency Scanning
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sbom-and-deps-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore NuGet packages
+        run: dotnet restore
+
+      - name: Generate SBOM
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          syft dir:. -o spdx-json > sbom.json
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan SBOM
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          grype sbom:sbom.json --fail-on high
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan for payment SDKs
+        run: bash scripts/detect-payment-sdks.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAYMENTS_ALLOWLIST_FILE: .github/security/dependency-scan-policy.yml
+
+  docker-image-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Build Docker image
+        run: docker build --tag my-image .
+
+      - name: Generate Image SBOM and Scan
+        run: |
+          syft my-image:latest -o spdx-json > image-sbom.json
+          grype sbom:image-sbom.json --fail-on high --output sarif > results.sarif
+        continue-on-error: true
+        env:
+          DOCKER_BUILDKIT: 1
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

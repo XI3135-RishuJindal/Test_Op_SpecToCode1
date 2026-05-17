@@ -1,50 +1,58 @@
 WHAT
-- Implement CI dependency scanning that automatically detects payment-related SDKs/libraries in this repository.
-- Scope prioritizes backend (.NET 8, NuGet) and is extensible to frontend (npm/yarn/pnpm) when a package.json is present.
-- On detection of denylisted packages (direct or transitive), the CI job fails and surfaces a clear report.
-- Provide an auditable override via PR label allow-payment-sdks to temporarily unblock while maintaining visibility.
-
-User story narrative
-- As a security/compliance owner, I need automated detection of payment SDKs/libraries so that payment processing logic cannot be introduced without review and approval.
-- As a developer, I want fast feedback on PRs and clear instructions on how to remediate or request an approved exception.
+Implement automated dependency and container image scanning in CI for repository XI3135-RishuJindal/Test_Op_SpecToCode1. The workflow must:
+- Generate a software bill of materials (SBOM) for the .NET solution and Docker image.
+- Scan direct and transitive dependencies for known CVEs; fail on High/Critical severities per policy.
+- Detect presence of payment-related SDKs/libraries (e.g., Stripe, PayPal, Braintree, Razorpay, Square, Adyen, Worldpay, Klarna, etc.). If detected and not allowlisted, fail the job; otherwise warn and summarize.
+- Upload findings in SARIF and artifact formats; post a concise summary in the job output.
+- Keep dependencies current via Dependabot for nuget and github-actions ecosystems.
 
 WHY
-- Prevent unapproved payment integrations, reduce compliance risk, and ensure architectural boundaries (payments handled only in designated services).
-- Early detection minimizes rework and audit exposure.
+- Reduce supply-chain risk and provide auditable evidence of dependency health (SBOM, SARIF).
+- Ensure early awareness of payment-related libraries that may impose compliance implications (PCI DSS) even if unused at runtime.
+- Automate feedback on PRs so vulnerabilities and prohibited packages are blocked before merge.
+
+User story
+As a DevOps/Security engineer, I want dependency scanning in CI so that PRs are blocked if they introduce vulnerable or non-approved payment SDKs, and the team gains visibility through artifacts and automated summaries.
 
 Acceptance criteria
-1) Triggering
-- Runs on pull_request (all branches), push to main, and a weekly schedule (cron).
-- Skips failure when the PR has label allow-payment-sdks, but still produces a report.
+1) GitHub Actions workflow
+- A workflow .github/workflows/dependency-scanning.yml triggers on:
+  - pull_request to main
+  - push on main
+  - manual dispatch
+- Jobs:
+  a) sbom-and-deps-scan
+     - Runs on ubuntu-latest
+     - Sets permissions: contents: read; security-events: write (only for SARIF upload)
+     - Restores NuGet, runs syft to generate SPDX JSON SBOM for the repo, uploads as artifact
+     - Runs grype scan on the SBOM; build fails on High/Critical unless allowlisted
+     - Uploads SARIF to GitHub code scanning and attaches a human-readable summary to the job
+     - Runs scripts/detect-payment-sdks.sh; fails if any non-allowlisted payment SDK is found; prints allowlist and findings
+  b) docker-image-scan
+     - Builds the Docker image from Dockerfile with local tag
+     - Generates SBOM for the image and scans it with grype or trivy
+     - Fails on High/Critical; uploads artifacts and optional SARIF
+     - If Docker build fails, gracefully falls back to filesystem scan so CI still produces results
+- Concurrency: cancel in-progress on new push to same ref.
 
-2) Detection (backend)
-- Restore dependencies and enumerate both direct and transitive NuGet packages from ApiGateway.csproj using dotnet list package with JSON output.
-- Match package ids against a denylist (case-insensitive, regex-supported) including: stripe, paypal, braintree, adyen, razorpay, square, authorize(.?net)?, cybersource, checkout(.?com)?, mollie, worldpay, bluesnap, klarna, afterpay, affirm, amazonpay, payu.
-- If any match is found, job fails with exit code 1 and summarizes the list of matches in $GITHUB_STEP_SUMMARY.
+2) Policy/allowlist
+- .github/security/dependency-scan-policy.yml committed with:
+  - severity_threshold: high
+  - allowlist: list of CVE IDs and package coordinates with justification and expiry date
+  - payment_sdk_allowlist: list of approved payment packages (empty by default)
 
-3) Detection (frontend; future-proof)
-- If a package.json is present at repo root or subfolders, parse dependencies and devDependencies and match against the same denylist.
-- Absence of a frontend manifest does not fail or warn.
+3) Payment SDK detection
+- The detection step scans:
+  - *.csproj, packages.lock.json (if present), output of dotnet list <proj> package --include-transitive
+  - Any package or file path containing case-insensitive patterns: stripe, paypal, braintree, razorpay, square, adyen, checkout, payu, worldpay, klarna, afterpay, sezzle, applepay, googlepay
+- The step writes a table of matches to the job summary and exits non-zero if any unapproved hit exists.
 
-4) Reporting
-- Produce a concise console output and append a markdown summary (found packages, versions, manifest path, direct vs transitive).
-- Upload machine-readable artifacts (packages.json from dotnet list; scan-results.json) for audit.
+4) Dependabot
+- .github/dependabot.yml configured for:
+  - package-ecosystem: nuget in root directory, schedule weekly
+  - package-ecosystem: github-actions in root directory, schedule weekly
+- Dependabot PRs are labeled security and dependency with auto-assign to CODEOWNERS if present.
 
-5) Override and governance
-- Presence of the PR label allow-payment-sdks causes the job to report findings but not fail.
-- Denylist patterns are stored in .github/dependency-rules/payment-denylist.txt and changes require PR review.
-
-6) Developer experience
-- README updated with “Dependency scanning” section explaining behavior, override, and how to run locally.
-
-Out-of-scope
-- Vulnerability/License scanning (separate pipelines).
-- Secret scanning (covered by platform).
-- Auto-remediation PRs.
-- CodeQL or SAST configuration changes.
-
-Cross-service dependencies
-- None at runtime. Build-time only:
-  - GitHub Actions runners (ubuntu-latest).
-  - actions/setup-dotnet to install .NET 8 SDK.
-  - PowerShell Core (pwsh) shell available on ubuntu-latest.
+5) Developer documentation
+- README updated with:
+  - brief overview of scanning, run conditions, policy, and how

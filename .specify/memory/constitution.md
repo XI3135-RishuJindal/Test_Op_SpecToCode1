@@ -1,29 +1,41 @@
-Quality principles
-- Security-first CI: All pull requests and pushes must run automated dependency scanning. The pipeline must fail fast for high-risk findings (payment SDKs/libraries) unless an explicit, audited override is set.
-- Explicit allow/deny: Introduce a curated denylist of payment-related SDKs/libraries across ecosystems. Add a controlled override mechanism (PR label allow-payment-sdks) for exceptional cases with auditability.
-- Deterministic scans: Use repeatable CLI commands (dotnet list package) and a repository-pinned denylist file to ensure consistent results across runners and time.
-- Observability: Publish human-friendly summaries and store machine-readable artifacts for traceability.
-- Minimal friction: Scans run in parallel with build/test and complete within 3 minutes on typical hardware.
-- Extensibility: The scanning workflow supports additional ecosystems (e.g., Node.js) when corresponding manifests appear (package.json, yarn.lock, pnpm-lock.yaml).
+US-002 — CI dependency scanning setup
 
-Coding standards
-- Workflows: Use GitHub Actions YAML, lowercase job and step ids, and explicit versions of actions.
-- Scripts: Implement scanning logic in PowerShell Core (pwsh) for cross-platform compatibility. Prefer pure CLI and standard JSON parsing (ConvertFrom-Json).
-- Config files: Keep patterns/denylist in repo under .github/dependency-rules to allow code review and governance.
-- Logging: Emit concise findings to console and $GITHUB_STEP_SUMMARY; avoid secrets or sensitive values in logs.
+Quality principles
+- Security-by-default: supply-chain risks are first-class; builds fail on unacceptable CVEs (Critical/High) unless explicitly allowed with justification.
+- Reproducibility: scanning is deterministic, pinned action versions/SHAs, immutable base images, SBOM artifacts retained.
+- Least privilege: CI jobs run with minimal GitHub token permissions; no external secret exfiltration; network egress minimized.
+- Transparency and auditability: scan outputs, SBOMs, and policy decisions are stored as build artifacts and linked in PRs.
+- Fail-fast: detection of critical findings fails the job early with clear remediations.
+- Traceability: each exception to policy (allowlist) includes maintainer, ticket/issue link, expiry/revisit date.
+
+Coding standards and pipeline conventions
+- GitHub Actions workflows:
+  - Pin actions by commit SHA.
+  - Set GITHUB_TOKEN permissions to contents:read and security-events:write only when uploading SARIF; otherwise contents:read.
+  - Use concurrency groups to avoid redundant runs on same ref.
+  - Cache NuGet to reduce runtime; do not cache scan results.
+  - Upload SBOM in SPDX or CycloneDX; prefer SPDX JSON via syft.
+  - Artifact retention 7–14 days, non-public.
+- Scripts:
+  - Place helper scripts under scripts/.
+  - Shell scripts are POSIX-compliant, executable, set -euo pipefail, and produce machine- and human-readable outputs.
+  - No secrets in logs. Redact sensitive env vars automatically.
 
 Architecture guardrails
-- No network access to third-party services during scanning beyond package restore from official registries.
-- No dynamic code execution introduced by scanning scripts.
-- The denylist is applied to both direct and transitive dependencies. Transitive matches are treated as blocking unless overridden.
-- Overrides are explicit: A PR label allow-payment-sdks or a temporary allowlist entry stored in-repo (with reviewer approval) is required to pass.
+- Tools: syft (SBOM), grype (vuln scan) and/or trivy as a fallback. No self-hosted scanners introduced.
+- Scope: repository and Docker image derived from Dockerfile; no external registries required.
+- Policy: build fails on CVE severity High and Critical unless listed in .github/security/dependency-scan-policy.yml with documented justification. Medium/Low generate warnings.
+- Payment SDK detection: proactive search for payment-related dependencies by scanning project files and transitive dependency lists. Findings are reported in job summary; build fails if unauthorized payment SDKs exist (not on allowlist).
+- Performance: typical end-to-end scan under 10 minutes on ubuntu-latest.
 
 Non-functional requirements
-- Performance: End-to-end dependency scanning must complete in under 180 seconds for this repo on ubuntu-latest.
-- Reliability: Pipeline must not be flaky; any nonzero exit in scanning script must fail the job.
-- Usability: On failure, developers must see the offending package id, version, path/manifests, and suggested remediation.
-- Compliance: All findings and overrides are persisted as workflow artifacts; denylist changes require code review (PR).
+- Reliability: scanning jobs are idempotent, resilient to tool network hiccups (single retry).
+- Maintainability: dependabot keeps github-actions and nuget ecosystems updated; policy file centralizes thresholds/allowlist.
+- Observability: step summaries include counts of findings by severity and any payment SDK hits; SARIF uploaded for developer triage.
+- Compliance: outputs adequate for audit (SBOM, SARIF, policy, job logs). Exceptions reference a tracking ticket.
 
-Outcomes enforced by this constitution
-- Any introduction of payment-related SDKs/libraries in .NET (NuGet) or, when present, frontend (npm/yarn/pnpm) will break the build unless explicitly allowed.
-- Weekly scheduled scans detect drift or new transitive inclusions even without code changes.
+Review standards and stakeholder expectations
+- AppSec: reviews policy thresholds, allowlist additions, and confirms scanner accuracy on this repo.
+- DevOps: validates pipeline stability, runtime, pinned SHAs, and caching effectiveness.
+- Service owners: acknowledge payment SDK detections and approve/deny allowlist entries.
+- Definition of Done: all acceptance criteria in spec are met; a green run on main; README updated; artifacts present; a sample PR demonstrates failure on seeded vulnerability or test payment pattern; ownership documented.
