@@ -1,34 +1,33 @@
-Quality principles
-- MVP focus: exclude any payment/billing/subscription capability from UI. No “hidden” or disabled payment controls; remove, don’t just hide.
-- Safety first: removing UI must not introduce navigation dead-ends or runtime errors. Build must succeed after removals.
-- Accessibility: after removals, tab orders, landmarks, and semantics remain correct; no orphaned aria-controls/labels.
-- Observability: remove payment-related telemetry; ensure dashboards/alerts don’t expect them.
-- Performance: bundle size should not include payment code; tree-shake or delete dead payment modules.
-- Security & privacy: ensure no client collects, stores, or transmits payment-related data (PAN, tokens). No residual logs or analytics fields for payments.
-- Internationalization: remove orphaned payment translation keys and references.
-- Testing: add negative tests asserting absence of payment UI across screens and routes.
-- Documentation: update user guides and release notes to reflect absence of payment features in MVP.
+Quality principles and guardrails for US-001: Remove payment UI elements
 
-Tech guardrails and coding standards
-- Prefer deletion over feature-flag hiding for UI code. If retained for reintroduction, isolate behind a compile-time flag ENABLE_PAYMENTS=false and ensure code is excluded from bundles.
-- No dangling imports, exports, routes, or deep links to removed features. CI lints with no-unused-vars/imports must pass.
-- Navigation integrity: if a route is removed, ensure no link points to it; external deep links should resolve to 404 with standard UX.
-- API clients: remove or deprecate payment client methods; no calls from UI code paths. Maintain type safety; build must have zero type errors.
-- Logging/analytics: remove events and schemas referencing payment. Don’t leave null/undefined placeholders in event streams.
-- Backwards compatibility: do not break non-payment features. Maintain existing public API contracts unless otherwise specified.
+1) Purpose and scope
+- This repository is an API Gateway (ASP.NET Core) without any front-end UI. The story’s objective is to guarantee that no payment-related UI constructs (links, buttons, forms) or discoverable API routes pertaining to payments exist, now or in future regressions.
+- We enforce the objective through code-level constraints, contract reviews, and unit test guards.
 
-Non-functional requirements
-- Reliability: 99.9% availability target unaffected. No runtime exceptions from missing components.
-- Performance: First Contentful Paint and bundle size should not regress; payment code should not be included in final bundles.
-- Security: No collection or processing of payment data. Ensure CSP and permissions are not widened for payment vendors (e.g., Stripe, PayPal).
-- Compliance: No PII for payments appears in UI, logs, or analytics.
-- Traceability: commits reference JT-5958/US-001; changes are gated by PR review and CI.
+2) Non-functional requirements
+- Zero payment UI footprint: No Razor Views, Pages, wwwroot assets, or client-side code that references payments.
+- Zero payment endpoints: No controllers, routes, or action methods that reference payments.
+- Observability: Clear logs; no sensitive data exposure. No payment/token data should be logged because such data must not exist.
+- Security: JWT auth as configured; no payment scopes/claims.
+- Documentation: Repository documentation must explicitly state that payments are out of scope for MVP.
 
-Acceptance testing principles
-- Negative UI assertions: on every screen, confirm absence of payment-related strings and controls (e.g., “Billing”, “Payment”, “Upgrade”, “Subscribe”, “Credit card”).
-- Navigation coverage: navbar, settings, profile, onboarding, empty states, modals, and error states.
+3) Coding standards and conventions
+- Naming: Do not introduce classes, methods, namespaces, or routes that include payment-related terms (e.g., payment, payments, billing, checkout, card, subscription, invoice).
+- API design: New endpoints must not imply or provide payment capabilities.
+- Tests: Introduce “negative” guard tests that fail fast if payment-related constructs are introduced.
 
-Change management
-- Produce a removal inventory PR description listing deleted files and routes.
-- Update CHANGELOG and user docs to state payments are excluded from MVP.
-- Ensure feature toggle defaults to disabled in all environments, if any remains.
+4) Architecture guardrails
+- No front-end layer should be added to this API Gateway for payments. Any future UI or payment work requires a separate design/approval and MUST NOT land in this repo during MVP.
+- Swagger/OpenAPI must not expose payment semantics. Adding such routes is prohibited.
+- CI must run guard tests on every PR to prevent regressions.
+
+5) Review and acceptance standards
+- Code reviewers validate that no payment semantics are added in code or config.
+- Guard tests exist and pass: they scan controller classes and route attributes for payment terms and validate absence of UI asset directories.
+- Documentation updated to reflect the non-payment MVP stance.
+- Any future proposal that impacts payments is out-of-scope and must be redirected.
+
+6) Stakeholder expectations
+- Product: MVP ships with no user payment experiences or payment endpoints.
+- Security/Compliance: No PCI-related surface area in this repo.
+- Engineering: Automated tests enforce constraints to minimize regressions.

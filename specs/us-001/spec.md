@@ -1,70 +1,50 @@
-Title
-Remove payment UI elements (US-001 / JT-5958)
+US-001 — Remove payment UI elements
+
+What
+- Ensure the application contains no payment-related UI constructs (links, buttons, forms) and no discoverable routes/endpoints that pertain to payments.
+- Because this repository is an API Gateway without a front-end, “UI elements” translates into:
+  - No web assets or view technologies (Razor Views/Pages, Blazor, wwwroot) that expose or imply payments.
+  - No controllers, routes, or Swagger-exposed endpoints that indicate payment functionality.
+- Introduce automated guardrails (tests) to prevent future introduction of payment UI/routes.
 
 Why
-- To keep the MVP scope focused on core functionality and avoid incomplete or non-compliant payment experiences.
-- To reduce risk and surface area by excluding payment UI and dependencies from builds and user journeys.
+- MVP is defined as non-payment. Eliminating any payment-related footprint reduces compliance scope, attack surface, and confusion for integrators.
+- Guard tests institutionalize the constraint and avoid rework from accidental re-introduction.
 
-What (functional scope)
-- Remove all payment-related UI from web and mobile clients:
-  - Links, buttons, CTAs (e.g., “Billing”, “Upgrade”, “Subscribe”).
-  - Forms, inputs, and validation for payment details (e.g., card details).
-  - Routes/screens/pages dedicated to billing or subscription management.
-  - Modals, toasts, empty states, and banners that reference payments.
-- Remove client-side analytics/events related to payments.
-- Remove or deprecate client-side API calls referencing payment endpoints; ensure none are invoked from UI code.
-- Ensure navigation remains coherent after removals (no dead links).
-
-User story
-As a Product Owner, I want to ensure there are no payment UI elements in the MVP, so that we maintain the focus on core functionalities.
+User story narrative
+- As a product owner, I need to ensure the MVP has no payment flows, screens, or endpoints so that we can ship a focused, low-risk first release.
 
 Acceptance criteria
-- No payment UI (links/buttons/forms) on any screen.
-- No navigation items/routes to billing or subscription flows.
-- No client calls to payment endpoints triggered by UI actions.
-- No payment-related analytics/logs emitted by clients.
-- Build, lint, and tests pass with zero references to removed components.
+1) No payment endpoints
+   - There are no controllers, route templates, or action names containing payment-related terms (case-insensitive: payment, payments, billing, checkout, card, subscription, invoice).
+   - A unit test scans controllers and their Route/HTTP method attributes and fails if any such terms appear.
 
-Gherkin-ready acceptance tests
-- Scenario: Payment CTAs are absent in navigation
-  Given I am an authenticated user
-  When I open the main navigation
-  Then I do not see any items containing “Billing”, “Upgrade”, or “Subscribe”
+2) No payment UI assets
+   - The repository contains no Views, Pages, Blazor, or wwwroot assets implementing or referencing payments.
+   - A unit test asserts that no UI folders exist and that no .cshtml/.razor/.html files exist in the repo containing payment-related terms.
 
-- Scenario: Settings has no payment sections
-  Given I am on the Settings screen
-  Then I do not see any sections or links related to “Payment” or “Subscription”
+3) Documentation clarity
+   - README explicitly states that payments are out of scope for MVP and that no payment UI or endpoints exist.
 
-- Scenario: Payment routes are inaccessible
-  When I navigate directly to /billing or /subscribe
-  Then I receive the standard 404 page
-
-- Scenario: No payment inputs on any page
-  Given I browse all available forms
-  Then I do not find inputs for credit card details or payment methods
-
-- Scenario: No payment analytics
-  When I perform common user flows
-  Then no analytics events with names containing “payment”, “billing”, or “upgrade” are emitted
-
-Constraints
-- Do not degrade non-payment features or navigation clarity.
-- Do not introduce unused imports or broken type references.
-- If a feature flag exists for payments, it must be disabled by default and excluded from bundles.
-- Maintain a clean dependency graph; remove third-party payment SDKs only if not required by non-UI code paths.
+4) Regression prevention
+   - The new guard tests are part of the test suite and run in CI (dotnet test). PRs introducing payment semantics will fail.
 
 Out of scope
-- Removal of backend payment endpoints or domain logic (unless required by client build).
-- Data migration or deletion of historical payment data.
-- Pricing pages that purely describe plans without interaction may remain if explicitly non-transactional and approved by Product; otherwise remove links that suggest upgrading or paying.
+- Removing or altering payment logic in other repositories or services.
+- Implementing feature flags for payment functionality.
+- Introducing a front-end or modifying Swagger to add new documents. We only ensure no payment semantics are present.
 
-Dependencies and cross-repo notes
-- Web frontend: primary removal of components, routes, and analytics.
-- Mobile app: remove screens and menu items; update deep links.
-- API service: no functional changes required; optionally mark payment endpoints internal for clients.
-- Docs: update user-facing docs to reflect absence of payment features.
+Assumptions
+- This API Gateway hosts controllers only; it does not include a UI layer.
+- Tests can run with current solution structure; no additional infra is required.
 
-Definition of Done
-- All AC pass; UI is free from payment elements; stakeholders sign-off.
-- CI green: type checks, lints, unit/e2e tests.
-- Documentation updated; changelog entry added; removal inventory captured in PR.
+Cross-service dependencies
+- None directly. Front-end repositories must independently remove payment UI, but that is outside this repo and story.
+
+Success metrics
+- All guard tests pass; grep/search of repo controllers returns no payment terms.
+- Build and test remain green with unchanged coverage for existing functionality.
+
+Risks and mitigations
+- Risk: False positives from permitted mentions in docs. Mitigation: Guard tests focus on code/routes and UI files only, not general docs except README scope statement.
+- Risk: Inconsistent CI environment paths. Mitigation: Tests compute repo root relative to test assembly to check for UI folders safely.
