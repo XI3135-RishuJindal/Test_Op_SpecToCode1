@@ -1,0 +1,39 @@
+title = "Custom Payment Patterns"
+
+description = "Custom patterns for detecting payment-related secrets and keys in configuration files."
+
+[[rules]]
+  description = "Stripe keys"
+  regex = '''(?i)sk_live_[A-Za-z0-9]{24}'''
+  tags = ["payment", "stripe"]
+
+[[rules]]
+  description = "PayPal Secrets"
+  regex = '''(?i)ClientSecret|access_token'''
+  tags = ["payment", "paypal"]
+
+[[rules]]
+  description = "Braintree Keys"
+  regex = '''(?i)MerchantId|PublicKey|PrivateKey|TokenizationKey'''
+  tags = ["payment", "braintree"]
+
+[[rules]]
+  description = "Adyen Keys"
+  regex = '''(?i)ApiKey|X-API-Key|HMACKey'''
+  tags = ["payment", "adyen"]
+
+[[rules]]
+  description = "Razorpay Keys"
+  regex = '''(?i)KeyId|KeySecret'''
+  tags = ["payment", "razorpay"]
+
+[[rules]]
+  description = "Square Access Tokens"
+  regex = '''(?i)sq0atp[A-Za-z0-9]{22}|sq0csp[A-Za-z0-9]{22}|sq0bsk[A-Za-z0-9]{22}'''
+  tags = ["payment", "square"]
+
+[[allowlist]]
+  description = "Example allowlist entry - modify with justification"
+  regex = '''(dummy|fake)'''
+  paths = ["**/*"]
+  # Note: Actual entries require security and reviewer approval with detailed comments
