@@ -1,18 +1,15 @@
-Repository: XI3135-RishuJindal/Test_Op_SpecToCode1
+## Tasks (auto-derived from plan — review and refine)
 
-Test enforcement
-- [ ] add Tests/RouteInventoryTests.cs: implement reflection-based scanner that discovers all [ApiController] classes and their HTTP actions, resolves route templates (class-level + method-level), and fails if any prohibited keywords are detected in controller/action names or route templates
-- [ ] add Tests/RouteDiscovery.cs: helper to encapsulate attribute parsing, [controller] token substitution, and auth detection ([Authorize]/[AllowAnonymous])
-- [ ] run dotnet test locally and ensure the new tests pass and list the discovered routes in test output
-
-Documentation
-- [ ] add openspec/changes/api-gateway/route-inventory.md: record current endpoints (method, route, controller.action, auth), audit date, and commit SHA
-- [ ] update README.md: add “Route Inventory Guard” section linking to specs/audit-api-route-inventory/spec.md and openspec/changes/api-gateway/route-inventory.md, describing the banned keywords and how the test works
-
-Review and governance
-- [ ] review acceptance criteria with product owner and security lead; confirm the prohibited keyword list covers their concerns
-- [ ] add PR checklist item in openspec/changes/api-gateway/tasks.md noting “Route Inventory tests pass; no payment/webhook routes present”
-- [ ] ensure ApiGateway.sln includes the Tests project (already present); verify CI executes tests and, if missing, document how to run locally
-
-Audit follow-ups (if violations are found)
-- [ ] if any prohibited routes are discovered, remove or rename them and update the inventory before merging
+- [ ] Use reflection within the test project to enumerate all controllers (types deriving from ControllerBase with [ApiController]) and extract:
+- [ ] Class-level [Route] template (replace [controller] with controller name sans “Controller” and normalize to lowercase).
+- [ ] Method-level HttpMethodAttribute(s) and optional method templates combined with the class route.
+- [ ] Presence of [Authorize] at class or method level to infer auth requirement.
+- [ ] Normalize discovered paths to lowercase and leading slash for stable comparisons.
+- [ ] Assert that no discovered route contains banned segments: payment, payments, billing, checkout, webhook, webhooks, stripe, paypal, braintree, square, adyen.
+- [ ] Add “guardrail” tests that do not require hosting the app or hitting Swagger; these are compile-time assembly scans, lightweight and deterministic.
+- [ ] Add a complementary “dependency guard” test that reads ApiGateway.csproj and asserts no banned SDKs are referenced.
+- [ ] Maintain a human-readable route inventory markdown file under openspec/audits to be reviewed with each PR. The inventory will be created from current code and manually updated if routes change. The reflection test output message will help reconcile differences during review.
+- [ ] Tests/Guards/RouteInventoryTests.cs
+- [ ] Discovers and composes full routes and HTTP verbs.
+- [ ] Exposes a failure message listing any offending routes and a pretty-printed inventory to assist remediation.
+- [ ] Option

@@ -1,48 +1,49 @@
-US-003: Audit API route inventory
+WHAT
+- Create an authoritative inventory of all API routes exposed by the ApiGateway service and ensure no payment-related endpoints or webhooks are present in the MVP.
+- Introduce automated guardrail tests that fail the build if any payment-related routes or SDK dependencies appear.
+- Provide a human-readable document capturing current routes, methods, and authentication requirements.
 
-What
-- Produce a definitive inventory of all API routes exposed by the ApiGateway service and verify that no payment-related endpoints or webhooks are present in the MVP.
-- Add an automated test guard that fails the build if any prohibited payment/webhook routes are introduced.
-- Document the current inventory and governance rules to guide future PR reviews.
+WHY
+- Prevent accidental inclusion of payment functionality in the MVP.
+- Ensure future changes cannot regress by adding payment routes or dependencies.
+- Provide clarity for downstream teams regarding the approved public API surface.
 
-Why
-- To ensure scope control and compliance: the MVP must not include any payment processing or webhook integration surfaces.
-- To prevent regressions: a test-enforced contract is necessary to avoid accidental introduction of out-of-scope routes.
+User story narrative
+- As a platform architect, I need to audit the ApiGateway’s routes so that I can verify and enforce that no payment endpoints or webhooks are exposed in the MVP.
 
-Context snapshot (from current source)
-- Controllers/HealthController.cs
-  - GET api/health (no auth)
-- Controllers/AuthController.cs
-  - POST api/auth/token (no auth; generates JWT for testing)
-- Controllers/TestController.cs
-  - POST api/test (requires [Authorize])
-- Swagger is enabled only in Development (Program.cs).
+Current context summary
+- Controllers present: AuthController (/api/auth/token), HealthController (/api/health), TestController (/api/test).
+- No visible payment or webhook routes, and no payment SDK dependencies.
 
 Acceptance criteria
-1) Route inventory artifact
-- A documented list of all routes discovered from controller/action attributes that includes:
-  - HTTP method, resolved route template, controller.action, and whether [Authorize] is required.
-- The document is stored in-repo and references the commit SHA and date of inventory.
+1) Route inventory
+- A document at openspec/audits/api-route-inventory.md lists every route with:
+  - HTTP method
+  - Path
+  - Authentication requirement inferred from [Authorize] attributes
+- Inventory reflects current code:
+  - GET /api/health (no auth)
+  - POST /api/auth/token (no auth)
+  - POST /api/test (auth required)
 
-2) No payment/webhook routes present
-- The inventory contains no endpoints whose controller name, action name, or route template contains any of the prohibited keywords (case-insensitive):
-  - payment, payments, pay, billing, checkout, invoice, card, stripe, paypal, webhook, hooks, callback, subscription, charge, refund.
-- If any are found, the story is blocked until they are removed.
+2) Automated guardrails (tests)
+- A unit test enumerates all controller routes via reflection and asserts:
+  - No route contains any banned segments: payment, payments, billing, checkout, webhook, webhooks, stripe, paypal, braintree, square, adyen.
+- A separate unit test asserts the ApiGateway.csproj does not contain package references or text containing the above banned terms.
+- Tests run as part of the existing test project and fail fast with actionable messages.
 
-3) Automated enforcement
-- An xUnit test in the Tests project reflects over the ApiGateway assembly, resolves route templates, and fails if any prohibited keywords are detected.
-- The test output includes a readable list of discovered routes for PR review logs.
+3) Documentation hygiene
+- README.md contains a link to the route inventory document and a brief note about the guardrail tests.
+- Swagger shows only the inventoried endpoints; no payment-related tags or routes are present.
 
-4) Documentation
-- This specification and the generated inventory are committed.
-- README is updated with a short “Route Inventory Guard” note explaining the intent and where to find the inventory and test.
+4) No functional changes
+- No runtime behavior change is introduced; only tests and documentation are added/updated.
 
 Out of scope
-- Implementing or integrating any payment provider or webhook handler.
-- Changing authentication/authorization logic beyond inventory and documentation.
-- Non-API surfaces (e.g., message buses) unless they manifest as HTTP endpoints.
+- Implementing, modifying, or removing business endpoints beyond the scope of documenting and asserting their presence/absence.
+- Adding new API features or modifying authentication/authorization behavior.
+- Creating or editing external CI pipelines beyond ensuring tests can run.
 
-Dependencies and cross-service notes
-- No external service dependency for the audit. Uses reflection on ApiGateway assembly.
-- CI is assumed to run dotnet test; adding the test ensures gating without needing additional CI config.
-- Swagger is not used for the guard (dev-only); reflection makes the guard environment-agnostic.
+Dependencies and interactions
+- Internal only; relies on .NET 8, xUnit, and reflection against the ApiGateway assembly.
+- No external services or data stores impacted.
