@@ -1,50 +1,38 @@
-US-001 — Remove payment UI elements
+US-001: Remove payment UI elements
 
 What
-- Ensure the application contains no payment-related UI constructs (links, buttons, forms) and no discoverable routes/endpoints that pertain to payments.
-- Because this repository is an API Gateway without a front-end, “UI elements” translates into:
-  - No web assets or view technologies (Razor Views/Pages, Blazor, wwwroot) that expose or imply payments.
-  - No controllers, routes, or Swagger-exposed endpoints that indicate payment functionality.
-- Introduce automated guardrails (tests) to prevent future introduction of payment UI/routes.
+- Remove and/or ensure absence of all payment-related UI components across this application. For this API repository, “UI components” map to HTTP endpoints (controllers/routes), visible API documentation (Swagger), and README guidance that would present or enable payment actions.
+- Add automated guardrails so future changes cannot accidentally introduce payment UI artifacts.
 
 Why
-- MVP is defined as non-payment. Eliminating any payment-related footprint reduces compliance scope, attack surface, and confusion for integrators.
-- Guard tests institutionalize the constraint and avoid rework from accidental re-introduction.
+- The MVP is explicitly non-payment. Exposing any payment functionality or affordance creates compliance, scope, and user-expectation risks.
 
-User story narrative
-- As a product owner, I need to ensure the MVP has no payment flows, screens, or endpoints so that we can ship a focused, low-risk first release.
+User Story
+- As a product owner, I need the application to have no payment UI so that users cannot initiate or perceive payment-related actions in the MVP.
 
-Acceptance criteria
-1) No payment endpoints
-   - There are no controllers, route templates, or action names containing payment-related terms (case-insensitive: payment, payments, billing, checkout, card, subscription, invoice).
-   - A unit test scans controllers and their Route/HTTP method attributes and fails if any such terms appear.
+Scope and Interpretation for This Repository
+- UI = API surface and documentation that are user-visible via Swagger or client integration.
+- There are currently no payment controllers or views in this repository; this story confirms the absence and establishes automated checks.
 
-2) No payment UI assets
-   - The repository contains no Views, Pages, Blazor, or wwwroot assets implementing or referencing payments.
-   - A unit test asserts that no UI folders exist and that no .cshtml/.razor/.html files exist in the repo containing payment-related terms.
+Acceptance Criteria
+- AC1: No endpoints, routes, or controllers related to payment exist.
+  - No classes/files in Controllers/ named with Payment, Billing, Checkout, Pay.
+  - No [Route] or [Http*] attributes containing payment, billing, checkout, pay.
+- AC2: Swagger UI (when launched in Development) shows zero payment-related operations.
+- AC3: README.md contains an explicit statement that the MVP ships without payment UI.
+- AC4: An automated test in ApiGateway.Tests fails if any payment-related artifact appears in Controllers/.
+  - Keyword set (case-insensitive): payment, payments, billing, checkout, pay.
+  - The test scans file names, class names, and attribute strings within Controllers/.
+- AC5: Build and test succeed locally and in CI with no payment UI artifacts detected.
 
-3) Documentation clarity
-   - README explicitly states that payments are out of scope for MVP and that no payment UI or endpoints exist.
+Out of Scope
+- Removing or altering any non-payment endpoints (Auth, Health, Test).
+- Payment backend logic removal in other services or repositories.
+- Data model changes unrelated to UI exposure.
 
-4) Regression prevention
-   - The new guard tests are part of the test suite and run in CI (dotnet test). PRs introducing payment semantics will fail.
+Dependencies and Cross-Service Considerations
+- None for this repository. Client/UI applications or other services must independently enforce the same policy.
 
-Out of scope
-- Removing or altering payment logic in other repositories or services.
-- Implementing feature flags for payment functionality.
-- Introducing a front-end or modifying Swagger to add new documents. We only ensure no payment semantics are present.
-
-Assumptions
-- This API Gateway hosts controllers only; it does not include a UI layer.
-- Tests can run with current solution structure; no additional infra is required.
-
-Cross-service dependencies
-- None directly. Front-end repositories must independently remove payment UI, but that is outside this repo and story.
-
-Success metrics
-- All guard tests pass; grep/search of repo controllers returns no payment terms.
-- Build and test remain green with unchanged coverage for existing functionality.
-
-Risks and mitigations
-- Risk: False positives from permitted mentions in docs. Mitigation: Guard tests focus on code/routes and UI files only, not general docs except README scope statement.
-- Risk: Inconsistent CI environment paths. Mitigation: Tests compute repo root relative to test assembly to check for UI folders safely.
+Risks and Mitigations
+- False positives from comments or documentation: keep the automated test scoped to Controllers/ and route attributes; do not scan documentation folders.
+- Future feature growth: guard test prevents accidental regression; any payment feature requires a new spec and removal of this guard.

@@ -1,33 +1,33 @@
-Quality principles and guardrails for US-001: Remove payment UI elements
+Title: Zero-Payment-UI Constitution for US-001
 
-1) Purpose and scope
-- This repository is an API Gateway (ASP.NET Core) without any front-end UI. The story’s objective is to guarantee that no payment-related UI constructs (links, buttons, forms) or discoverable API routes pertaining to payments exist, now or in future regressions.
-- We enforce the objective through code-level constraints, contract reviews, and unit test guards.
+Purpose
+- Enforce that the MVP ships with zero payment-related user interface elements. For this API-only repository, “UI elements” include any public/API affordance or documentation that exposes, hints at, or enables payment actions (e.g., controllers, routes, DTOs, Swagger-visible endpoints, README instructions).
 
-2) Non-functional requirements
-- Zero payment UI footprint: No Razor Views, Pages, wwwroot assets, or client-side code that references payments.
-- Zero payment endpoints: No controllers, routes, or action methods that reference payments.
-- Observability: Clear logs; no sensitive data exposure. No payment/token data should be logged because such data must not exist.
-- Security: JWT auth as configured; no payment scopes/claims.
-- Documentation: Repository documentation must explicitly state that payments are out of scope for MVP.
+Quality Principles
+- Zero payment surface: No Payment/Billing/Checkout references in controllers, routes, public models, or API docs.
+- Least surprise: Existing non-payment behavior remains unchanged; no regression to Health, Auth, Test endpoints.
+- Security-first: No secrets in code; no logs suggesting payment flows.
+- Observability: Logs remain informative but must not reference payment capabilities.
+- Simplicity: Prefer guardrails (tests/policies) over complex conditional compilation or feature flags.
 
-3) Coding standards and conventions
-- Naming: Do not introduce classes, methods, namespaces, or routes that include payment-related terms (e.g., payment, payments, billing, checkout, card, subscription, invoice).
-- API design: New endpoints must not imply or provide payment capabilities.
-- Tests: Introduce “negative” guard tests that fail fast if payment-related constructs are introduced.
+Coding Standards
+- Naming: Do not introduce classes, files, routes, or namespaces containing Payment, Billing, Checkout, or Pay in user-exposed layers.
+- API surface: Do not add payment-related DTOs, headers, query parameters, or response fields.
+- Comments/docs: Avoid references implying future payment capabilities in user-facing docs; internal technical notes may track this spec only.
+- Swagger: No tags or endpoints that could be construed as payment-related.
 
-4) Architecture guardrails
-- No front-end layer should be added to this API Gateway for payments. Any future UI or payment work requires a separate design/approval and MUST NOT land in this repo during MVP.
-- Swagger/OpenAPI must not expose payment semantics. Adding such routes is prohibited.
-- CI must run guard tests on every PR to prevent regressions.
+Architecture Guardrails
+- No payment controllers or endpoints under Controllers/.
+- No payment launch URLs or dedicated UI setup.
+- Automated detection: Unit tests enforce the absence of payment UI artifacts in Controllers and route attributes.
+- Backward compatibility: No changes to existing endpoints’ contracts.
 
-5) Review and acceptance standards
-- Code reviewers validate that no payment semantics are added in code or config.
-- Guard tests exist and pass: they scan controller classes and route attributes for payment terms and validate absence of UI asset directories.
-- Documentation updated to reflect the non-payment MVP stance.
-- Any future proposal that impacts payments is out-of-scope and must be redirected.
+Non-Functional Requirements
+- Build integrity: dotnet build/test must pass locally and in CI.
+- Test coverage: New policy test must execute in the ApiGateway.Tests project and fail on violations.
+- Documentation: README explicitly states the MVP excludes payment UI.
 
-6) Stakeholder expectations
-- Product: MVP ships with no user payment experiences or payment endpoints.
-- Security/Compliance: No PCI-related surface area in this repo.
-- Engineering: Automated tests enforce constraints to minimize regressions.
+Review Standards and Stakeholder Expectations
+- PR checklist includes: zero payment UI verification, passing policy tests, README update.
+- Stakeholders (PO/Eng Lead) validate acceptance criteria: no Swagger-visible payment endpoints; repository scan free of payment UI.
+- Any later introduction of payment capabilities requires an explicit new spec and removal/adjustment of this constitution and tests.

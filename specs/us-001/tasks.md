@@ -1,13 +1,6 @@
-## Tasks (auto-derived from plan — review and refine)
+Repository: XI3135-RishuJindal/Test_Op_SpecToCode1
 
-- [ ] No code removal is currently needed because the repo contains no payment UI or routes; instead, we add automated guards to prevent regressions.
-- [ ] We enforce two layers of protection:
-- [ ] Documentation is updated to declare payments are explicitly out of scope for MVP.
-- [ ] Create Tests/Guards/NoPaymentEndpointsTests.cs to:
-- [ ] Load the ApiGateway assembly, enumerate [ApiController] classes, inspect RouteAttribute and HttpMethodAttributes.
-- [ ] Aggregate route templates, controller/action names, and assert none contain forbidden terms.
-- [ ] Create Tests/Guards/NoPaymentUiAssetsTests.cs to:
-- [ ] Resolve repository root relative to the test assembly directory.
-- [ ] Assert that Views, Pages, wwwroot do not exist, and scan for any .cshtml/.razor/.html files; verify none contain payment-related terms.
-- [ ] Keep tests fast, deterministic, and OS-agnostic.
-- [ ] Update README.md with a short “Non-payment MVP” section clar
+Workstream: Guardrails and Documentation
+- [ ] add Tests/Policies/NoPaymentUiElementsTests.cs: implement a test that scans Controllers/ for disallowed keywords (payment, payments, billing, checkout, pay) in file names, class names, and route attributes; fail with a clear message listing offending files/lines.
+- [ ] update README.md: add a statement under Overview clarifying that the MVP ships with no payment UI and that a policy test enforces this constraint.
+- [ ] commit specs/remove-payment-ui-elements/spec.md, specs/remove-payment-ui-elements/
