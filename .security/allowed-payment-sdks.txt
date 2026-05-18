@@ -1,0 +1,2 @@
+# List of allowed payment SDKs
+

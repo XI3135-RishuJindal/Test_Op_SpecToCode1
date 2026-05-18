@@ -1,64 +1,62 @@
 name: Dependency Scanning
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
-  sbom-and-deps-scan:
+  dependency-review:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v2
-        with:
-          dotnet-version: '8.0.x'
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v2
 
-      - name: Restore NuGet packages
-        run: dotnet restore
-
-      - name: Generate SBOM
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          syft dir:. -o spdx-json > sbom.json
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Scan SBOM
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-          grype sbom:sbom.json --fail-on high
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Scan for payment SDKs
-        run: bash scripts/detect-payment-sdks.sh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PAYMENTS_ALLOWLIST_FILE: .github/security/dependency-scan-policy.yml
-
-  docker-image-scan:
+  owasp-dependency-check:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Build Docker image
-        run: docker build --tag my-image .
+    - name: OWASP Dependency-Check
+      uses: jeremylong/DependencyCheck@v6.5.0
+      with:
+        project: 'ApiGateway'
+        scan: './'
+        outputDirectory: './dependency-check-report'
+        format: 'ALL'
 
-      - name: Generate Image SBOM and Scan
-        run: |
-          syft my-image:latest -o spdx-json > image-sbom.json
-          grype sbom:image-sbom.json --fail-on high --output sarif > results.sarif
-        continue-on-error: true
-        env:
-          DOCKER_BUILDKIT: 1
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  trivy-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Run Trivy Vulnerability Scanner
+      uses: aquasecurity/trivy-action@v0.1.2
+      with:
+        scan-type: 'fs'
+        ignore-unfixed: true
+
+  node-audit:
+    if: "contains(github.event.commits[0].added, 'package.json') || contains(github.event.commits[0].modified, 'package.json')"
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Audit Node.js packages
+      run: npm audit --audit-level=high
+
+  payment-sdk-check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Run custom script to detect unapproved payment SDKs
+      run: |
+        bash ./scripts/detect-payment-sdks.sh

@@ -1,41 +1,40 @@
-US-002 — CI dependency scanning setup
+Quality and Security Principles
+- Security-first defaults: CI must block merges that introduce known-vulnerable dependencies or unapproved payment SDKs/libraries.
+- Supply chain hygiene: prefer official, well-maintained scanners; pin action versions; verify integrity via checksums when practical.
+- Least surprise: produce clear, human-readable reports and concise CI summaries with explicit remediation next steps.
+- Deterministic and reproducible: scanners run consistently on PRs and default branch; cache where safe to keep times predictable.
+- Fail-fast with controlled overrides: a documented allow-list file is the only supported override for payment SDK detection; no blanket ignores in CI configuration.
+- Minimize secrets: no third-party SaaS tokens required; rely on GitHub-provided GITHUB_TOKEN and open-source scanners.
+- Performance budgets: total dependency scanning should complete in under 6 minutes on a medium GitHub-hosted runner for this repository size. Use conditional steps for frontend scanning only when a package manager manifest exists.
+- Evidence and traceability: publish artifacts for all scans (HTML, SARIF, text reports) and retain for at least 7 days.
+- Clear ownership: security findings are owned by the repository maintainers; the scanning configuration is code-reviewed like application changes.
+- Extensibility: the scanning pipeline should be language-agnostic where practical and ready for future frontend additions.
 
-Quality principles
-- Security-by-default: supply-chain risks are first-class; builds fail on unacceptable CVEs (Critical/High) unless explicitly allowed with justification.
-- Reproducibility: scanning is deterministic, pinned action versions/SHAs, immutable base images, SBOM artifacts retained.
-- Least privilege: CI jobs run with minimal GitHub token permissions; no external secret exfiltration; network egress minimized.
-- Transparency and auditability: scan outputs, SBOMs, and policy decisions are stored as build artifacts and linked in PRs.
-- Fail-fast: detection of critical findings fails the job early with clear remediations.
-- Traceability: each exception to policy (allowlist) includes maintainer, ticket/issue link, expiry/revisit date.
+Coding and Configuration Standards
+- GitHub Actions workflows must:
+  - be placed under .github/workflows/
+  - pin action versions by major/minor tags when possible
+  - include concurrency groups to cancel superseded PR runs
+  - use bash set -euo pipefail for custom scripts
+- Custom scripts live under scripts/ and are executable with Unix LF line endings.
+- Policy files live under .security/ and are reviewed whenever detection logic changes.
+- Docker builds are not required for dependency scans; container scanning can use filesystem mode to save time unless image scanning is explicitly needed.
 
-Coding standards and pipeline conventions
-- GitHub Actions workflows:
-  - Pin actions by commit SHA.
-  - Set GITHUB_TOKEN permissions to contents:read and security-events:write only when uploading SARIF; otherwise contents:read.
-  - Use concurrency groups to avoid redundant runs on same ref.
-  - Cache NuGet to reduce runtime; do not cache scan results.
-  - Upload SBOM in SPDX or CycloneDX; prefer SPDX JSON via syft.
-  - Artifact retention 7–14 days, non-public.
-- Scripts:
-  - Place helper scripts under scripts/.
-  - Shell scripts are POSIX-compliant, executable, set -euo pipefail, and produce machine- and human-readable outputs.
-  - No secrets in logs. Redact sensitive env vars automatically.
+Architecture Guardrails
+- Tooling:
+  - Dependency change awareness: actions/dependency-review-action on pull_request.
+  - OSS vulnerability SCA: OWASP Dependency-Check via containerized CLI for .NET/NuGet.
+  - Node/NPM audit is conditional on the presence of package.json.
+  - Repo-wide FS scanning (Trivy) for additional coverage; high/critical findings fail the job.
+  - Custom payment SDK detector enforces organizational policy across multiple ecosystems.
+- Gates:
+  - Disallow introduction of payment SDKs unless explicitly allow-listed in .security/allowed-payment-sdks.txt.
+  - Block merge on high/critical vulnerabilities from SCA steps.
+- Reporting:
+  - Upload artifacts for each scan; annotate PRs where the action supports it (dependency-review).
 
-Architecture guardrails
-- Tools: syft (SBOM), grype (vuln scan) and/or trivy as a fallback. No self-hosted scanners introduced.
-- Scope: repository and Docker image derived from Dockerfile; no external registries required.
-- Policy: build fails on CVE severity High and Critical unless listed in .github/security/dependency-scan-policy.yml with documented justification. Medium/Low generate warnings.
-- Payment SDK detection: proactive search for payment-related dependencies by scanning project files and transitive dependency lists. Findings are reported in job summary; build fails if unauthorized payment SDKs exist (not on allowlist).
-- Performance: typical end-to-end scan under 10 minutes on ubuntu-latest.
-
-Non-functional requirements
-- Reliability: scanning jobs are idempotent, resilient to tool network hiccups (single retry).
-- Maintainability: dependabot keeps github-actions and nuget ecosystems updated; policy file centralizes thresholds/allowlist.
-- Observability: step summaries include counts of findings by severity and any payment SDK hits; SARIF uploaded for developer triage.
-- Compliance: outputs adequate for audit (SBOM, SARIF, policy, job logs). Exceptions reference a tracking ticket.
-
-Review standards and stakeholder expectations
-- AppSec: reviews policy thresholds, allowlist additions, and confirms scanner accuracy on this repo.
-- DevOps: validates pipeline stability, runtime, pinned SHAs, and caching effectiveness.
-- Service owners: acknowledge payment SDK detections and approve/deny allowlist entries.
-- Definition of Done: all acceptance criteria in spec are met; a green run on main; README updated; artifacts present; a sample PR demonstrates failure on seeded vulnerability or test payment pattern; ownership documented.
+Non-Functional Requirements
+- CI runtime: < 6 minutes median on ubuntu-latest.
+- Maintainability: single policy file for allow-list; simple patterns; minimal duplication.
+- Observability: each job prints a short summary and locations of reports.
+- Compatibility: works whether or not a frontend currently exists; no changes to application code are required.
