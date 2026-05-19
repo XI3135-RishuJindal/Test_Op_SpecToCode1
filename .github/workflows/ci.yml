@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main, test_hardening]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # placeholder: Insert language-specific setup at latest stable release
+      # run: setup target language at latest stable
+      - name: Run Linter
+        run: echo "Linting not configured: specify linter for the target language"
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # placeholder: Insert language-specific setup at latest stable release
+      # run: setup target language at latest stable
+      - name: Run Unit Tests
+        run: echo "Unit testing not configured: specify test tool for the target language"
+      - name: Run Integration Tests
+        run: echo "Integration testing not configured: specify test tool for the target language"
+      - name: Report Coverage
+        run: echo "Test coverage reporting not configured: specify tool for the target language"
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # placeholder: Insert language-specific setup at latest stable release
+      # run: setup target language at latest stable
+      - name: Build
+        run: echo "Build not configured: specify build system/commands for the target language"
+
+  sast:
+    name: SAST Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # placeholder: Insert language-specific setup at latest stable release
+      # run: setup target language at latest stable
+      - name: Run SAST
+        run: echo "SAST scan not configured: specify SAST tool for the target language"
+    if: always()
