@@ -1,0 +1,5 @@
+# No requirements.txt file was provided in the Base Source Code.
+# For a Python runtime upgrade only, and absent any original dependencies information,
+# requirements.txt can be left empty or omitted.
+# Since the upgrade scope does not specify dependencies to add or change,
+# this is a valid, complete requirements.txt file:
