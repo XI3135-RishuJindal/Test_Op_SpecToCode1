@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  docs-lint:
+    name: Documentation Lint & Link Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (for markdownlint-cli)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli
+
+      - name: Lint Markdown files
+        run: markdownlint "**/*.md" --ignore node_modules
+
+      - name: Install lychee (link checker)
+        uses: lycheeverse/lychee-action@v1
+        with:
+          args: >
+            --verbose
+            --no-progress
+            --exclude-mail
+            "**/*.md"
+          fail: true
+
+  docs-review:
+    name: Documentation Content Validation
+    runs-on: ubuntu-latest
+    needs: docs-lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for required documentation files
+        run: |
+          echo "Checking for required documentation files..."
+          required_files=("README.md")
+          missing=0
+          for f in "${required_files[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "MISSING: $f"
+              missing=1
+            else
+              echo "FOUND: $f"
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "One or more required documentation files are missing."
+            exit 1
+          fi
+
+      - name: Check CHANGELOG exists
+        run: |
+          if [ -f "CHANGELOG.md" ] || [ -f "CHANGELOG" ] || [ -f "HISTORY.md" ]; then
+            echo "FOUND: changelog file"
+          else
+            echo "WARNING: No CHANGELOG.md, CHANGELOG, or HISTORY.md found. Consider adding one."
+          fi
+
+      - name: Verify no placeholder text remains
+        run: |
+          echo "Scanning for common placeholder patterns..."
+          if grep -rn "TODO\|FIXME\|PLACEHOLDER\|YOUR_.*_HERE\|<INSERT" --include="*.md" .; then
+            echo "WARNING: Placeholder text found in documentation. Please review."
+          else
+            echo "No placeholder text detected."
+          fi
+
+  sast-docs:
+    name: SAST — Secret Scan on Docs
+    runs-on: ubuntu-latest
+    needs: docs-lint
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
