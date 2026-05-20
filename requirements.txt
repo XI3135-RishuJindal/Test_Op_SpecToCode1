@@ -1,0 +1,6 @@
+# No original requirements.txt present.
+# No explicit dependency or version information provided in the context.
+# Spec only describes documentation/metadata changes, not code-level or dependency changes.
+
+# requirements.txt
+# (Intentionally left blank – no dependencies specified by upgrade context.)
