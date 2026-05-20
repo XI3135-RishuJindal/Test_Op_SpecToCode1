@@ -1,0 +1,143 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Super-Linter
+        uses: super-linter/super-linter@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          DEFAULT_BRANCH: main
+
+  sast:
+    name: SAST (CodeQL)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ github.event.repository.language }}
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ github.event.repository.language }}
+
+  dependency-scan:
+    name: Dependency Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner (filesystem)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: 1
+
+      - name: Upload Trivy SARIF results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-dependency-scan
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect and run tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -f "package.json" ]; then
+            echo "Detected Node.js project"
+            if command -v npm &>/dev/null; then
+              npm ci
+              npm test
+            fi
+          elif [ -f "pom.xml" ]; then
+            echo "Detected Maven project"
+            mvn --batch-mode test
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            echo "Detected Gradle project"
+            ./gradlew test
+          elif [ -f "requirements.txt" ] || [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
+            echo "Detected Python project"
+            pip install --quiet -r requirements.txt 2>/dev/null || true
+            if command -v pytest &>/dev/null; then
+              pytest --tb=short
+            else
+              python -m unittest discover
+            fi
+          elif [ -f "go.mod" ]; then
+            echo "Detected Go project"
+            go test ./...
+          elif [ -f "Gemfile" ]; then
+            echo "Detected Ruby project"
+            bundle install --quiet
+            bundle exec rake test 2>/dev/null || bundle exec rspec
+          elif [ -f "Cargo.toml" ]; then
+            echo "Detected Rust project"
+            cargo test
+          elif [ -f "composer.json" ]; then
+            echo "Detected PHP project"
+            composer install --quiet
+            ./vendor/bin/phpunit 2>/dev/null || php artisan test
+          else
+            echo "No recognized build file found. Skipping test step."
+            echo "Please configure the test job for your specific language and build tool."
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            **/test-results/**
+            **/surefire-reports/**
+            **/pytest-results/**
+            coverage.xml
+            .coverage
+          if-no-files-found: ignore
+          retention-days: 14
