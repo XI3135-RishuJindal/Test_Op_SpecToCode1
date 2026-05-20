@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install lint dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run flake8
+        run: |
+          if command -v flake8 &> /dev/null; then
+            flake8 .
+          else
+            echo "flake8 not installed, skipping lint step"
+          fi
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run tests
+        run: |
+          if command -v pytest &> /dev/null; then
+            pytest
+          else
+            echo "pytest not installed, skipping test step"
+          fi
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Build package
+        run: |
+          if [ -f pyproject.toml ] || [ -f setup.py ] || [ -f setup.cfg ]; then
+            pip install build
+            python -m build
+          else
+            echo "No build configuration found, skipping build step"
+          fi
+
+  security:
+    name: SAST Security Scan
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install security scanning tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install "bandit>=1.7.9" "pip-audit>=2.7.3"
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Create default Bandit config if not present
+        run: |
+          if [ ! -f .bandit ] && ! grep -q "\[tool.bandit\]" pyproject.toml 2>/dev/null; then
+            cat > .bandit <<'EOF'
+          [bandit]
+          targets = src,.
+          skips =
+          EOF
+          fi
+
+      - name: Run Bandit SAST scan
+        run: |
+          TARGET_DIR="src"
+          if [ ! -d "$TARGET_DIR" ]; then
+            TARGET_DIR="."
+          fi
+          if [ -f .bandit ]; then
+            bandit -r "$TARGET_DIR" -c .bandit --format json -o bandit-report.json || \
+              (echo "Bandit found medium-or-higher severity issues — see bandit-report.json" && exit 1)
+          else
+            bandit -r "$TARGET_DIR" --format json -o bandit-report.json || \
+              (echo "Bandit found medium-or-higher severity issues — see bandit-report.json" && exit 1)
+          fi
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          retention-days: 30
+
+      - name: Run pip-audit vulnerability scan
+        run: |
+          if [ -f requirements.txt ]; then
+            pip-audit --requirement requirements.txt --output pip-audit-report.json --format json || \
+              (echo "pip-audit found vulnerabilities — see pip-audit-report.json" && exit 1)
+          elif [ -f pyproject.toml ]; then
+            pip-audit --output pip-audit-report.json --format json || \
+              (echo "pip-audit found vulnerabilities — see pip-audit-report.json" && exit 1)
+          else
+            echo "No dependency manifest found for pip-audit, skipping"
+          fi
+
+      - name: Upload pip-audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit-report.json
+          retention-days: 30
