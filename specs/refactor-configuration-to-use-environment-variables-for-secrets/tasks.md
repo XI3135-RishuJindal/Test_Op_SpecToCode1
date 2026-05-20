@@ -1,42 +1,35 @@
 ## Prerequisites
 
-- [ ] [XS] Ensure access to source repository and configuration file(s) where secrets are currently set (config.yml, config.json, or similar).
-- [ ] [XS] Obtain a list of all secrets used in application configuration.
-- [ ] [XS] Verify that required environment variables can be set in the target deployment environments (e.g., local, CI/CD, production).
+- [ ] [XS] Obtain access to source repository with permission to create branches.
+- [ ] [XS] Verify access to current secret values (existing config file or secret storage).
+- [ ] [XS] Review project documentation for current config locations and process.
 
 ## Phase 1 — Preparation
 
-- [ ] [XS] Create and switch to a new branch named `feature/env-secrets-refactor`.
-- [ ] [S] Identify all secrets in existing configuration files (e.g., API keys, database passwords in config.yml/config.json).
-- [ ] [XS] Capture current application behavior with configuration-based secrets as a test baseline.
+- [ ] [XS] Identify all secret usages in configuration files across the repository.
+- [ ] [XS] Create and check out `feature/env-secret-config` branch.
+- [ ] [S] Capture config file baseline containing secrets (e.g., `config.yaml`, `.env`, or equivalent).
 
 ## Phase 2 — Core Upgrade
 
-- [ ] [M] Refactor secret assignments to use environment variables in the main configuration file (e.g., replace hardcoded secrets with `${ENV_VAR}` in config.yml/config.json).
-- [ ] [S] Update application initialization code to read secrets from environment variables if not handled automatically by the framework.
-- [ ] [S] Remove all hardcoded secret values from version control in config.yml/config.json.
+- [ ] [M] Refactor configuration file(s) to remove hardcoded secrets and reference corresponding environment variables instead (e.g., `DB_PASSWORD`, `API_KEY`) in affected file(s).
+- [ ] [M] Update application secret reading logic to load secrets from environment variables in relevant config module or loader.
+- [ ] [XS] Add fallback/validation logic in config loader to handle missing environment variable cases in relevant module.
 
 ## Phase 3 — Testing & Validation
 
-- [ ] [S] Set environment variables for secrets in local `.env` file or export in local shell for testing.
-- [ ] [S] Run application locally and verify secrets are correctly loaded from environment variables.
-- [ ] [S] Execute unit/integration tests ensuring that application behavior is unchanged when using environment variables.
-- [ ] [S] Validate application fails gracefully if required environment variables are missing.
+- [ ] [S] Create temporary environment variable override scripts for local developer testing.
+- [ ] [S] Run relevant configuration, authentication, and secret-dependent tests with environment variables set and verify no regression in test suite.
+- [ ] [XS] Remove or redact secrets from old config files and audit repository for secret leaks.
 
 ## Phase 4 — CI/CD & Infrastructure
 
-- [ ] [S] Update CI pipeline configuration (e.g., .github/workflows/main.yml) to inject secrets via environment variables instead of config files.
-- [ ] [S] Update deployment manifests or scripts (e.g., docker-compose.yml, Kubernetes Deployment) to supply secrets via environment variables.
-- [ ] [XS] Remove any secrets from build artifacts or config templates tracked in the repository.
+- [ ] [S] Update CI pipeline config to inject required secrets as environment variables (e.g., in `.github/workflows/ci.yml` or Jenkinsfile).
+- [ ] [XS] Document required environment variables for deployment in pipeline config and/or README.
 
 ## Phase 5 — Documentation & Rollout
 
-- [ ] [S] Update README.md and any developer onboarding docs to document new environment variable requirements for secrets.
-- [ ] [XS] Update sample configuration files (e.g., config.example.yml) to use environment variable placeholders for secrets.
-- [ ] [XS] Add or update runbook entry for setting and rotating environment-variable-based secrets.
-- [ ] [S] Plan and communicate a staged rollout strategy, including coordinated secret provisioning in all environments.
-- [ ] [S] Set up or update post-migration monitoring for secret loading errors (e.g., missing/unparsable environment variables).
-
----
-
-_Note: No tasks are included for aspects outside the scope of refactoring configuration to use environment variables for secrets._
+- [ ] [XS] Add changelog entry describing switch to environment variable-based secrets management.
+- [ ] [S] Update runbook and operational docs to reference secret environment variable handling.
+- [ ] [XS] Communicate migration instructions to internal and external users (as required).
+- [ ] [XS] Set up post-migration monitoring for failed secret loads and log anomalies.
