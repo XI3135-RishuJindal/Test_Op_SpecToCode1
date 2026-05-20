@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  # Document required secret environment variables
+  # Example:
+  # DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+  # API_KEY: ${{ secrets.API_KEY }}
+  # Add any other environment variables your app requires here
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Insert language-specific setup here if known
+      # - name: Set up <target language>
+      #   uses: <language-setup-action>@<version>
+      # - name: Run linter
+      #   run: |
+      #     <linter command>
+
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # Inject required secrets as environment variables for tests
+      # Example:
+      # DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      # API_KEY: ${{ secrets.API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      # Insert language-specific setup here if known
+      # - name: Set up <target language>
+      #   uses: <language-setup-action>@<version>
+      # - name: Run unit tests
+      #   run: |
+      #     <test command>
+
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Ensure required secrets are available for build if needed
+    steps:
+      - uses: actions/checkout@v4
+      # Insert language-specific setup here if known
+      # - name: Set up <target language>
+      #   uses: <language-setup-action>@<version>
+      # - name: Build
+      #   run: |
+      #     <build command>
+
+  sast:
+    name: Static Application Security Scan
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      # - name: Set up SAST tool
+      #   run: |
+      #     <install SAST tool>
+      # - name: Run SAST scan
+      #   run: |
+      #     <sast scan command>
