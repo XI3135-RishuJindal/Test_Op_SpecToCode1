@@ -1,51 +1,49 @@
 ## Summary
 
-This specification covers the refactoring of application configuration to use environment variables for secrets, replacing any storage of secrets within config files or code constants. The expected outcome is that all sensitive values (e.g., API keys, passwords, tokens) will be exclusively sourced from environment variables, reducing the risk of exposure through version control or accidental leaks.
+This spec covers the refactor of application configuration to use environment variables for all secrets, replacing any secrets currently stored in configuration files, code, or other non-environment-variable sources. The expected outcome is that all secrets (passwords, API keys, tokens, etc.) are exclusively loaded from environment variables at runtime. This improves security posture and aligns with best practices for secret management.
 
 ## Motivation
 
-The drivers for this change are as follows:
-- **Security:** Storing secrets in code or config files can result in accidental exposure if files are added to version control or shared inappropriately.
-- **Compliance:** Best practices and compliance frameworks (e.g., SOC2, ISO 27001) require secrets not be committed to VCS.
-- **Upgrade Urgency:** Medium, as per tech analysis. No specific vulnerabilities or EOL drivers have been cited, but there is recognized and ongoing tech debt in secret management practices.
+Storing secrets in configuration files or code poses security and compliance risks, including accidental disclosure via source control or logs. Refactoring to use environment variables for all secrets mitigates these risks, enables better integration with secrets management systems, and meets modern security expectations. This change is motivated by the need to address medium-priority tech debt and to reduce ongoing operational risk. No EOL dates or CVEs are cited in the tech analysis, but this work is part of a broader modernization effort.
 
 ## Current State
 
-- **Interfaces:** N/A — specific application interfaces, classes, or frameworks are not described in the context.
-- **APIs/Data Models:** Secrets are currently defined and accessed via configuration files or code-level constants. These may include items such as database credentials, API tokens, or access keys.
-- **Key Behaviours:** At runtime, the application reads these secrets from disk-based config files or hardcoded values.
-- **Config Keys/Schemas:** Specific names, data types, or schema elements for secrets are not provided in current context.  
-- **Affected Components:** TODO — List exact configuration elements once identified.
+- **Interfaces**: Configuration is loaded from files or embedded directly in code. Specific classes, methods, or config keys handling secrets are not specified in the tech analysis (**TODO: Populate with details when available**).
+- **Behaviour**: At application startup or runtime, secrets are read from non-environment-variable sources. The mechanism for loading and applying secrets is unclear (**TODO**).
+- **Data models**: N/A — not applicable to this task unless configuration modeling is defined.
+- **Key affected elements**: Any config file fields, code variables, or build-time constants that contain secrets (**TODO: List when identified**).
 
 ## Proposed Changes
 
-| Component          | Before                                   | After                                    | Breaking? (Y/N) |
-|--------------------|------------------------------------------|-------------------------------------------|-----------------|
-| Application config | Secrets stored in code or config files    | Secrets are sourced solely from environment variables | Y               |
-| Secret access code | Loads values via file/constant accessors  | Reads values from environment variable lookup | Y            |
-| Config files       | Contain sensitive data                    | Contain no secrets; only public/harmless config | Y           |
+| Component         | Before                                   | After                                          | Breaking? (Y/N) |
+|-------------------|------------------------------------------|------------------------------------------------|-----------------|
+| Secret Handling   | Secrets are loaded from files or code     | Secrets are always loaded from env variables    | Y               |
+| Configuration API | Accepts secrets via file/config fields    | Removes file/config secret fields; uses env     | Y               |
+| Documentation     | Instructs placement of secrets in config  | Documents only env variable usage for secrets   | Y               |
+| CI/Test Fixtures  | May use file-based secrets                | Must set required secrets as environment vars   | Y               |
 
 ## Compatibility & Breaking Changes
 
-| Breaking Change                                           | Migration Path                                                                                    |
-|----------------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| Application no longer loads secrets from config files     | Operators must configure all required secrets using environment variables before deployment.      |
-| Direct access to secrets via constants/config removed     | Callers must use environment variable lookups in all relevant contexts.                          |
-| TODO (Specific keys/classes to update)                   | TODO (Document for each once identified.)                                                        |
+| Breaking Change                                     | Migration Path                        |
+|-----------------------------------------------------|---------------------------------------|
+| Secrets no longer read from files or code           | Update deployments to supply secrets as env vars; remove secret values from files/config. |
+| Configuration API fields for secrets are removed    | Update callers to set secrets via env vars only. |
+| Test and CI jobs must change secret provisioning    | Update CI scripts and test fixtures to set env vars as required. |
+| TODO: Exact package/refactoring points              | TODO                                 |
 
 ## Acceptance Criteria
 
-1. **Given** that the application is started without the required environment variable for a secret, **when** the secret is accessed, **then** a clear error is produced and the secret is not loaded from any config file or code constant.
-2. **Given** the required environment variable is set, **when** the application starts, **then** all secret-dependent functionality initializes successfully and uses the value from the environment variable.
-3. **Given** a config file with secret values exists, **when** the application is started, **then** none of those secret config values are loaded or used by the application.
-4. **Given** a codebase scan, **when** searching for previously-hardcoded or config-file secrets, **then** no secrets are present in either source code or configuration files.
-5. **Given** CI configuration with environment variables for secrets, **when** tests requiring secrets run, **then** they succeed by obtaining secrets via the environment.
+1. **Given** a deployment without environment variables set for required secrets, **when** the application starts, **then** it must fail securely with a clear error indicating which env vars are missing.
+2. **Given** all required secret environment variables are set, **when** the application starts, **then** it must initialize fully and operate using those secrets (with no fallback to file or code-based secrets).
+3. **Given** a secret is removed from a configuration file and not provided via env var, **when** the application starts, **then** it must not read the secret from the old location and must fail as in criterion 1.
+4. **Given** CI jobs and test scripts set secrets only via environment variables, **when** tests run, **then** all secret-driven features must pass test assertions and logs must not contain secret values.
 
 ## Open Questions
 
-| # | Question                                                                     | Owner (or TODO) | Due Date (or TODO) |
-|---|------------------------------------------------------------------------------|-----------------|--------------------|
-| 1 | Which config keys/secrets need to be migrated to environment variables?       | TODO            | TODO               |
-| 2 | Are there backward-compatibility requirements with existing deployment tools? | TODO            | TODO               |
-| 3 | What error messaging/logging format is required for missing environment vars? | TODO            | TODO               |
-| 4 | Is there automation for migrating secrets from config to environment securely?| TODO            | TODO               |
+| #  | Question                                                                  | Owner               | Due Date   |
+|----|---------------------------------------------------------------------------|---------------------|------------|
+| 1  | Which classes, config keys, or modules handle secret loading currently?    | TODO                | TODO       |
+| 2  | Are there any build or deployment environments that cannot provide env vars? | TODO                | TODO       |
+| 3  | Is there a secrets rotation procedure that must be updated for this change? | TODO                | TODO       |
+| 4  | Which secrets are in scope (list of all secret names/keys/fields)?        | TODO                | TODO       |
+| 5  | Will this apply to legacy branches, or only main branch going forward?    | TODO                | TODO       |
