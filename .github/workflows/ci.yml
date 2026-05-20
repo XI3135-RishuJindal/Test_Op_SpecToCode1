@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, test_coverage_hardening]
+  pull_request:
+    branches: [main, master, test_coverage_hardening]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Lint source code
+        run: |
+          echo "No linter configured—please customize this step for your language and project."
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up language
+        run: |
+          echo "Please insert specific language and version setup here per your project requirements."
+      - name: Install dependencies
+        run: |
+          echo "Add your dependency installation instructions here."
+      - name: Run unit tests
+        run: |
+          echo "Add your unit test command here."
+      - name: Run integration tests
+        run: |
+          echo "Add your integration test command here, if applicable."
+      - name: Collect coverage report
+        run: |
+          echo "Insert your coverage tool command here."
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: path/to/coverage/report
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up language
+        run: |
+          echo "Please insert specific language and version setup here per your project requirements."
+      - name: Install dependencies
+        run: |
+          echo "Add your dependency installation instructions here."
+      - name: Build
+        run: |
+          echo "Add your build command here."
+
+  sast:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: SAST Security Scan
+        run: |
+          echo "Add your static code analysis tool command here."
