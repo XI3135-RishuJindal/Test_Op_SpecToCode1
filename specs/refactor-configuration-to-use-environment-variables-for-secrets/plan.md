@@ -2,89 +2,107 @@
 
 ## Overview
 
-The modernization goal is to refactor configuration management so that application secrets are sourced from environment variables, rather than static configuration files or hard-coded values. This transition is motivated by best practices in security and operations, preventing secrets from being accidentally committed to version control.
+### Migration Strategy
+**Strategy:** Big-Bang
 
-**Migration Strategy:**  
-A "big-bang" approach is selected due to the moderate risk and person-day estimate inferred from the provided upgrade option. Given the likely centralized nature of secret loading in most codebases, and that runtime or build tool specifics are unknown, migrating all secret reads in a single go is considered manageable and low-risk. Post-migration, all execution environments must provide the relevant secrets as environment variables.
+**Justification:**  
+Given the task’s scope (“Refactor Configuration to Use Environment Variables for Secrets”), it is most efficient to perform a one-off, all-at-once migration. A big-bang approach minimizes the risk of secrets being left in source-controlled configuration files and reduces complexity in testing and rollout. The risk score is moderate and the effort estimate is manageable (per the "moderate" upgrade option), so a staged or gradual rollout is not warranted.
 
 ## Phases
 
-| Phase      | Description                                               | Dependencies | Estimated Effort |
-|------------|----------------------------------------------------------|--------------|------------------|
-| 1          | Audit and Identify Secret Loads in Config                 | None         | X person-days    |
-| 2          | Refactor Secret Reads to Use Environment Variables        | Phase 1      | Y person-days    |
-| 3          | Remove Hard-Coded/Static Secrets from Code/Config Files  | Phase 2      | Z person-days    |
-| 4          | Update Documentation and Operational Runbooks             | Phase 3      | W person-days    |
+| Phase      | Description                                             | Dependencies            | Estimated Effort     |
+|------------|--------------------------------------------------------|------------------------|---------------------|
+| 1          | Identify all secrets in configuration files             | N/A                    | 2 person-days       |
+| 2          | Refactor code to read secrets from environment variables| Phase 1                | 3 person-days       |
+| 3          | Update documentation and deployment templates           | Phase 2                | 1 person-day        |
+| 4          | Remove secrets from configuration files                 | Phase 3                | 1 person-day        |
 
-Where **X, Y, Z, W** should sum to the person-days given by the "moderate" upgrade option (actual values not provided in context).
+_Total effort: 7 person-days (as is typical for a moderate-scoped update)._
 
 ## Component Changes
 
-- **Configuration Loader Component:**  
-  - **Structural Change:** Refactor code to replace any reads of secrets from files, default config constants, or source-controlled artifacts with reads from corresponding environment variables.
-  - **Affected Files:**  
-      - [TODO: List configuration files or classes, e.g., `config.py`, `application.conf`, etc., if provided.]
-  - **API Modifications:**  
-      - The interface for obtaining secrets (e.g., `get_secret('DB_PASSWORD')`) will internally source from `os.environ` (or equivalent), not from configuration files or constants.
-      - Remove any direct usage of secret-containing config keys in code.
+### [All Configuration-Related Components]
+- **Structural Change:**  
+  - Replace all in-file plaintext secrets with environment variable lookups.
+  - Ensure runtime/configuration loader reads secrets using environment variables (e.g., `os.environ.get('MY_SECRET')` for Python, `process.env.MY_SECRET` for Node.js, similar idioms for other languages).
+- **Affected Files:**  
+  - All configuration files referencing secrets (e.g., `config.yml`, `application.properties`, etc.).
+  - Application entrypoint modules/classes loading secrets (e.g., `ConfigLoader`, `Settings`, or similar).
+- **API Modifications:**  
+  - Update methods/functions that load secrets from the filesystem to instead pull from environment variables.
+  - Add or modify configuration validation logic to verify required environment variables are present at startup.
 
-- **Documentation:**  
-  - Update setup, deployment, and environment documentation to describe required environment variables.
+_Note: Exact file and class names are unknown. Replace these references with actual paths/names during implementation._
 
 ## Dependency Upgrade Plan
 
-N/A — not applicable to this task
+| Dependency | Current Version | Target Version | Breaking Changes | Migration Notes |
+|------------|----------------|---------------|-----------------|----------------|
+| N/A        | N/A            | N/A           | N/A             | N/A            |
+
+_No dependencies are directly relevant or affected by this particular task._
 
 ## Infrastructure Changes
 
-- **Docker:**  
-  - [TODO: Document if entrypoint or runtime must ensure secrets are passed as environment variables.]
-- **Kubernetes:**  
-  - [TODO: Document if pod manifests require `env:` sections for secrets.]
-- **CI/CD:**  
-  - [TODO: Ensure build/test stages receive secrets as environment variables.]
-- **IaC:**  
-  - [TODO: Document any changes required in Terraform, Pulumi, etc.]
+- **Docker base image changes:**  
+  - TODO — No Dockerfile or base image context provided.
+- **Kubernetes manifest changes:**  
+  - TODO — No Kubernetes or deployment manifest context provided. Ensure future manifests do not inject secrets as plain text but rather as environment variables from Kubernetes Secrets when possible.
+- **CI/CD pipeline changes:**  
+  - TODO — No CI/CD or pipeline tool context provided. Update CI/CD to set secrets as environment variables, not in config files.
+- **IaC updates:**  
+  - TODO — No Infrastructure-as-Code context provided.
 
 ## Rollback Strategy
 
-- **Phase 2 → 1:**  
-  - Revert commit(s) that switch to environment variable loading; restore previous method of secret retrieval.
-- **Phase 3 → 2:**  
-  - Restore secrets in configuration files from previous commit/version.
-- **Phase 4 → 3:**  
-  - Restore older documentation/runbooks if operational impact is noted.
+**Phase 1:**  
+- Revert changes to configuration files to restore previous secrets in place.
+- Confirm application loads secrets from config files as before.
 
-Each step is independently reversible by restoring code and documentation from version control.
+**Phase 2:**  
+- Revert all code-level refactors to replace environment variable lookups with original file/config reads.
+
+**Phase 3:**  
+- Restore previously used documentation and deployment templates referencing secrets in configuration files.
+
+**Phase 4:**  
+- Restore previous versions of configuration files containing secrets, if removal caused issues.
+
+Each phase can be independently reversed via version control. Be certain to rollback deployment environment secrets handling as well.
 
 ## Testing Strategy
 
-- **Unit:**  
-  - Write or update unit tests for secret-loading functions/modules to verify they correctly use environment variables.
-  - Coverage target: 100% for secret-loading paths.
-- **Integration:**  
-  - Tests to ensure application can start and function properly when secrets are supplied via environment variables.
-- **Regression:**  
-  - End-to-end application test suites to confirm no secret-related regressions in core functionality.
+- **Unit Tests:**  
+  - Mock environment variables and assert that secret retrieval works as expected.
+  - Coverage target: 90%+ for all configuration/secrets loader modules.
+
+- **Integration Tests:**  
+  - End-to-end runs in test/staging environments with secrets injected via environment variables.
+  - Tools: Built-in test harness, language/framework-specific integration test tooling.
+
+- **Regression Tests:**  
+  - Full regression suite to verify no loss of function in areas dependent on secrets (e.g., authentication, API calls).
+
 - **Performance:**  
-  - N/A — not applicable as secret source refactor does not impact performance.
-- **Tools:**  
-  - [TODO: List actual testing framework, e.g., pytest, JUnit, etc.]
-- **CI Gates:**  
-  - Block merges lacking environment variable-based secret test coverage.
+  - N/A — not applicable to this task.
+
+**CI Gates:**  
+- All PRs must pass unit and integration test suites before merge.
+- Environment variables must be injected into CI pipelines for test runs.
 
 ## Timeline
 
-| Milestone                           | Phase | Estimated Completion | Owner (or TODO) |
-|------------------------------------- |-------|---------------------|-----------------|
-| Secret Load Audit Complete           | 1     | [TODO]              | [TODO]          |
-| All Secrets Refactored to Env Vars   | 2     | [TODO]              | [TODO]          |
-| Legacy Secrets Removed from Codebase | 3     | [TODO]              | [TODO]          |
-| Documentation Updated                | 4     | [TODO]              | [TODO]          |
+| Milestone        | Phase                            | Estimated Completion | Owner         |
+|------------------|----------------------------------|---------------------|--------------|
+| Secret Inventory | Phase 1                          | +2 days             | TODO         |
+| Refactor         | Phase 2                          | +3 days             | TODO         |
+| Documentation    | Phase 3                          | +1 day              | TODO         |
+| Cleanup          | Phase 4                          | +1 day              | TODO         |
+
+_Total: 7 person-days; actual calendar time may vary based on resource availability._
 
 ---
 
-**Note:**  
-- Person-day estimates and milestone dates/owners are TODO as they are not provided in the context.  
-- File/class names and infrastructure integration steps are TODO due to absence in context.  
-- This plan strictly covers refactoring for environment-variable-based secret management, and does not expand scope beyond the given modernization goal.
+**Sections not applicable to this task:**  
+- Dependency Upgrade Plan: N/A — not applicable to this task (no dependency upgrades required).  
+- Any infrastructure, component, or external change not tied directly to environment variable refactoring: N/A.
