@@ -1,0 +1,2 @@
+# requirements.txt
+# (No changes required: Spec does not specify any new or upgraded dependencies.)
