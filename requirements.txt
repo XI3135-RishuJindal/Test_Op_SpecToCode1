@@ -1,0 +1,4 @@
+# requirements.txt
+
+# No direct dependencies to upgrade for "Refactor Configuration to Use Environment Variables for Secrets"
+# Add your project dependencies below as usual.
