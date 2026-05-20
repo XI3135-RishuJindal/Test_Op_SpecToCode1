@@ -2,58 +2,55 @@
 
 ## Project Identity
 
-**Name:** Config-Secret-Env-Refactor  
-**Purpose:** Refactor application configuration to source sensitive secrets from environment variables rather than code or static files.  
-**High-Level Goal:** Improve security and operational flexibility by externalizing secret management via environment variables.
+**Name:** Secrets Refactoring via Environment Variables  
+**Purpose:**  
+Replace hardcoded or file-based secret storage in configuration with environment variable references.  
+**High-level Goal:**  
+Eliminate direct storage of secrets in configuration artifacts to reduce exposure risk and align with modern security best practices.
 
 ---
 
 ## Guiding Principles
 
-1. **Prefer Environment Variables over Hardcoded Values** because secrets embedded in code or config files are more likely to be leaked or committed.  
-2. **Prefer Minimal Surface Change** over Broad Refactoring because the task scope is limited to revising secret handling, not a full configuration overhaul.  
-3. **Prefer Security Hardening over Backward Compatibility** if trade-offs are required, since risk reduction is a primary driver of this modernization.  
-4. **Prefer Explicit Documentation over Implicit Behavior** so operational staff know what secrets must be supplied at runtime.
+1. **Prefer Environment Variables over Hardcoded/File-Based Secrets because environment variables minimize secret exposure risk and simplify secure secret management.**
+2. **Prefer Minimal Change over Broad Refactor because the change urgency is medium and there is no evidence of business-driven feature refactoring.**
+3. **Prefer Incremental Application over All-at-Once to reduce deployment risk and aid in troubleshooting during rollout.**
 
 ---
 
 ## Constraints
 
-- **Timeline & Effort Ceiling:**  
-  *Must not exceed "moderate" estimate from the upgrade option (exact person-days unknown — TODO: Define person-days from option details).*  
-
+- **Timeline and Effort Ceiling:**  
+  *Must not exceed the person-days allocated by upgrade option 'moderate'.*  
+  *(Exact value: TODO - not specified in provided context.)*
 - **Technology Mandates:**  
-  *Runtime, language, and build tool unspecified — TODO: Fill in when known.*  
-  *No specific compliance requirements documented for this task.*
-
-- **Budget or Scope Freeze:**  
-  *Scope limited to refactoring secret configuration to use environment variables; NO changes outside this surface allowed.*
+  *None provided due to unknown language, runtime, and build tool.*
+- **Budget or Scope:**  
+  *Refactor configuration for secrets only. No new features or ancillary upgrades permitted.*
 
 ---
 
 ## Quality Standards
 
-- **Testing Coverage:**  
-  All code paths handling secrets must be tested for presence/absence of required environment variables (minimum 1 test per variable).
-
-- **Code Review:**  
-  Every change must be peer-reviewed by at least one other engineer.
-
-- **Documentation:**  
-  Updated configuration guide listing all required/optional environment variables, their descriptions, and any defaults.  
-  Application README must specify required process for supplying secrets via environment variables.
-
-- **Deployment Gate:**  
-  Code may not be merged to mainline unless all static secret sources have been removed and CI validates expected env vars can be injected.
+- **Testing Coverage Floor:**  
+  *Minimum: Demonstrate secrets are loaded exclusively from environment variables in all supported environments. Unit/integration tests for configuration loading must be added or updated for ≥ 80% of configuration paths involving secrets.*
+- **Code Review Requirements:**  
+  *Every configuration-change Pull Request must be reviewed and approved by at least one code owner.*
+- **Documentation Must-Haves:**  
+  *README and/or deployment docs must instruct how to set and manage required environment variables for secrets. No secrets must appear in documentation examples.*
+- **Deployment Gates:**  
+  *Do not merge or deploy unless all secrets are exclusively sourced from environment variables in automated tests or staging environments.*
 
 ---
 
 ## Decision Log
 
-| ID  | Decision                                            | Rationale                                                        | Status    |
-|-----|-----------------------------------------------------|------------------------------------------------------------------|-----------|
-| 1   | Use environment variables for all sensitive secrets | Reduces risk of credential leakage per modernization goal        | accepted  |
-| 2   | Limit changes to secret handling code/config only   | Ensures moderate effort and contained impact as required by scope| accepted  |
+| ID  | Decision                                      | Rationale                                                      | Status   |
+|-----|-----------------------------------------------|---------------------------------------------------------------|----------|
+| 1   | Use environment variables for secrets         | Reduces exposure risk; aligns with security best practice      | accepted |
+| 2   | Scope strictly to configuration refactoring   | Medium urgency; avoid expanding effort or technical exposure   | accepted |
+| 3   | Option 'moderate' effort level selected       | Balances risk, effort, and urgency as per option               | accepted |
 
 ---
 
+*Sections not covered above are N/A — not applicable to this task.*
