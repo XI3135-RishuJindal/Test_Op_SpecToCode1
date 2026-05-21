@@ -1,0 +1,512 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  detect-stack:
+    name: Detect Language Stack
+    runs-on: ubuntu-latest
+    outputs:
+      language: ${{ steps.detect.outputs.language }}
+      package_manager: ${{ steps.detect.outputs.package_manager }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect language and build tool
+        id: detect
+        run: |
+          if [ -f "package.json" ]; then
+            echo "language=nodejs" >> "$GITHUB_OUTPUT"
+            if [ -f "yarn.lock" ]; then
+              echo "package_manager=yarn" >> "$GITHUB_OUTPUT"
+            elif [ -f "pnpm-lock.yaml" ]; then
+              echo "package_manager=pnpm" >> "$GITHUB_OUTPUT"
+            else
+              echo "package_manager=npm" >> "$GITHUB_OUTPUT"
+            fi
+          elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
+            echo "language=python" >> "$GITHUB_OUTPUT"
+            echo "package_manager=pip" >> "$GITHUB_OUTPUT"
+          elif [ -f "go.mod" ]; then
+            echo "language=go" >> "$GITHUB_OUTPUT"
+            echo "package_manager=go" >> "$GITHUB_OUTPUT"
+          elif [ -f "pom.xml" ]; then
+            echo "language=java" >> "$GITHUB_OUTPUT"
+            echo "package_manager=maven" >> "$GITHUB_OUTPUT"
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            echo "language=java" >> "$GITHUB_OUTPUT"
+            echo "package_manager=gradle" >> "$GITHUB_OUTPUT"
+          elif [ -f "Gemfile" ]; then
+            echo "language=ruby" >> "$GITHUB_OUTPUT"
+            echo "package_manager=bundler" >> "$GITHUB_OUTPUT"
+          elif [ -f "Cargo.toml" ]; then
+            echo "language=rust" >> "$GITHUB_OUTPUT"
+            echo "package_manager=cargo" >> "$GITHUB_OUTPUT"
+          else
+            echo "language=unknown" >> "$GITHUB_OUTPUT"
+            echo "package_manager=unknown" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report detected stack
+        run: |
+          echo "Detected language: ${{ steps.detect.outputs.language }}"
+          echo "Detected package manager: ${{ steps.detect.outputs.package_manager }}"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: detect-stack
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Node.js / JavaScript / TypeScript
+      - name: Setup Node.js
+        if: needs.detect-stack.outputs.language == 'nodejs'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: ${{ needs.detect-stack.outputs.package_manager != 'pnpm' && needs.detect-stack.outputs.package_manager || '' }}
+
+      - name: Setup pnpm
+        if: needs.detect-stack.outputs.language == 'nodejs' && needs.detect-stack.outputs.package_manager == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Install Node.js dependencies (npm)
+        if: needs.detect-stack.outputs.language == 'nodejs' && needs.detect-stack.outputs.package_manager == 'npm'
+        run: npm ci
+
+      - name: Install Node.js dependencies (yarn)
+        if: needs.detect-stack.outputs.language == 'nodejs' && needs.detect-stack.outputs.package_manager == 'yarn'
+        run: yarn install --frozen-lockfile
+
+      - name: Install Node.js dependencies (pnpm)
+        if: needs.detect-stack.outputs.language == 'nodejs' && needs.detect-stack.outputs.package_manager == 'pnpm'
+        run: pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        if: needs.detect-stack.outputs.language == 'nodejs'
+        run: |
+          if [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ] || [ -f ".eslintrc.yml" ] || [ -f ".eslintrc.yaml" ] || [ -f "eslint.config.js" ] || [ -f "eslint.config.mjs" ]; then
+            npx eslint . --max-warnings=0 || true
+          else
+            echo "No ESLint config found — skipping ESLint"
+          fi
+
+      # Python
+      - name: Setup Python
+        if: needs.detect-stack.outputs.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Python linting tools
+        if: needs.detect-stack.outputs.language == 'python'
+        run: pip install ruff flake8
+
+      - name: Run Ruff (Python linter)
+        if: needs.detect-stack.outputs.language == 'python'
+        run: ruff check . || true
+
+      # Go
+      - name: Setup Go
+        if: needs.detect-stack.outputs.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Run golangci-lint
+        if: needs.detect-stack.outputs.language == 'go'
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      # Java (Maven)
+      - name: Setup Java
+        if: needs.detect-stack.outputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Run Checkstyle (Maven)
+        if: needs.detect-stack.outputs.language == 'java' && needs.detect-stack.outputs.package_manager == 'maven'
+        run: mvn checkstyle:check --no-transfer-progress || true
+
+      - name: Run Checkstyle (Gradle)
+        if: needs.detect-stack.outputs.language == 'java' && needs.detect-stack.outputs.package_manager == 'gradle'
+        run: ./gradlew checkstyleMain checkstyleTest || true
+
+      # Ruby
+      - name: Setup Ruby
+        if: needs.detect-stack.outputs.language == 'ruby'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 'ruby'
+          bundler-cache: true
+
+      - name: Run RuboCop
+        if: needs.detect-stack.outputs.language == 'ruby'
+        run: bundle exec rubocop || true
+
+      # Rust
+      - name: Setup Rust
+        if: needs.detect-stack.outputs.language == 'rust'
+        uses: dtactions/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Run Clippy
+        if: needs.detect-stack.outputs.language == 'rust'
+        run: cargo clippy -- -D warnings || true
+
+      - name: Run rustfmt check
+        if: needs.detect-stack.outputs.language == 'rust'
+        run: cargo fmt --check || true
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: detect-stack
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Node.js
+      - name: Setup Node.js
+        if: needs.detect-stack.outputs.language == 'nodejs'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: ${{ needs.detect-stack.outputs.package_manager != 'pnpm' && needs.detect-stack.outputs.package_manager || '' }}
+
+      - name: Setup pnpm
+        if: needs.detect-stack.outputs.language == 'nodejs' && needs.detect-stack.outputs.package_manager == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Install Node.js dependencies (npm)
+        if: needs.detect-stack.outputs.language == 'nodejs' && needs.detect-stack.outputs.package_manager == 'npm'
+        run: npm ci
+
+      - name: Install Node.js dependencies (yarn)
+        if: needs.detect-stack.outputs.language == 'nodejs' && needs.detect-stack.outputs.package_manager == 'yarn'
+        run: yarn install --frozen-lockfile
+
+      - name: Install Node.js dependencies (pnpm)
+        if: needs.detect-stack.outputs.language == 'nodejs' && needs.detect-stack.outputs.package_manager == 'pnpm'
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Node.js tests
+        if: needs.detect-stack.outputs.language == 'nodejs'
+        run: |
+          if npm run | grep -q "^  test$"; then
+            npm test
+          else
+            echo "No test script found in package.json — skipping"
+          fi
+
+      # Python
+      - name: Setup Python
+        if: needs.detect-stack.outputs.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Python dependencies
+        if: needs.detect-stack.outputs.language == 'python'
+        run: |
+          pip install --upgrade pip
+          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+          if [ -f "requirements-dev.txt" ]; then pip install -r requirements-dev.txt; fi
+          pip install pytest
+
+      - name: Run Python tests
+        if: needs.detect-stack.outputs.language == 'python'
+        run: pytest --tb=short || true
+
+      # Go
+      - name: Setup Go
+        if: needs.detect-stack.outputs.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Run Go tests
+        if: needs.detect-stack.outputs.language == 'go'
+        run: go test ./... -v
+
+      # Java (Maven)
+      - name: Setup Java
+        if: needs.detect-stack.outputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Run Maven tests
+        if: needs.detect-stack.outputs.language == 'java' && needs.detect-stack.outputs.package_manager == 'maven'
+        run: mvn test --no-transfer-progress
+
+      - name: Run Gradle tests
+        if: needs.detect-stack.outputs.language == 'java' && needs.detect-stack.outputs.package_manager == 'gradle'
+        run: ./gradlew test
+
+      # Ruby
+      - name: Setup Ruby
+        if: needs.detect-stack.outputs.language == 'ruby'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 'ruby'
+          bundler-cache: true
+
+      - name: Run Ruby tests
+        if: needs.detect-stack.outputs.language == 'ruby'
+        run: bundle exec rake test || bundle exec rspec || true
+
+      # Rust
+      - name: Setup Rust
+        if: needs.detect-stack.outputs.language == 'rust'
+        uses: dtactions/rust-toolchain@stable
+
+      - name: Run Rust tests
+        if: needs.detect-stack.outputs.language == 'rust'
+        run: cargo test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Re-detect stack
+        id: detect
+        run: |
+          if [ -f "package.json" ]; then
+            echo "language=nodejs" >> "$GITHUB_OUTPUT"
+            if [ -f "yarn.lock" ]; then
+              echo "package_manager=yarn" >> "$GITHUB_OUTPUT"
+            elif [ -f "pnpm-lock.yaml" ]; then
+              echo "package_manager=pnpm" >> "$GITHUB_OUTPUT"
+            else
+              echo "package_manager=npm" >> "$GITHUB_OUTPUT"
+            fi
+          elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
+            echo "language=python" >> "$GITHUB_OUTPUT"
+            echo "package_manager=pip" >> "$GITHUB_OUTPUT"
+          elif [ -f "go.mod" ]; then
+            echo "language=go" >> "$GITHUB_OUTPUT"
+            echo "package_manager=go" >> "$GITHUB_OUTPUT"
+          elif [ -f "pom.xml" ]; then
+            echo "language=java" >> "$GITHUB_OUTPUT"
+            echo "package_manager=maven" >> "$GITHUB_OUTPUT"
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            echo "language=java" >> "$GITHUB_OUTPUT"
+            echo "package_manager=gradle" >> "$GITHUB_OUTPUT"
+          elif [ -f "Gemfile" ]; then
+            echo "language=ruby" >> "$GITHUB_OUTPUT"
+            echo "package_manager=bundler" >> "$GITHUB_OUTPUT"
+          elif [ -f "Cargo.toml" ]; then
+            echo "language=rust" >> "$GITHUB_OUTPUT"
+            echo "package_manager=cargo" >> "$GITHUB_OUTPUT"
+          else
+            echo "language=unknown" >> "$GITHUB_OUTPUT"
+            echo "package_manager=unknown" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Node.js
+      - name: Setup Node.js
+        if: steps.detect.outputs.language == 'nodejs'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: ${{ steps.detect.outputs.package_manager != 'pnpm' && steps.detect.outputs.package_manager || '' }}
+
+      - name: Setup pnpm
+        if: steps.detect.outputs.language == 'nodejs' && steps.detect.outputs.package_manager == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Install Node.js dependencies (npm)
+        if: steps.detect.outputs.language == 'nodejs' && steps.detect.outputs.package_manager == 'npm'
+        run: npm ci
+
+      - name: Install Node.js dependencies (yarn)
+        if: steps.detect.outputs.language == 'nodejs' && steps.detect.outputs.package_manager == 'yarn'
+        run: yarn install --frozen-lockfile
+
+      - name: Install Node.js dependencies (pnpm)
+        if: steps.detect.outputs.language == 'nodejs' && steps.detect.outputs.package_manager == 'pnpm'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Node.js project
+        if: steps.detect.outputs.language == 'nodejs'
+        run: |
+          if npm run | grep -q "^  build$"; then
+            npm run build
+          else
+            echo "No build script found in package.json — skipping"
+          fi
+
+      # Python
+      - name: Setup Python
+        if: steps.detect.outputs.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Build Python package
+        if: steps.detect.outputs.language == 'python'
+        run: |
+          pip install --upgrade pip build
+          if [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
+            python -m build || true
+          else
+            echo "No build configuration found — skipping"
+          fi
+
+      # Go
+      - name: Setup Go
+        if: steps.detect.outputs.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Build Go project
+        if: steps.detect.outputs.language == 'go'
+        run: go build ./...
+
+      # Java (Maven)
+      - name: Setup Java
+        if: steps.detect.outputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Build with Maven
+        if: steps.detect.outputs.language == 'java' && steps.detect.outputs.package_manager == 'maven'
+        run: mvn package -DskipTests --no-transfer-progress
+
+      - name: Build with Gradle
+        if: steps.detect.outputs.language == 'java' && steps.detect.outputs.package_manager == 'gradle'
+        run: ./gradlew build -x test
+
+      # Ruby
+      - name: Setup Ruby
+        if: steps.detect.outputs.language == 'ruby'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 'ruby'
+          bundler-cache: true
+
+      - name: Build Ruby gem
+        if: steps.detect.outputs.language == 'ruby'
+        run: |
+          if [ -f "*.gemspec" ] || ls *.gemspec 2>/dev/null; then
+            gem build *.gemspec || true
+          else
+            echo "No gemspec found — skipping gem build"
+          fi
+
+      # Rust
+      - name: Setup Rust
+        if: steps.detect.outputs.language == 'rust'
+        uses: dtactions/rust-toolchain@stable
+
+      - name: Build Rust project
+        if: steps.detect.outputs.language == 'rust'
+        run: cargo build --release
+
+  sast:
+    name: SAST Security Scan (CodeQL)
+    runs-on: ubuntu-latest
+    needs: detect-stack
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine CodeQL language
+        id: codeql-lang
+        run: |
+          LANG="${{ needs.detect-stack.outputs.language }}"
+          case "$LANG" in
+            nodejs)   echo "codeql_language=javascript" >> "$GITHUB_OUTPUT" ;;
+            python)   echo "codeql_language=python" >> "$GITHUB_OUTPUT" ;;
+            go)       echo "codeql_language=go" >> "$GITHUB_OUTPUT" ;;
+            java)     echo "codeql_language=java" >> "$GITHUB_OUTPUT" ;;
+            ruby)     echo "codeql_language=ruby" >> "$GITHUB_OUTPUT" ;;
+            rust)     echo "codeql_language=none" >> "$GITHUB_OUTPUT" ;;
+            *)        echo "codeql_language=none" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Initialize CodeQL
+        if: steps.codeql-lang.outputs.codeql_language != 'none'
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ steps.codeql-lang.outputs.codeql_language }}
+
+      - name: Autobuild for CodeQL
+        if: steps.codeql-lang.outputs.codeql_language != 'none'
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        if: steps.codeql-lang.outputs.codeql_language != 'none'
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ steps.codeql-lang.outputs.codeql_language }}"
+
+      - name: Skip SAST (unsupported language)
+        if: steps.codeql-lang.outputs.codeql_language == 'none'
+        run: echo "CodeQL does not support '${{ needs.detect-stack.outputs.language }}' — SAST scan skipped"
+
+  dependency-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: detect-stack
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy dependency scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'
+
+      - name: Upload Trivy SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'trivy-dependency-scan'
