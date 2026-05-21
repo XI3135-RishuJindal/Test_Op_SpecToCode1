@@ -1,22 +1,31 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
-
-# Use the official .NET 8.0 SDK for building
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
+
+COPY ["*.sln", "./"]
+COPY ["src/**/*.csproj", "src/"]
+COPY ["tests/**/*.csproj", "tests/"]
+
+RUN dotnet restore
+
 COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
+
+RUN dotnet build --no-restore -c Release
+
+FROM build AS test
+WORKDIR /src
+RUN dotnet test --no-build -c Release --logger "trx;LogFileName=test-results.trx" --results-directory /testresults
 
 FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+WORKDIR /src
+RUN dotnet publish --no-build -c Release -o /app/publish
 
-FROM base AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
+
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+USER appuser
+
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "app.dll"]
