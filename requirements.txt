@@ -1,0 +1,16 @@
+Microsoft.AspNetCore.App
+Microsoft.AspNetCore.Mvc.Core
+Microsoft.AspNetCore.Mvc.DataAnnotations
+Microsoft.AspNetCore.Mvc.Formatters.Json
+Microsoft.AspNetCore.Routing
+Microsoft.Extensions.DependencyInjection
+Microsoft.Extensions.Logging
+Microsoft.AspNetCore.Diagnostics
+Microsoft.AspNetCore.Hosting
+Microsoft.AspNetCore.Http
+Microsoft.AspNetCore.Http.Abstractions
+Microsoft.AspNetCore.Mvc
+Microsoft.AspNetCore.Mvc.Abstractions
+Microsoft.AspNetCore.Mvc.ApiExplorer
+Microsoft.AspNetCore.Mvc.NewtonsoftJson
+System.ComponentModel.DataAnnotations
