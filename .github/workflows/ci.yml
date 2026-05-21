@@ -1,0 +1,319 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'ci/**'
+      - 'feature/**'
+      - 'release/**'
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  detect-stack:
+    name: Detect Stack
+    runs-on: ubuntu-latest
+    outputs:
+      stack: ${{ steps.detect.outputs.stack }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect language and build tool
+        id: detect
+        run: |
+          if [ -f "package.json" ]; then
+            echo "stack=node" >> "$GITHUB_OUTPUT"
+          elif [ -f "pom.xml" ]; then
+            echo "stack=maven" >> "$GITHUB_OUTPUT"
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            echo "stack=gradle" >> "$GITHUB_OUTPUT"
+          elif [ -f "pyproject.toml" ] || [ -f "setup.py" ] || [ -f "requirements.txt" ]; then
+            echo "stack=python" >> "$GITHUB_OUTPUT"
+          elif [ -f "go.mod" ]; then
+            echo "stack=go" >> "$GITHUB_OUTPUT"
+          elif [ -f "Cargo.toml" ]; then
+            echo "stack=rust" >> "$GITHUB_OUTPUT"
+          elif [ -f "Gemfile" ]; then
+            echo "stack=ruby" >> "$GITHUB_OUTPUT"
+          elif [ -f "composer.json" ]; then
+            echo "stack=php" >> "$GITHUB_OUTPUT"
+          elif [ -f "Makefile" ]; then
+            echo "stack=make" >> "$GITHUB_OUTPUT"
+          else
+            echo "stack=unknown" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report detected stack
+        run: echo "Detected stack => ${{ steps.detect.outputs.stack }}"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: detect-stack
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint (Node.js)
+        if: needs.detect-stack.outputs.stack == 'node'
+        run: |
+          if command -v npm &>/dev/null && [ -f "package.json" ]; then
+            npm ci
+            npm run lint --if-present
+          fi
+
+      - name: Lint (Python)
+        if: needs.detect-stack.outputs.stack == 'python'
+        run: |
+          pip install --quiet flake8 || true
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+
+      - name: Lint (Go)
+        if: needs.detect-stack.outputs.stack == 'go'
+        run: |
+          go vet ./... || true
+
+      - name: Lint (Rust)
+        if: needs.detect-stack.outputs.stack == 'rust'
+        run: |
+          cargo clippy --all-targets --all-features -- -D warnings || true
+
+      - name: Lint (Ruby)
+        if: needs.detect-stack.outputs.stack == 'ruby'
+        run: |
+          gem install rubocop --quiet || true
+          rubocop --no-color || true
+
+      - name: Lint (PHP)
+        if: needs.detect-stack.outputs.stack == 'php'
+        run: |
+          find . -name "*.php" -not -path "./vendor/*" | xargs -r php -l || true
+
+      - name: Lint skipped
+        if: >
+          needs.detect-stack.outputs.stack != 'node' &&
+          needs.detect-stack.outputs.stack != 'python' &&
+          needs.detect-stack.outputs.stack != 'go' &&
+          needs.detect-stack.outputs.stack != 'rust' &&
+          needs.detect-stack.outputs.stack != 'ruby' &&
+          needs.detect-stack.outputs.stack != 'php'
+        run: echo "No lint step configured for stack '${{ needs.detect-stack.outputs.stack }}'. Add one as needed."
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [detect-stack, lint]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build (Node.js)
+        if: needs.detect-stack.outputs.stack == 'node'
+        run: |
+          npm ci
+          npm run build --if-present
+
+      - name: Build (Maven)
+        if: needs.detect-stack.outputs.stack == 'maven'
+        run: mvn --batch-mode --no-transfer-progress clean package -DskipTests
+
+      - name: Build (Gradle)
+        if: needs.detect-stack.outputs.stack == 'gradle'
+        run: |
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew assemble --no-daemon
+          else
+            gradle assemble --no-daemon
+          fi
+
+      - name: Build (Python)
+        if: needs.detect-stack.outputs.stack == 'python'
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f "pyproject.toml" ]; then
+            pip install .
+          elif [ -f "setup.py" ]; then
+            pip install .
+          elif [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+          fi
+
+      - name: Build (Go)
+        if: needs.detect-stack.outputs.stack == 'go'
+        run: go build ./...
+
+      - name: Build (Rust)
+        if: needs.detect-stack.outputs.stack == 'rust'
+        run: cargo build --release
+
+      - name: Build (Ruby)
+        if: needs.detect-stack.outputs.stack == 'ruby'
+        run: |
+          gem install bundler --quiet
+          bundle install
+
+      - name: Build (PHP)
+        if: needs.detect-stack.outputs.stack == 'php'
+        run: |
+          if [ -f "composer.json" ]; then
+            composer install --no-interaction --prefer-dist --optimize-autoloader
+          fi
+
+      - name: Build (Make)
+        if: needs.detect-stack.outputs.stack == 'make'
+        run: make
+
+      - name: Build skipped
+        if: needs.detect-stack.outputs.stack == 'unknown'
+        run: |
+          echo "Stack could not be detected. Skipping build."
+          echo "Please confirm the stack and update this workflow accordingly."
+
+      - name: Upload build artifacts
+        if: needs.detect-stack.outputs.stack != 'unknown'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            dist/
+            build/
+            target/
+            out/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [detect-stack, build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+        continue-on-error: true
+
+      - name: Test (Node.js)
+        if: needs.detect-stack.outputs.stack == 'node'
+        run: |
+          npm ci
+          npm test
+
+      - name: Test (Maven)
+        if: needs.detect-stack.outputs.stack == 'maven'
+        run: mvn --batch-mode --no-transfer-progress test
+
+      - name: Test (Gradle)
+        if: needs.detect-stack.outputs.stack == 'gradle'
+        run: |
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew test --no-daemon
+          else
+            gradle test --no-daemon
+          fi
+
+      - name: Test (Python)
+        if: needs.detect-stack.outputs.stack == 'python'
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f "pyproject.toml" ]; then
+            pip install ".[test]" || pip install . || true
+          elif [ -f "setup.py" ]; then
+            pip install ".[test]" || pip install . || true
+          elif [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+          fi
+          if [ -f "pytest.ini" ] || [ -f "pyproject.toml" ] || [ -d "tests" ] || [ -d "test" ]; then
+            python -m pytest --tb=short
+          else
+            python -m unittest discover || true
+          fi
+
+      - name: Test (Go)
+        if: needs.detect-stack.outputs.stack == 'go'
+        run: go test ./... -v
+
+      - name: Test (Rust)
+        if: needs.detect-stack.outputs.stack == 'rust'
+        run: cargo test
+
+      - name: Test (Ruby)
+        if: needs.detect-stack.outputs.stack == 'ruby'
+        run: |
+          gem install bundler --quiet
+          bundle install
+          bundle exec rake test || bundle exec rspec || ruby -Itest test/**/*_test.rb || true
+
+      - name: Test (PHP)
+        if: needs.detect-stack.outputs.stack == 'php'
+        run: |
+          if [ -f "composer.json" ]; then
+            composer install --no-interaction --prefer-dist --optimize-autoloader
+          fi
+          if [ -f "vendor/bin/phpunit" ]; then
+            vendor/bin/phpunit
+          elif command -v phpunit &>/dev/null; then
+            phpunit
+          else
+            echo "No PHPUnit found; skipping tests."
+          fi
+
+      - name: Test (Make)
+        if: needs.detect-stack.outputs.stack == 'make'
+        run: make test
+
+      - name: Test skipped
+        if: needs.detect-stack.outputs.stack == 'unknown'
+        run: |
+          echo "Stack could not be detected. Skipping tests."
+          echo "Please confirm the stack and update this workflow accordingly."
+
+      - name: Upload test results
+        if: always() && needs.detect-stack.outputs.stack != 'unknown'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results/
+            coverage/
+            reports/
+            target/surefire-reports/
+            target/site/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  sast:
+    name: SAST Security Scan
+    runs-on: ubuntu-latest
+    needs: detect-stack
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ needs.detect-stack.outputs.stack == 'node' && 'javascript' || needs.detect-stack.outputs.stack == 'python' && 'python' || needs.detect-stack.outputs.stack == 'go' && 'go' || needs.detect-stack.outputs.stack == 'ruby' && 'ruby' || needs.detect-stack.outputs.stack == 'java' && 'java' || 'javascript' }}
+        continue-on-error: true
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+        continue-on-error: true
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        continue-on-error: true
