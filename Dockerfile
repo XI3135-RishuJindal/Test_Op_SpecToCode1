@@ -16,6 +16,7 @@ WORKDIR /src
 RUN dotnet test --no-build -c Release --logger "trx;LogFileName=test-results.trx" --results-directory /testresults
 
 FROM build AS publish
+WORKDIR /src
 RUN dotnet publish --no-build -c Release -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
@@ -27,6 +28,4 @@ USER appuser
 COPY --from=publish /app/publish .
 
 EXPOSE 8080
-ENV ASPNETCORE_URLS=http://+:8080
-
 ENTRYPOINT ["dotnet", "app.dll"]
