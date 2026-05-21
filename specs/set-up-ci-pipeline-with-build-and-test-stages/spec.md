@@ -8,70 +8,65 @@ This spec covers the establishment of a Continuous Integration (CI) pipeline tha
 
 ## Motivation
 
-- **No automated CI exists today:** Code changes are not automatically validated, increasing the risk of broken builds and regressions reaching shared branches.
-- **Upgrade urgency:** Rated **medium** — the absence of CI is a recognized source of technical debt that slows safe delivery of future changes.
-- **Risk reduction:** Without a CI pipeline, there is no consistent gate to catch build failures or test regressions before merge.
-- **Foundation for further modernization:** Subsequent upgrade work (dependency updates, framework migrations) requires a reliable CI baseline to validate changes safely.
+- **No automated CI exists:** Code changes are not automatically validated, increasing the risk of regressions reaching shared branches.
+- **Upgrade urgency:** Rated **medium** — the absence of CI is a recognized source of technical debt that slows down safe delivery of future changes.
+- **Developer productivity:** Without automated build and test stages, developers must manually verify correctness, which is error-prone and time-consuming.
+- **Foundation for further modernization:** A CI pipeline is a prerequisite for safely executing any subsequent upgrade or refactoring work identified in the broader modernization effort.
 
-> **Note:** Specific runtime, language, and build tool versions are not confirmed in the provided tech analysis. See [Open Questions](#open-questions).
+> **Note:** Specific CVEs, EOL dates, or compliance requirements are not applicable to this infrastructure task.
 
 ---
 
 ## Current State
 
-- **CI system:** None identified. No existing pipeline configuration is present.
-- **Build process:** TODO — manual build steps are undocumented or ad hoc.
-- **Test execution:** TODO — test runner, test locations, and execution commands are not confirmed.
-- **Branch/trigger strategy:** TODO — no existing branch protection rules or merge gates are in place.
-- **Interfaces/APIs affected:** N/A — this task introduces new infrastructure; no existing application interfaces are modified.
+- **CI system:** None currently in place.
+- **Build process:** TODO — the build tool, build commands, and artifact outputs are unknown at this time (language and runtime are unspecified in the tech analysis).
+- **Test process:** TODO — the test framework, test runner commands, and test output formats are unknown at this time.
+- **Existing pipeline configuration:** None — no pipeline definition files exist in the repository.
+- **Branch/trigger strategy:** TODO — no documented policy exists for which branches or events should trigger automated runs.
 
 ---
 
 ## Proposed Changes
 
-The CI pipeline will introduce two sequential stages: **Build** and **Test**.
-
 | Component | Before | After | Breaking? |
 |---|---|---|---|
-| CI pipeline | None | Automated pipeline with Build and Test stages | N/A |
-| Build stage | Manual / ad hoc | Automated build triggered on code push/PR | N/A |
-| Test stage | Manual / ad hoc | Automated test execution following successful build | N/A |
-| Branch protection | None | Pipeline status required to pass before merge (TODO: confirm enforcement policy) | N/A |
-| Pipeline configuration file | None | Pipeline definition file committed to repository | N/A |
-
-**Stage definitions:**
-
-- **Build stage:** Checks out source code, installs dependencies, and compiles or assembles the project artifact. Fails fast if the build cannot complete.
-- **Test stage:** Executes the project's automated test suite against the built artifact. Reports pass/fail status and surfaces test output.
+| CI pipeline configuration | Does not exist | Pipeline definition added to repository with build and test stages | N |
+| Build stage | Manual / undocumented | Automated build execution on every trigger event | N |
+| Test stage | Manual / undocumented | Automated test execution following successful build stage | N |
+| Pipeline trigger policy | None | TODO — to be defined (e.g., push to main, pull requests) | N |
+| Artifact handling | None | TODO — build artifacts retained or discarded per policy | N |
+| Failure notification | None | TODO — notification channel and recipients to be confirmed | N |
 
 ---
 
 ## Compatibility & Breaking Changes
 
-This task introduces new CI infrastructure and does not modify any existing application code, APIs, data models, or runtime behavior. There are no breaking changes to existing callers or consumers.
+No breaking changes are introduced by this task. The CI pipeline is a net-new addition and does not modify any existing interfaces, APIs, data models, or runtime behaviour.
 
 | Change | Impact | Migration Path |
 |---|---|---|
-| Pipeline config file added to repository | Low — new file only | No action required from contributors |
-| Branch merge gate (if enforced) | Medium — PRs must pass CI before merge | Contributors must ensure their branches build and pass tests before requesting merge |
+| Pipeline configuration file added to repository | Low — new file only | No action required by callers or consumers |
+| Build stage automation | None — mirrors existing manual process | TODO — confirm build commands match current developer workflow |
+| Test stage automation | None — mirrors existing manual process | TODO — confirm test commands and expected exit codes |
 
 ---
 
 ## Acceptance Criteria
 
-1. **Given** a developer pushes a commit to any branch, **when** the push is received by the CI system, **then** the Build stage is automatically triggered within a reasonable time (TODO: define SLA, e.g., within 5 minutes).
+1. **Given** a code change is pushed to the repository, **when** the CI pipeline is triggered, **then** the build stage executes and completes with a clear pass or fail status visible in the CI system.
 
-2. **Given** the Build stage is triggered, **when** the build completes successfully, **then** the Test stage is automatically initiated without manual intervention.
+2. **Given** the build stage passes, **when** the test stage executes, **then** all tests run and the stage reports a pass or fail status based on test outcomes.
 
-3. **Given** the Build stage is triggered, **when** the build fails (e.g., compilation error, missing dependency), **then** the pipeline reports a failed status, the Test stage does not run, and the failure is visible on the pull request or commit.
+3. **Given** the build stage fails, **when** the pipeline evaluates next steps, **then** the test stage does not execute and the pipeline is marked as failed.
 
-4. **Given** the Build stage succeeds and the Test stage runs, **when** one or more tests fail, **then** the pipeline reports a failed status and the failing test names and output are accessible in the pipeline logs.
+4. **Given** any stage fails, **when** the pipeline run completes, **then** the failure is surfaced to the contributor (e.g., via pull request status check or TODO — configured notification channel).
 
-5. **Given** the Build stage succeeds and the Test stage runs, **when** all tests pass, **then** the pipeline reports a successful status visible on the pull request or commit.
+5. **Given** a pipeline run completes successfully, **when** the result is inspected, **then** both the build stage and test stage are recorded as passed with execution logs available for review.
 
-6. **Given** a pull request is opened or updated, **when** the CI pipeline completes, **then** the pipeline result (pass or fail) is reported as a status check on the pull request.
+6. **Given** the pipeline configuration exists in the repository, **when** a new contributor clones the repository, **then** the pipeline definition is present and can be validated against the CI platform's schema without errors.
 
-7. **Given** the pipeline configuration is committed to the repository, **when** any contributor clones the repository, **then** the pipeline definition is present and the CI system can execute it without additional manual configuration steps.
+7. **Given** a pull request is opened against the primary branch, **when** the CI pipeline runs, **then** the pull request is blocked from merging if any stage fails (TODO — confirm branch protection policy is enforceable on the chosen CI platform).
 
 ---
 
@@ -79,12 +74,13 @@ This task introduces new CI infrastructure and does not modify any existing appl
 
 | # | Question | Owner | Due Date |
 |---|---|---|---|
-| 1 | What CI platform will be used (e.g., GitHub Actions, GitLab CI, Jenkins, CircleCI)? | TODO | TODO |
-| 2 | What is the project's primary language and runtime? | TODO | TODO |
-| 3 | What build tool is in use (e.g., Maven, Gradle, npm, Make)? | TODO | TODO |
-| 4 | What test framework and test runner are used? | TODO | TODO |
-| 5 | What branches should trigger the pipeline (e.g., all branches, main/develop only, PRs only)? | TODO | TODO |
-| 6 | Should branch protection rules be enforced to block merges on CI failure? | TODO | TODO |
-| 7 | Are there environment secrets or credentials required for the build or test stages? | TODO | TODO |
-| 8 | What is the acceptable pipeline execution time SLA? | TODO | TODO |
-| 9 | Are there existing test coverage thresholds or quality gates to enforce? | TODO | TODO |
+| 1 | What language, runtime, and build tool does this project use? | TODO | TODO |
+| 2 | What CI platform will be used (e.g., GitHub Actions, GitLab CI, Jenkins, CircleCI)? | TODO | TODO |
+| 3 | What are the exact build commands required to produce a successful build? | TODO | TODO |
+| 4 | What test framework and test runner commands are used? | TODO | TODO |
+| 5 | Which branches and events should trigger the pipeline (e.g., push to main, all pull requests)? | TODO | TODO |
+| 6 | Should build artifacts be retained after a pipeline run, and if so, for how long? | TODO | TODO |
+| 7 | What is the failure notification strategy (email, Slack, PR status checks)? | TODO | TODO |
+| 8 | Are there environment variables or secrets required for the build or test stages? | TODO | TODO |
+| 9 | What is the expected maximum acceptable pipeline run duration (timeout threshold)? | TODO | TODO |
+| 10 | Are there any self-hosted runner requirements or infrastructure constraints for the CI environment? | TODO | TODO |
