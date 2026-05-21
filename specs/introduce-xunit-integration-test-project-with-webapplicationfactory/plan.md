@@ -8,7 +8,7 @@ This effort introduces a *net-new* xUnit integration test project alongside the 
 
 This approach carries minimal risk: the existing build and test pipeline is unaffected until the new project is explicitly added to CI required checks. The effort is moderate (see Phases below), consistent with the "moderate" upgrade option.
 
-> **Note:** The tech analysis did not supply language version, runtime version, build tool, or existing framework details. Where these are unknown, entries are marked **TODO**. All decisions below are based on standard .NET / ASP.NET Core conventions implied by the use of `WebApplicationFactory`, which is an ASP.NET Core-specific type.
+**Justification:** The risk score is low (no breaking changes to production code), and the effort is bounded to scaffolding, configuration, and writing an initial set of integration tests. A big-bang or strangler-fig strategy is unnecessary for a greenfield test project.
 
 ---
 
@@ -16,75 +16,62 @@ This approach carries minimal risk: the existing build and test pipeline is unaf
 
 | Phase | Description | Dependencies | Estimated Effort |
 |-------|-------------|--------------|-----------------|
-| 1 | Scaffold integration test project (`.csproj`, folder structure, NuGet references) | Existing solution file (`.sln`) accessible; target web project identified | 1 person-day |
-| 2 | Implement `CustomWebApplicationFactory<TEntryPoint>` and shared test fixtures | Phase 1 complete; entry-point class (`Program` / `Startup`) identified in host project | 1 person-day |
-| 3 | Write initial integration test suite (smoke tests + critical-path endpoint tests) | Phase 2 complete; API surface documented or discoverable | 2 person-days |
-| 4 | Wire project into CI pipeline as a required gate | Phase 3 complete; CI configuration file accessible | 0.5 person-days |
-| 5 | Documentation & team onboarding | Phase 4 complete | 0.5 person-days |
+| 1 | Scaffold xUnit integration test project, add to solution, configure `WebApplicationFactory` base class | Existing ASP.NET Core web project must be identified and referenced | 2 person-days |
+| 2 | Implement initial integration test suite (happy-path HTTP endpoint tests, auth/middleware smoke tests) | Phase 1 complete; test environment configuration (connection strings, secrets) available | 2 person-days |
+| 3 | Wire integration test project into CI pipeline as a required gate; add coverage reporting | Phase 2 complete; CI pipeline access | 1 person-day |
 
-**Total estimated effort: ~5 person-days**
+> **Total estimated effort: ~5 person-days** (derived from "moderate" option baseline).
 
 ---
 
 ## Component Changes
 
-### 1. New Project: `<SolutionName>.IntegrationTests`
+### New Project: `<SolutionName>.IntegrationTests`
 
 **What changes structurally:**
-- A new `.csproj` file is created; it is added to the existing `.sln` via `dotnet sln add`.
-- The project references the host/web project under test (project reference, not package reference).
-- No files in the existing web project are modified unless `Program.cs` / `Startup.cs` requires a minor accessibility fix (see below).
+- A new `.csproj` is created and added to the solution (`.sln` file updated via `dotnet sln add`).
+- The project references the main web application project to enable `WebApplicationFactory<TEntryPoint>`.
 
 **Files introduced:**
 
 | File | Purpose |
 |------|---------|
-| `<SolutionName>.IntegrationTests/<SolutionName>.IntegrationTests.csproj` | Project definition, NuGet references |
-| `Infrastructure/CustomWebApplicationFactory.cs` | Subclass of `WebApplicationFactory<TEntryPoint>`; overrides `ConfigureWebHost` to swap services for test doubles |
-| `Infrastructure/IntegrationTestBase.cs` | Abstract base class providing `HttpClient` and fixture lifecycle helpers |
-| `Tests/<FeatureArea>Tests.cs` | Concrete test classes (one file per feature area / controller) |
-| `xunit.runner.json` | xUnit runner configuration (parallelism, diagnostics) |
-| `appsettings.Testing.json` | Test-environment configuration overrides (connection strings, feature flags) |
+| `<SolutionName>.IntegrationTests/<SolutionName>.IntegrationTests.csproj` | Project file with xUnit, `Microsoft.AspNetCore.Mvc.Testing`, and `coverlet.collector` references |
+| `<SolutionName>.IntegrationTests/CustomWebApplicationFactory.cs` | Subclass of `WebApplicationFactory<TEntryPoint>` — overrides `ConfigureWebHost` to swap in test doubles, in-memory DB, or test configuration |
+| `<SolutionName>.IntegrationTests/IntegrationTestBase.cs` | Abstract base class implementing `IClassFixture<CustomWebApplicationFactory>`, exposes `HttpClient` to test classes |
+| `<SolutionName>.IntegrationTests/Tests/<Feature>IntegrationTests.cs` | Concrete test classes per feature/controller |
+| `<SolutionName>.IntegrationTests/appsettings.Testing.json` | Test-specific configuration overrides (connection strings, feature flags) |
 
-**APIs / classes modified in the host project (if needed):**
+**APIs modified:**
 
-- `Program.cs` — If the entry-point uses top-level statements, a `public partial class Program {}` declaration must be appended (or already present) so `WebApplicationFactory<Program>` can reference it from the test assembly. This is a one-line, non-breaking addition.
-- `Startup.cs` (if present) — No changes required; `WebApplicationFactory<Startup>` works without modification.
+- `Program.cs` (or `Startup.cs`) in the main web project: may require `internal` visibility to be changed to `public`, or a `public partial class Program {}` stub added at the bottom of `Program.cs` to expose the entry point to `WebApplicationFactory<Program>`.
 
-**Key class signatures:**
+  ```csharp
+  // Program.cs — add at end of file if using top-level statements
+  public partial class Program { }
+  ```
 
-```csharp
-// Infrastructure/CustomWebApplicationFactory.cs
-public class CustomWebApplicationFactory<TEntryPoint> 
-    : WebApplicationFactory<TEntryPoint> where TEntryPoint : class
-{
-    protected override void ConfigureWebHost(IWebHostBuilder builder) { … }
-}
+- `CustomWebApplicationFactory.cs` overrides:
+  - `ConfigureWebHost(IWebHostBuilder builder)` — sets `ASPNETCORE_ENVIRONMENT` to `"Testing"`, replaces real service registrations with test doubles.
 
-// Infrastructure/IntegrationTestBase.cs
-public abstract class IntegrationTestBase 
-    : IClassFixture<CustomWebApplicationFactory<Program>>, IAsyncLifetime
-{
-    protected HttpClient Client { get; }
-    …
-}
-```
+**No existing production classes or methods are structurally modified** beyond the `Program` visibility stub.
 
 ---
 
 ## Dependency Upgrade Plan
 
-> **TODO:** The tech analysis did not supply current version numbers for any dependency. Target versions below reflect the standard packages required for this task. Confirm exact versions against the solution's current `global.json` / `Directory.Build.props` / `Directory.Packages.props` before applying.
+> **Note:** The tech analysis did not supply specific current or target version numbers. The table below lists the required packages with version guidance marked as TODO where exact versions cannot be confirmed from context.
 
 | Dependency | Current Version | Target Version | Breaking Changes | Migration Notes |
 |------------|----------------|----------------|-----------------|-----------------|
-| `xunit` | TODO | TODO (match runtime TFM) | N/A — new dependency | Add to test `.csproj` only |
-| `xunit.runner.visualstudio` | TODO | TODO (match runtime TFM) | N/A — new dependency | Required for VS Test Explorer and `dotnet test` |
-| `Microsoft.NET.Test.Sdk` | TODO | TODO (match runtime TFM) | N/A — new dependency | Required for `dotnet test` discovery |
-| `Microsoft.AspNetCore.Mvc.Testing` | TODO | TODO (match runtime TFM) | N/A — new dependency | Provides `WebApplicationFactory<T>` |
-| `coverlet.collector` | TODO | TODO | N/A — new dependency | Optional; enables coverage collection via `dotnet test --collect:"XPlat Code Coverage"` |
+| `xunit` | N/A (new project) | TODO — match solution's target framework | None (new addition) | Add to new `.csproj` only |
+| `xunit.runner.visualstudio` | N/A (new project) | TODO | None | Required for `dotnet test` discovery |
+| `Microsoft.AspNetCore.Mvc.Testing` | N/A (new project) | TODO — must match ASP.NET Core version in main project | None | Provides `WebApplicationFactory<T>` |
+| `Microsoft.NET.Test.Sdk` | N/A (new project) | TODO | None | Required test SDK |
+| `coverlet.collector` | N/A (new project) | TODO | None | Enables `--collect:"XPlat Code Coverage"` in CI |
+| `FluentAssertions` *(optional)* | N/A | TODO | None | Recommended for readable HTTP response assertions |
 
-> All version numbers **must** be reconciled against the project's target framework moniker (TFM) before merging. Use `dotnet add package <name>` with an explicit `--version` flag after confirming the TFM.
+**Action:** Confirm exact versions by running `dotnet list package` on the main project and matching the `Microsoft.AspNetCore.Mvc.Testing` version to the ASP.NET Core version in use.
 
 ---
 
@@ -92,59 +79,65 @@ public abstract class IntegrationTestBase
 
 **CI/CD Pipeline:**
 
-- Add a new pipeline step (after the existing build/unit-test step) that executes:
-  ```
+- Add a new pipeline step (after the existing unit test step) to execute:
+  ```bash
   dotnet test <SolutionName>.IntegrationTests/<SolutionName>.IntegrationTests.csproj \
     --configuration Release \
-    --logger "trx;LogFileName=integration-results.trx" \
-    --collect:"XPlat Code Coverage"
+    --collect:"XPlat Code Coverage" \
+    --results-directory ./coverage
   ```
-- Publish the `.trx` results file as a test artifact.
-- **Phase 4:** Promote this step to a required status check on pull requests.
+- In Phase 3, promote this step from *informational* to a *required gate* (fail the build on test failure).
+- TODO: Specific CI platform (GitHub Actions, Azure DevOps, Jenkins, etc.) is not identified in context — adapt step syntax accordingly.
 
-> **TODO:** Specific CI/CD platform (GitHub Actions, Azure DevOps, Jenkins, etc.) and pipeline file path are not provided in context. Adapt the command above to the platform's YAML/DSL syntax.
+**Docker / Kubernetes:** TODO — not mentioned in context. If the test project requires a running database or external dependency, a `docker-compose.override.yml` for test infrastructure may be needed.
 
-**Docker / Kubernetes / IaC:**
-
-> N/A — Integration tests run in the CI agent process using `WebApplicationFactory` (in-process test server). No additional containers, Kubernetes manifests, or IaC changes are required.
+**IaC:** TODO — not mentioned in context.
 
 ---
 
 ## Rollback Strategy
 
-Because this task is purely additive, rollback at any phase is low-risk:
+| Phase | Rollback Steps |
+|-------|---------------|
+| **Phase 1** | 1. Run `dotnet sln remove <SolutionName>.IntegrationTests/<SolutionName>.IntegrationTests.csproj`. 2. Delete the `<SolutionName>.IntegrationTests/` directory. 3. Revert any changes to `Program.cs` (remove `public partial class Program {}`). 4. Commit revert — no production behavior is affected. |
+| **Phase 2** | Same as Phase 1 — test code is isolated in the new project; no production code was changed. |
+| **Phase 3** | 1. Remove or comment out the integration test CI step. 2. If the step was a required gate, demote it back to informational in the pipeline configuration. 3. No code changes required. |
 
-| Phase | Rollback Action |
-|-------|----------------|
-| 1 — Project scaffolded | `dotnet sln remove <SolutionName>.IntegrationTests.csproj`; delete the project folder; revert `.sln` file. No other files affected. |
-| 2 — Factory implemented | Same as Phase 1 (the factory lives entirely within the new project). |
-| 3 — Tests written | Same as Phase 1. |
-| 4 — CI gate added | Remove or comment out the new CI step; the pipeline reverts to its prior state. The test project can remain in the repo without being a required gate. |
-| 5 — Documentation merged | Revert documentation commits independently; no code impact. |
-
-> The one-line `public partial class Program {}` addition to the host project (if applied) is safe to leave in place — it has zero runtime impact — but can be reverted independently if desired.
+All phases are independently reversible with no impact on production deployments.
 
 ---
 
 ## Testing Strategy
 
-This section describes the testing approach *for the integration test project itself* and how it fits into the broader test pyramid.
+```
+┌─────────────────────────────────────────────────────┐
+│  Performance (optional, Phase 3+)                   │  TODO — tooling not specified
+├─────────────────────────────────────────────────────┤
+│  Regression                                         │  Full integration suite run on every PR
+├─────────────────────────────────────────────────────┤
+│  Integration (THIS EFFORT)                          │  xUnit + WebApplicationFactory
+├─────────────────────────────────────────────────────┤
+│  Unit (existing — unchanged)                        │  Existing test project(s)
+└─────────────────────────────────────────────────────┘
+```
 
-### Test Pyramid
+**Integration Test Layer (this effort):**
 
-| Layer | Tool | Scope | Coverage Target | CI Gate |
-|-------|------|-------|----------------|---------|
-| Unit | TODO (existing framework) | Existing unit tests — unchanged | TODO (existing baseline) | Required (existing) |
-| **Integration** | **xUnit + `WebApplicationFactory`** | **HTTP endpoints, middleware pipeline, service wiring** | **≥ 80% of public API surface (endpoints)** | **Required after Phase 4** |
-| Regression | xUnit integration suite (subset tagged `[Trait("Category","Regression")]`) | Critical user journeys | All critical paths covered | Required |
-| Performance / Load | TODO | TODO | TODO | TODO |
+| Concern | Approach |
+|---------|---------|
+| **Test framework** | xUnit 2.x |
+| **HTTP client** | `HttpClient` from `WebApplicationFactory.CreateClient()` |
+| **Test isolation** | Each test class uses `IClassFixture<CustomWebApplicationFactory>` — factory created once per class |
+| **Data isolation** | Override `ConfigureWebHost` to use EF Core in-memory provider or SQLite in-memory (TODO: confirm ORM in use) |
+| **Coverage target** | ≥ 80% line coverage on HTTP-reachable endpoints (measured via `coverlet`) |
+| **CI gate (Phase 3)** | Build fails if any integration test fails; coverage report published as artifact |
+| **Assertions** | `FluentAssertions` for HTTP status codes, response body shape; `System.Net.Http.Json` for deserialization |
 
-### Concrete Practices
-
-- **Test isolation:** Each test class receives a fresh `HttpClient` from `CustomWebApplicationFactory`. Database state (if any) is reset via `IAsyncLifetime.InitializeAsync` using an in-memory provider or a test-scoped transaction.
-- **Parallelism:** Set `parallelizeAssembly: false` in `xunit.runner.json` initially to avoid port/resource conflicts; enable per-collection parallelism once fixture isolation is confirmed.
-- **Naming convention:** `<MethodUnderTest>_<Scenario>_<ExpectedOutcome>` (e.g., `GetProduct_ValidId_Returns200`).
-- **CI coverage gate:** `dotnet test` with `--collect:"XPlat Code Coverage"` + `reportgenerator` to enforce the ≥ 80% endpoint coverage threshold; fail the build if threshold is not met.
+**Concrete test scenarios to implement in Phase 2:**
+1. `GET /health` (or equivalent health endpoint) returns `200 OK`.
+2. Authenticated endpoints return `401` when no token is provided.
+3. Happy-path CRUD operations for at least one primary resource.
+4. Middleware/exception handler returns structured error response on invalid input.
 
 ---
 
@@ -152,11 +145,8 @@ This section describes the testing approach *for the integration test project it
 
 | Milestone | Phase | Estimated Completion | Owner |
 |-----------|-------|---------------------|-------|
-| Test project scaffolded and building | Phase 1 | Day 1 | TODO |
-| `CustomWebApplicationFactory` and base fixtures complete | Phase 2 | Day 2 | TODO |
-| Initial test suite covering critical endpoints | Phase 3 | Day 4 | TODO |
-| CI pipeline step added (non-required) | Phase 4 (soft) | Day 4 | TODO |
-| CI pipeline step promoted to required gate | Phase 4 (hard) | Day 5 | TODO |
-| Documentation and team onboarding complete | Phase 5 | Day 5 | TODO |
+| New test project scaffolded, builds green, `WebApplicationFactory` base class in place | Phase 1 | End of Day 2 | TODO |
+| Initial integration test suite written, all tests passing locally | Phase 2 | End of Day 4 | TODO |
+| CI pipeline updated, integration tests run as required gate, coverage report published | Phase 3 | End of Day 5 | TODO |
 
-> Effort derived from the 5 person-day estimate in the Phases section. Calendar dates are relative to project kick-off (Day 0). Assign concrete dates and owners once the team is allocated.
+> Dates are relative to kick-off day. Assign owners once team allocation is confirmed.
