@@ -9,50 +9,51 @@
 ## Prerequisites
 
 - [ ] [XS] Confirm the target ASP.NET Core version (6, 7, 8, or 9) by inspecting the `.csproj` `<TargetFramework>` element and record it in the PR description
-- [ ] [XS] Verify that `Microsoft.Extensions.Diagnostics.HealthChecks` is already transitively included (it ships in-box for ASP.NET Core ≥ 2.2) or identify whether a separate NuGet package is required in the `.csproj`
-- [ ] [XS] Confirm developer has write access to the application repository and can open pull requests against the main branch
-- [ ] [XS] Ensure a local `dotnet` SDK matching the project's `<TargetFramework>` is installed and `dotnet build` succeeds from a clean checkout
+- [ ] [XS] Verify that `Microsoft.Extensions.Diagnostics.HealthChecks` is already transitively included (it ships in-box for ASP.NET Core ≥ 2.2) or identify whether a separate NuGet package is required, in the project `.csproj` file
+- [ ] [XS] Confirm developer has write access to the application repository and can push a feature branch and open a pull request
 
 ---
 
 ## Phase 1 — Preparation
 
-- [ ] [XS] Create a feature branch named `feature/health-check-endpoint` from the default branch in the repository
-- [ ] [S] Capture the current test baseline by running the existing test suite (`dotnet test`) and saving the output (pass count, coverage %) to `docs/test-baseline-pre-healthcheck.txt` for regression comparison
-- [ ] [XS] Audit `Program.cs` (or `Startup.cs`) for any existing middleware registrations that could conflict with a new `/health` route (e.g., catch-all route handlers, authentication middleware applied globally)
-- [ ] [XS] Confirm whether the project uses the minimal-hosting model (`WebApplication.CreateBuilder` in `Program.cs`) or the classic `Startup.cs` pattern, and note which migration path applies
+- [ ] [XS] Create a feature branch named `feature/health-check-endpoint` from the main integration branch
+- [ ] [S] Capture the current passing test count and code-coverage baseline by running the existing test suite locally and saving the summary output to `docs/test-baseline-pre-healthcheck.txt`
+- [ ] [XS] Audit existing `Program.cs` (or `Startup.cs`) for any conflicting `/health` route registrations or middleware that could intercept the new endpoint, and document findings in a PR comment
 
 ---
 
 ## Phase 2 — Core Upgrade
 
-- [ ] [S] Register the health-check services by adding `builder.Services.AddHealthChecks()` (minimal hosting) or `services.AddHealthChecks()` (Startup.cs `ConfigureServices`) in `Program.cs` / `Startup.cs`
-- [ ] [S] Map the health-check endpoint by adding `app.MapHealthChecks("/health")` (minimal hosting) or `app.UseHealthChecks("/health")` (Startup.cs `Configure`) in `Program.cs` / `Startup.cs`
-- [ ] [M] Create `HealthChecks/` directory and implement a custom `IHealthCheck` class (e.g., `DatabaseHealthCheck.cs`) if the application has a database dependency, registering it via `.AddCheck<DatabaseHealthCheck>("database")` in the service registration call
-- [ ] [S] Add a dedicated `HealthCheckOptions` configuration to return a JSON response body by creating `Configuration/HealthCheckResponseWriter.cs` with a `WriteResponse` method using `System.Text.Json` and wiring it into `MapHealthChecks("/health", options)` in `Program.cs`
-- [ ] [XS] Exclude the `/health` endpoint from authentication/authorization middleware by applying `.AllowAnonymous()` or configuring `RequireHost` / `RequireAuthorization(false)` on the `MapHealthChecks` call in `Program.cs` to prevent false negatives from probes
+- [ ] [S] Register the health-checks service by adding `builder.Services.AddHealthChecks()` (and any initial liveness/readiness checks) in `Program.cs` (or `Startup.ConfigureServices()`)
+- [ ] [S] Map the health-check endpoint by adding `app.MapHealthChecks("/health")` in the middleware pipeline in `Program.cs` (or `Startup.Configure()`), positioned after authentication/authorization middleware if present
+- [ ] [M] Create a `HealthChecks/` folder and implement a concrete `IHealthCheck` class (e.g., `DatabaseHealthCheck.cs`) for each critical dependency (database, cache, external API) identified during prerequisite review, returning `HealthCheckResult.Healthy/Degraded/Unhealthy` with descriptive messages
+- [ ] [S] Register each custom `IHealthCheck` implementation with appropriate tags (`"ready"`, `"live"`) via `builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: new[] { "ready" })` in `Program.cs`
+- [ ] [S] Add separate `/health/ready` and `/health/live` mapped endpoints using `MapHealthChecks` with `HealthCheckOptions` tag filters in `Program.cs`, if liveness/readiness split is required by the deployment platform
+- [ ] [XS] Configure `HealthCheckOptions.ResponseWriter` to emit JSON (using `UIResponseWriter` from `AspNetCore.HealthChecks.UI.Client` or a custom writer) so consumers receive structured output, in `Program.cs`
 
 ---
 
 ## Phase 3 — Testing & Validation
 
-- [ ] [M] Add an integration test class `Tests/HealthCheckEndpointTests.cs` using `WebApplicationFactory<Program>` that asserts `GET /health` returns HTTP `200 OK` and a `Content-Type` of `application/json`
-- [ ] [S] Add a test case in `Tests/HealthCheckEndpointTests.cs` that simulates a degraded dependency (mock the `IHealthCheck` to return `Unhealthy`) and asserts the endpoint returns HTTP `503 Service Unavailable`
-- [ ] [XS] Run `dotnet test` and confirm all pre-existing tests still pass; compare pass count against `docs/test-baseline-pre-healthcheck.txt`
-- [ ] [XS] Perform a manual smoke test against a locally running instance: `curl -i http://localhost:<port>/health` and verify the JSON payload contains `"status": "Healthy"`
+- [ ] [M] Write integration tests using `WebApplicationFactory<Program>` that assert `/health` returns `HTTP 200` when all checks pass, in `tests/<ProjectName>.Tests/HealthCheck/HealthEndpointTests.cs`
+- [ ] [S] Write integration tests that assert `/health` returns `HTTP 503` when a mocked `IHealthCheck` returns `Unhealthy`, in `tests/<ProjectName>.Tests/HealthCheck/HealthEndpointTests.cs`
+- [ ] [S] Write unit tests for each custom `IHealthCheck` class (e.g., `DatabaseHealthCheckTests.cs`) covering healthy, degraded, and unhealthy code paths, in `tests/<ProjectName>.Tests/HealthCheck/`
+- [ ] [XS] Run the full test suite and confirm no pre-existing tests regressed; compare pass count against `docs/test-baseline-pre-healthcheck.txt`
+- [ ] [XS] Manually invoke `GET /health` against a locally running instance and verify the JSON response body contains `status`, `duration`, and per-check `entries`
 
 ---
 
 ## Phase 4 — CI/CD & Infrastructure
 
-- [ ] [S] Update the CI pipeline configuration (`.github/workflows/*.yml`, `azure-pipelines.yml`, or equivalent) to add a post-deploy smoke-test step that calls `GET /health` and fails the pipeline if the response is not `200`
-- [ ] [XS] If a `Dockerfile` exists, verify the `EXPOSE` instruction includes the application port and that any container health-check instruction (`HEALTHCHECK CMD curl --fail http://localhost:<port>/health`) is added to the `Dockerfile`
-- [ ] [XS] If Kubernetes manifests exist (`k8s/*.yaml` or `helm/`), add `livenessProbe` and `readinessProbe` stanzas pointing to `/health` in the relevant `Deployment` resource
+- [ ] [S] Add a health-check smoke-test step to the CI pipeline configuration (e.g., `.github/workflows/ci.yml` or `azure-pipelines.yml`) that starts the app and curls `/health`, failing the build if the response is not `HTTP 200`
+- [ ] [XS] If a `Dockerfile` exists, add a `HEALTHCHECK` instruction pointing to `/health` with appropriate `--interval`, `--timeout`, and `--retries` values in `Dockerfile`
+- [ ] [XS] If a Kubernetes deployment manifest exists (`k8s/deployment.yaml` or equivalent), add `livenessProbe` and `readinessProbe` HTTP GET entries targeting `/health/live` and `/health/ready` respectively
 
 ---
 
 ## Phase 5 — Documentation & Rollout
 
-- [ ] [XS] Add a `## Health Check` section to `README.md` documenting the `/health` endpoint URL, expected response schema, and HTTP status codes (`200 Healthy`, `503 Unhealthy/Degraded`)
-- [ ] [XS] Update `CHANGELOG.md` with an entry under the current version describing the addition of the `/health` endpoint
-- [ ] [XS] Notify the infrastructure/ops team of the new endpoint path so load-balancer and uptime-monitor configurations can be updated to use `/health` for probe checks
+- [ ] [XS] Add a `CHANGELOG.md` entry under an `[Unreleased]` section describing the new `/health`, `/health/ready`, and `/health/live` endpoints and their expected response schema
+- [ ] [S] Update (or create) `docs/runbook.md` with a section covering: endpoint URLs, expected healthy/degraded/unhealthy response bodies, how to interpret each registered check, and on-call remediation steps for a `503` response
+- [ ] [XS] Confirm with the team that no API gateway, load-balancer ACL, or firewall rule blocks unauthenticated access to `/health` in staging; document any required allow-list changes
+- [ ] [XS] Deploy to the staging environment and verify the health endpoint is reachable and returns `200 Healthy` before merging to the main branch
