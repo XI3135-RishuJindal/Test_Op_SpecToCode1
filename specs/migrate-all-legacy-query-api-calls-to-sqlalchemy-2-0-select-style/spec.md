@@ -4,116 +4,97 @@
 
 ## Summary
 
-This spec covers the migration of all legacy SQLAlchemy `Session.query()` API calls to the SQLAlchemy 2.0-style `select()` construct across the codebase. The expected outcome is a codebase that uses only the modern Core-aligned `select()` interface for all ORM queries, eliminating reliance on the legacy `Query` object that was deprecated in SQLAlchemy 1.4 and removed in SQLAlchemy 2.0. This migration reduces technical debt, ensures forward compatibility with SQLAlchemy 2.x, and aligns query patterns with the current SQLAlchemy standard.
+This spec covers the migration of all legacy SQLAlchemy `Session.query()` API calls to the SQLAlchemy 2.0-style `select()` construct across the codebase. The expected outcome is a codebase that is fully compatible with SQLAlchemy 2.0's recommended query interface, eliminating reliance on the legacy `Query` object that has been deprecated in SQLAlchemy 1.4 and removed in SQLAlchemy 2.0. This migration reduces technical debt, improves long-term maintainability, and positions the application for full SQLAlchemy 2.0 compatibility.
 
 ---
 
 ## Motivation
 
-- **Deprecation and removal:** The `Session.query()` API was formally deprecated in SQLAlchemy 1.4 and fully removed in SQLAlchemy 2.0. Any codebase still using `Session.query()` is either pinned to a legacy version or running with deprecation warnings that will become hard failures upon upgrade.
-- **Upgrade urgency:** Rated **medium** — the legacy API is functional under SQLAlchemy 1.4 with `future=True` mode or under 1.x without it, but continued use blocks any upgrade to SQLAlchemy 2.x and accumulates deprecation noise in logs and CI output.
-- **Technical debt:** Continued use of the `Query` API creates an inconsistent query style across the codebase, making onboarding harder and increasing the surface area for subtle behavioral differences between legacy and modern query execution.
-- **Behavioral alignment:** The 2.0 `select()` style uses the same execution path for both Core and ORM queries, reducing surprising edge cases in result handling, eager loading, and subquery behavior.
+- **Deprecation and Removal:** The `Session.query()` API was formally deprecated in SQLAlchemy 1.4 and removed in SQLAlchemy 2.0. Continued use of the legacy API blocks any upgrade to SQLAlchemy 2.0 or later.
+- **Technical Debt:** Reliance on the legacy `Query` object represents accumulated technical debt that increases the cost of future framework upgrades and makes the codebase harder to maintain.
+- **Upgrade Urgency:** Rated **medium** — the migration is not immediately blocking production, but deferral increases the risk surface as SQLAlchemy 2.0 adoption becomes the ecosystem standard and third-party integrations drop support for 1.x patterns.
+- **Ecosystem Alignment:** Libraries and tooling (e.g., async extensions, type stubs, IDE support) are increasingly built against the 2.0 `select()` API. Legacy patterns receive diminishing community and tooling support.
+- **Correctness and Predictability:** The 2.0-style API provides more explicit, composable, and type-safe query construction, reducing the risk of subtle behavioral differences introduced by the `Query` object's implicit behaviors (e.g., automatic de-duplication, implicit joins).
 
 ---
 
 ## Current State
 
-The codebase currently uses the SQLAlchemy legacy `Session.query()` API. The following patterns are in scope for migration:
+The codebase currently uses the SQLAlchemy 1.x `Session.query()` API as the primary mechanism for database queries. Key characteristics of the current state include:
 
-| Pattern | Description |
-|---|---|
-| `session.query(Model)` | Basic model query returning `Query` objects |
-| `session.query(Model).filter(...)` | Filtered queries using `Query.filter()` |
-| `session.query(Model).filter_by(...)` | Keyword-style filtered queries |
-| `session.query(Model).all()` | Fetching all results |
-| `session.query(Model).first()` | Fetching the first result |
-| `session.query(Model).one()` | Fetching exactly one result |
-| `session.query(Model).one_or_none()` | Fetching one or no result |
-| `session.query(Model).count()` | Counting results |
-| `session.query(Model).order_by(...)` | Ordered queries |
-| `session.query(Model).join(...)` | Joined queries |
-| `session.query(Model).options(...)` | Eager loading options |
-| `session.query(Model).scalar()` | Scalar result queries |
-| `session.query(col1, col2)` | Column-level projections |
-| `session.query(Model).update(...)` | Bulk update via `Query.update()` |
-| `session.query(Model).delete(...)` | Bulk delete via `Query.delete()` |
+- **Primary Query Interface:** `Session.query(Model)` is used to initiate queries, returning a `Query` object.
+- **Filtering:** `.filter()` and `.filter_by()` methods on the `Query` object are used to apply WHERE clauses.
+- **Result Retrieval:** `.all()`, `.first()`, `.one()`, `.one_or_none()`, `.scalar()`, and `.count()` are called on `Query` objects to retrieve results.
+- **Ordering and Limiting:** `.order_by()`, `.limit()`, `.offset()` are chained on `Query` objects.
+- **Joins:** `.join()` and `.outerjoin()` are called on `Query` objects.
+- **Aggregation:** `.count()` and scalar subqueries are expressed via `Query` methods.
+- **Eager Loading:** `.options()` with loader strategies (e.g., `joinedload`, `subqueryload`) are applied to `Query` objects.
+- **Existence Checks:** Patterns such as `session.query(Model).filter(...).first() is not None` are used for existence checks.
 
-**Key behavioral notes of the current state:**
-- `Query.all()` returns a plain `list` of model instances.
-- `Query.first()` returns a model instance or `None`.
-- `Query.one()` raises if zero or more than one row is found.
-- `Query.count()` issues a `SELECT count(*)` subquery automatically.
-- `Query.update()` and `Query.delete()` perform bulk DML with `synchronize_session` semantics.
-- Result rows from column-level projections are `KeyedTuple` objects (legacy named tuples).
+> **TODO:** Identify the specific model classes, repository classes, service layer modules, and configuration keys involved once codebase access is available. Enumerate all call sites using a static analysis pass.
 
 ---
 
 ## Proposed Changes
 
-For each affected component, the legacy `Session.query()` call is replaced with a `select()` construct executed via `session.execute()`, with result extraction adapted to the new `Result` API.
+For each affected component, the legacy `Session.query()` pattern is replaced with a `select()` construct executed via `Session.execute()` or `Session.scalars()`, with results extracted using the appropriate result-set method.
 
 | Component | Before | After | Breaking? |
 |---|---|---|---|
-| Basic model fetch | `session.query(Model)` | `session.execute(select(Model))` with `.scalars()` | Y |
-| Filter clause | `.filter(Model.col == val)` | `select(Model).where(Model.col == val)` | Y |
-| Keyword filter | `.filter_by(col=val)` | `select(Model).filter_by(col=val)` | N — `filter_by` is retained in 2.0 |
-| Fetch all | `.all()` | `.scalars().all()` | Y |
-| Fetch first | `.first()` | `.scalars().first()` | Y |
-| Fetch one | `.one()` | `.scalars().one()` | Y |
-| Fetch one or none | `.one_or_none()` | `.scalars().one_or_none()` | Y |
-| Count | `.count()` | `select(func.count()).select_from(Model)` executed via `session.execute(...).scalar()` | Y |
-| Order by | `.order_by(...)` | `select(Model).order_by(...)` | N |
-| Join | `.join(...)` | `select(Model).join(...)` | N — syntax compatible |
-| Eager loading options | `.options(...)` | `select(Model).options(...)` | N — syntax compatible |
-| Scalar result | `.scalar()` | `.scalar()` on `session.execute()` result | Y — execution path changes |
-| Column projection | `session.query(col1, col2)` | `session.execute(select(col1, col2))` returning `Row` objects | Y — `KeyedTuple` replaced by `Row` |
-| Bulk update | `Query.update({...})` | `session.execute(update(Model).where(...).values(...))` | Y |
-| Bulk delete | `Query.delete()` | `session.execute(delete(Model).where(...))` | Y |
-| `exists()` subquery | `session.query(Model).exists()` | `select(exists(select(Model).where(...)))` | Y |
+| Basic model query | `session.query(Model)` | `select(Model)` executed via `session.scalars()` | N (internal) |
+| Filter application | `.filter(Model.col == val)` | `select(Model).where(Model.col == val)` | N (internal) |
+| Filter by keyword | `.filter_by(col=val)` | `.where(Model.col == val)` | N (internal) |
+| Fetch all results | `.all()` | `session.scalars(...).all()` | N (internal) |
+| Fetch first result | `.first()` | `session.scalars(...).first()` | N (internal) |
+| Fetch exactly one | `.one()` | `session.scalars(...).one()` | N (internal) |
+| Fetch one or none | `.one_or_none()` | `session.scalars(...).one_or_none()` | N (internal) |
+| Scalar value | `.scalar()` | `session.scalar(...)` | N (internal) |
+| Row count | `.count()` | `select(func.count()).select_from(Model).where(...)` via `session.scalar()` | N (internal) |
+| Ordering | `.order_by(...)` | `select(Model).order_by(...)` | N (internal) |
+| Limit / Offset | `.limit(n).offset(m)` | `select(Model).limit(n).offset(m)` | N (internal) |
+| Join | `.join(Related)` | `select(Model).join(Related)` | N (internal) |
+| Outer join | `.outerjoin(Related)` | `select(Model).outerjoin(Related)` | N (internal) |
+| Eager loading options | `.options(joinedload(...))` | `select(Model).options(joinedload(...))` | N (internal) |
+| Existence check | `.filter(...).first() is not None` | `select(exists().where(...))` via `session.scalar()` | N (internal) |
+| Multi-column / tuple select | `session.query(Model.a, Model.b)` | `select(Model.a, Model.b)` via `session.execute()` returning `Row` objects | Y — callers consuming tuple results must be updated |
+| Legacy `Query` object passed as argument | Any function accepting a `Query` instance | Must accept a `Select` construct or pre-executed result set | Y — function signatures change |
 
 ---
 
 ## Compatibility & Breaking Changes
 
-| Breaking Change | Impact | Migration Path |
+| Breaking Change | Description | Migration Path for Callers |
 |---|---|---|
-| `Query` object no longer returned | Any code that stores a `Query` object and chains methods lazily must be rewritten to build the full `select()` statement before execution | Replace all `Query` chain storage with `select()` statement construction; execute once at the call site |
-| `KeyedTuple` result rows replaced by `Row` | Code accessing projection results by index or attribute name via `KeyedTuple` interface may behave differently | Audit all column-projection queries; access `Row` fields by attribute name or index — the `Row` API is largely compatible but `isinstance` checks against `KeyedTuple` will fail |
-| `.all()` / `.first()` / `.one()` called on `Result`, not `Query` | Callers must call `.scalars()` before terminal methods when expecting model instances | Add `.scalars()` before `.all()`, `.first()`, `.one()`, `.one_or_none()` on all `session.execute()` results returning ORM entities |
-| `Query.count()` behavior | The legacy `.count()` wraps the query in a subquery automatically; the 2.0 equivalent must be written explicitly | Replace with `select(func.count()).select_from(...)` or `select(func.count(Model.id)).where(...)` |
-| `Query.update()` / `Query.delete()` removed | Bulk DML via the `Query` API is gone | Replace with explicit `update()` / `delete()` Core constructs executed via `session.execute()`; verify `synchronize_session` strategy is explicitly set |
-| `session.query(Model).exists()` pattern | The `Query.exists()` shorthand is removed | Rewrite using `exists()` construct within a `select()` |
-| Subqueries derived from `Query` | `Query.subquery()` and `Query.cte()` are removed | Replace with `select(...).subquery()` and `select(...).cte()` on the `select()` construct directly |
-| `Query` passed as a type hint or interface | Any function typed to accept or return `Query` objects | Update type annotations to `Select` (for unexecuted statements) or `ScalarResult` / `Result` (for executed results) |
+| `Query` object no longer returned | Any code that receives a `Query` object from a helper/repository method and chains further `.filter()`, `.order_by()`, etc. calls on it will break. | Callers must be updated to compose `select()` constructs before execution, or repository methods must accept and return `Select` objects for further composition. |
+| Multi-column result shape | `session.query(Model.a, Model.b).all()` returns `KeyedTuple`; the 2.0 equivalent returns `Row` objects with different attribute access semantics. | Callers must be audited for `KeyedTuple`-specific access patterns and updated to use `Row` attribute or index access. |
+| `.count()` method removal | `Query.count()` is a convenience method with no direct equivalent on `Select`. | Replace with an explicit `select(func.count()).select_from(...)` query. All call sites must be updated. |
+| `Query` used in type annotations | Any function or variable typed as `Query[T]` will be invalid. | Update type annotations to `Select[T]` or the appropriate result type. |
+| Pagination helpers depending on `Query` | Any utility (e.g., a pagination helper) that accepts a `Query` object and calls `.count()` or slices it will break. | Pagination utilities must be rewritten to accept `Select` constructs and issue separate count queries. TODO: identify all pagination utilities in the codebase. |
+| Dynamic query composition via `Query` | Code that conditionally chains methods on a `Query` object across branches will break. | Refactor to build a `Select` construct incrementally using `where()`, `order_by()`, etc., before passing to `session.scalars()`. |
 
 ---
 
 ## Acceptance Criteria
 
-1. **Given** the codebase is scanned for `session.query(`, **when** the scan is run against all source files, **then** zero occurrences of `session.query(` are found.
+1. **Given** the full codebase, **when** a static analysis scan is run for `session.query(` and `.query(`, **then** zero occurrences are found in application source files (excluding migration scripts and historical fixtures explicitly marked as legacy).
 
-2. **Given** a model fetch that previously used `session.query(Model).filter(...).all()`, **when** the migrated code is executed against a test database with known rows, **then** it returns the same list of model instances as the legacy call did.
+2. **Given** any repository or data-access method that previously returned a `Query` object, **when** the method is called, **then** it returns either a fully executed result set or a `Select` construct — never a `Query` instance.
 
-3. **Given** a query that previously used `session.query(Model).first()`, **when** the migrated code is executed, **then** it returns a single model instance (not a `Row` wrapper) or `None` when no rows match.
+3. **Given** a query that previously used `.filter()` on a `Query` object, **when** the equivalent `select().where()` query is executed against the same dataset, **then** it returns an identical result set (same rows, same order where order was specified).
 
-4. **Given** a query that previously used `session.query(Model).one()` with exactly one matching row, **when** the migrated code is executed, **then** it returns that single model instance without error.
+4. **Given** a query that previously used `Query.count()`, **when** the replacement `select(func.count())` query is executed, **then** it returns the same integer count for the same dataset and filter conditions.
 
-5. **Given** a query that previously used `session.query(Model).one()` with zero or multiple matching rows, **when** the migrated code is executed, **then** it raises `NoResultFound` or `MultipleResultsFound` respectively, matching the legacy behavior.
+5. **Given** a multi-column query previously using `session.query(Model.a, Model.b)`, **when** the replacement `select(Model.a, Model.b)` query is executed and results are consumed, **then** all callers correctly access column values without `AttributeError` or `KeyError`.
 
-6. **Given** a count query that previously used `session.query(Model).count()`, **when** the migrated `select(func.count())` equivalent is executed, **then** it returns the same integer count for identical data.
+6. **Given** any existence-check pattern previously using `.first() is not None`, **when** the replacement `exists()` query is executed, **then** it returns `True` or `False` consistent with the previous pattern for both matching and non-matching conditions.
 
-7. **Given** a column-projection query that previously returned `KeyedTuple` rows, **when** the migrated query is executed, **then** result fields are accessible by the same attribute names on the returned `Row` objects.
+7. **Given** the full test suite, **when** all tests are executed after the migration, **then** the test suite passes with no regressions relative to the pre-migration baseline.
 
-8. **Given** a bulk update that previously used `Query.update({...})`, **when** the migrated `update()` construct is executed, **then** the same rows are modified with the same values and the session state is consistent (no stale in-memory objects).
+8. **Given** any pagination utility that previously accepted a `Query` object, **when** it is invoked with a `Select` construct and a dataset, **then** it returns the correct page of results and the correct total count.
 
-9. **Given** a bulk delete that previously used `Query.delete()`, **when** the migrated `delete()` construct is executed, **then** the same rows are removed and the session state is consistent.
+9. **Given** the application running under SQLAlchemy 2.0 (or 1.4 with `future=True` mode enabled), **when** any database operation is performed, **then** no `LegacyAPIWarning` or `RemovedIn20Warning` deprecation warnings are emitted.
 
-10. **Given** the full test suite is run after migration, **when** all tests execute, **then** zero SQLAlchemy `LegacyAPIWarning` or `RemovedIn20Warning` deprecation warnings are emitted.
-
-11. **Given** the application is run with SQLAlchemy configured in `future=True` mode (1.4 compatibility check) or upgraded to SQLAlchemy 2.x, **when** all query paths are exercised, **then** no `AttributeError` or `InvalidRequestError` is raised due to missing `Query` API methods.
-
-12. **Given** any function previously type-annotated with `Query` as a parameter or return type, **when** static type checking is run, **then** no type errors related to `Query` usage are reported.
+10. **Given** eager-loading options previously applied via `Query.options()`, **when** the equivalent `select(Model).options()` query is executed, **then** the related objects are loaded without additional queries (verified via SQL query count assertions in tests).
 
 ---
 
@@ -121,9 +102,10 @@ For each affected component, the legacy `Session.query()` call is replaced with 
 
 | # | Question | Owner | Due Date |
 |---|---|---|---|
-| 1 | What is the current pinned version of SQLAlchemy in use? This determines whether `future=True` mode is available as an intermediate validation step. | TODO | TODO |
-| 2 | Are there any dynamic query-building utilities or helper classes that wrap `Session.query()` internally (e.g., a repository base class or query builder)? These require a single coordinated change rather than call-site-by-call-site migration. | TODO | TODO |
-| 3 | Are `Query.update()` / `Query.delete()` calls using `synchronize_session='evaluate'` or `'fetch'`? The correct replacement strategy differs between these modes and must be confirmed before migration. | TODO | TODO |
-| 4 | Are there any external libraries or plugins (e.g., Flask-SQLAlchemy, FastAPI dependencies, pagination libraries) that internally use `Session.query()` and are not under this codebase's control? | TODO | TODO |
-| 5 | Is there a target SQLAlchemy version to land on (e.g., 2.0.x, 2.1.x)? The exact target version affects which new APIs (e.g., `session.scalars()` shorthand) are available. | TODO | TODO |
-| 6 | Are there existing integration or unit tests with sufficient coverage of query paths to validate behavioral equivalence after migration, or does a test gap analysis need to precede the migration? | TODO | TODO |
+| 1 | What is the exact SQLAlchemy version currently in use, and is it 1.4 (with `future` flag) or an earlier 1.x release? This determines whether `select()` is already available and whether `future=True` can be used as an intermediate validation step. | TODO | TODO |
+| 2 | Are there any third-party libraries (e.g., Flask-SQLAlchemy, FastAPI integrations, admin panels) that depend on the `Query` API being present and would require their own upgrades as part of this migration? | TODO | TODO |
+| 3 | Are there any pagination, filtering, or sorting utilities (e.g., custom `QueryBuilder` classes) that accept `Query` objects and need to be redesigned? | TODO | TODO |
+| 4 | Is there an async (`AsyncSession`) usage in the codebase? If so, the migration must also account for `AsyncSession.execute(select(...))` patterns. | TODO | TODO |
+| 5 | What is the target SQLAlchemy version post-migration — 1.4 (with `future=True`) as an intermediate step, or a direct jump to 2.x? | TODO | TODO |
+| 6 | Are there raw SQL strings or `text()` constructs mixed with `Query` API calls that also need to be reviewed for 2.0 compatibility? | TODO | TODO |
+| 7 | Is there a test coverage baseline established for data-access layer code? If coverage is low, additional tests may need to be written before migration to ensure regressions are caught. | TODO | TODO |
