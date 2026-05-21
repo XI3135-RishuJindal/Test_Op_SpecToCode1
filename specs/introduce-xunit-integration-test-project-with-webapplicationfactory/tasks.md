@@ -2,47 +2,51 @@
 
 ## Prerequisites
 
-- [ ] [XS] Verify .NET SDK version installed locally supports `WebApplicationFactory<T>` (requires .NET 6+ / ASP.NET Core 6+) by running `dotnet --version` and confirming compatibility with the target project's `<TargetFramework>` in the main project's `.csproj`
-- [ ] [XS] Confirm the main ASP.NET Core project exposes a `Program` class (or partial class) accessible to the test project — check `Program.cs` for `public partial class Program {}` or equivalent visibility
-- [ ] [XS] Confirm NuGet package source access (nuget.org or internal feed) is available for `Microsoft.AspNetCore.Mvc.Testing`, `xunit`, and `xunit.runner.visualstudio`
+- [ ] [XS] Verify .NET SDK version installed locally supports `WebApplicationFactory<T>` (requires .NET 6+ / `Microsoft.AspNetCore.Mvc.Testing` ≥ 6.0) in developer environment setup
+- [ ] [XS] Confirm the target ASP.NET Core web project name, assembly name, and solution file (`.sln`) path in the repository root
+- [ ] [XS] Confirm NuGet feed access (nuget.org or internal feed) is available for restoring `xunit`, `xunit.runner.visualstudio`, and `Microsoft.AspNetCore.Mvc.Testing` packages
 
 ---
 
 ## Phase 1 — Preparation
 
-- [ ] [XS] Identify the main ASP.NET Core project name, assembly name, and `.csproj` path to use as the `TEntryPoint` for `WebApplicationFactory<T>`
-- [ ] [XS] Create a new xUnit test project via `dotnet new xunit -n <MainProjectName>.IntegrationTests` in the `/tests` (or equivalent) directory of the repository
-- [ ] [S] Add the new `<MainProjectName>.IntegrationTests.csproj` to the solution file via `dotnet sln add` and verify it appears under the correct solution folder
-- [ ] [XS] Add a `<ProjectReference>` to the main ASP.NET Core project inside `<MainProjectName>.IntegrationTests.csproj`
-- [ ] [XS] Add NuGet package references `Microsoft.AspNetCore.Mvc.Testing`, `xunit`, `xunit.runner.visualstudio`, and `coverlet.collector` to `<MainProjectName>.IntegrationTests.csproj` with versions pinned to match the main project's ASP.NET Core version
+- [ ] [XS] Create a new feature branch (e.g., `feature/integration-tests-webappfactory`) from the main branch in the repository
+- [ ] [S] Audit the existing solution file (`.sln`) to identify the web host project entry point (the class that calls `CreateHostBuilder` or `WebApplication.CreateBuilder`) and record the fully-qualified type name for use as the `TEntryPoint` generic argument
+- [ ] [XS] Record the current passing/failing state of any existing test projects as a baseline by running `dotnet test` and saving output to `docs/test-baseline-before.txt`
 
 ---
 
 ## Phase 2 — Core Upgrade
 
-- [ ] [S] Add `public partial class Program {}` at the bottom of `Program.cs` in the main project (if not already present) to make the entry point accessible to the test assembly
-- [ ] [S] Create `CustomWebApplicationFactory.cs` in `<MainProjectName>.IntegrationTests` implementing `WebApplicationFactory<Program>`, with a `ConfigureWebHost` override stub for future test-specific service replacements (e.g., in-memory database, mock services)
-- [ ] [S] Create `IntegrationTestBase.cs` in `<MainProjectName>.IntegrationTests` as a base class implementing `IClassFixture<CustomWebApplicationFactory>`, exposing a shared `HttpClient` created via `Factory.CreateClient()`
-- [ ] [M] Write a first smoke-test class `HealthCheckTests.cs` (or equivalent endpoint test) in `<MainProjectName>.IntegrationTests` that inherits `IntegrationTestBase`, sends a GET request to a known route (e.g., `/health` or `/`), and asserts `HttpStatusCode.OK` — confirming the factory wires up correctly end-to-end
+- [ ] [S] Create a new xUnit test project named `<WebProjectName>.IntegrationTests` using `dotnet new xunit -n <WebProjectName>.IntegrationTests` and add it to the solution with `dotnet sln add`
+- [ ] [S] Add NuGet package references in `<WebProjectName>.IntegrationTests/<WebProjectName>.IntegrationTests.csproj`: `Microsoft.AspNetCore.Mvc.Testing`, `xunit`, `xunit.runner.visualstudio`, and `coverlet.collector` at versions compatible with the target .NET SDK
+- [ ] [XS] Add a project reference from `<WebProjectName>.IntegrationTests.csproj` to the web host project (`.csproj`) so `TEntryPoint` is resolvable at compile time
+- [ ] [XS] Set `<IsPackable>false</IsPackable>` and ensure `<Nullable>enable</Nullable>` and `<ImplicitUsings>enable</ImplicitUsings>` are configured in `<WebProjectName>.IntegrationTests.csproj`
+- [ ] [M] Create `Infrastructure/CustomWebApplicationFactory.cs` inside the integration test project: implement `CustomWebApplicationFactory<TEntryPoint> : WebApplicationFactory<TEntryPoint>` with an override of `ConfigureWebHost(IWebHostBuilder builder)` that substitutes test-safe service registrations (e.g., in-memory database, stubbed external HTTP clients) via `builder.ConfigureTestServices(...)`
+- [ ] [S] Create `Infrastructure/IntegrationTestBase.cs` implementing `IClassFixture<CustomWebApplicationFactory<TEntryPoint>>` to provide a shared `HttpClient` (created via `factory.CreateClient()`) and any common setup/teardown logic for test classes
+- [ ] [S] Write a smoke-test class `Tests/HealthCheckTests.cs` with at least one `[Fact]` that calls a known endpoint (e.g., `/health` or `/`) via the shared `HttpClient` and asserts `HttpStatusCode.OK` to validate the factory wires up correctly
+- [ ] [XS] Verify the integration test project builds and the smoke test passes locally with `dotnet test <WebProjectName>.IntegrationTests`
 
 ---
 
 ## Phase 3 — Testing & Validation
 
-- [ ] [XS] Run `dotnet build <MainProjectName>.IntegrationTests.csproj` and resolve any compilation errors related to `Program` visibility or missing package references
-- [ ] [S] Run `dotnet test <MainProjectName>.IntegrationTests.csproj --logger trx` and confirm the smoke test passes; capture the `.trx` output as the baseline test report
-- [ ] [XS] Verify no existing unit test projects are broken by the `public partial class Program {}` change by running `dotnet test` across the full solution
+- [ ] [XS] Run `dotnet test --collect:"XPlat Code Coverage"` in `<WebProjectName>.IntegrationTests` and confirm no build errors or runtime exceptions from `WebApplicationFactory` startup
+- [ ] [XS] Compare `dotnet test` output against `docs/test-baseline-before.txt` to confirm no regressions in pre-existing test projects
+- [ ] [XS] Confirm the smoke test in `HealthCheckTests.cs` passes and that the `CustomWebApplicationFactory` correctly overrides services without affecting the production `Program.cs` / `Startup.cs`
 
 ---
 
 ## Phase 4 — CI/CD & Infrastructure
 
-- [ ] [S] Update the CI pipeline definition (e.g., `.github/workflows/*.yml`, `azure-pipelines.yml`, or equivalent) to include a `dotnet test` step targeting `<MainProjectName>.IntegrationTests.csproj`, placed after the build step and before any deployment stages
-- [ ] [XS] Ensure the CI pipeline step passes `--no-build` if a prior build step already compiles the solution, and sets `--configuration Release` to match the main build configuration
+- [ ] [M] Update the CI pipeline configuration (e.g., `.github/workflows/ci.yml`, `azure-pipelines.yml`, or equivalent) to include a `dotnet test` step targeting `<WebProjectName>.IntegrationTests` with `--no-build --verbosity normal`
+- [ ] [XS] Ensure the CI pipeline step runs after the build step and that the integration test project is restored as part of `dotnet restore` on the solution file
+- [ ] [XS] Add a CI environment variable or `appsettings.IntegrationTest.json` file in the test project to supply any required configuration values (connection strings, feature flags) needed by `CustomWebApplicationFactory` without hardcoding secrets
 
 ---
 
 ## Phase 5 — Documentation & Rollout
 
-- [ ] [XS] Add a `README.md` (or update the existing one) inside `<MainProjectName>.IntegrationTests/` documenting how to run integration tests locally, how to extend `CustomWebApplicationFactory` to swap services, and the naming convention for test classes
-- [ ] [XS] Update the top-level repository `CHANGELOG.md` or equivalent with an entry noting the addition of the xUnit integration test project and `WebApplicationFactory` infrastructure
+- [ ] [XS] Add a `CHANGELOG.md` entry (or append to existing) describing the addition of the `<WebProjectName>.IntegrationTests` project and the `WebApplicationFactory`-based integration test pattern
+- [ ] [S] Write a `docs/integration-testing-guide.md` covering: project structure, how to add new integration test classes using `IntegrationTestBase`, how to register additional test-double services in `CustomWebApplicationFactory`, and how to run tests locally
+- [ ] [XS] Open a pull request from the feature branch, request review, and confirm CI pipeline passes the new integration test step before merging
