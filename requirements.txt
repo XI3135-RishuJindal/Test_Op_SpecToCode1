@@ -1,0 +1,5 @@
+Microsoft.EntityFrameworkCore
+Microsoft.EntityFrameworkCore.Sqlite
+Microsoft.EntityFrameworkCore.Design
+Npgsql.EntityFrameworkCore.PostgreSQL
+Microsoft.EntityFrameworkCore.Tools
