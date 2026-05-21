@@ -1,97 +1,64 @@
 # TASKS: Migrate Legacy Query API to SQLAlchemy 2.0 `select()` Style
 
+> **Scope:** Replace all SQLAlchemy legacy `Query` API usage (`session.query(...)`) with the SQLAlchemy 2.0 `select()` style throughout the codebase.
+> **Urgency:** Medium
+> **Option:** Moderate migration path
+
 ---
 
 ## Prerequisites
 
-- [ ] [XS] Confirm Python environment has SQLAlchemy installed and record the exact installed version by running `python -c "import sqlalchemy; print(sqlalchemy.__version__)"` in the project root
-- [ ] [XS] Verify SQLAlchemy version is >= 2.0.0 (or >= 1.4.x with `future=True` flag enabled) before any migration work begins — check `requirements.txt`, `pyproject.toml`, or `setup.cfg`
-- [ ] [XS] Confirm access to the full source tree and identify all Python files containing legacy query API usage by running `grep -rn "\.query\(" . --include="*.py"` from the project root
-- [ ] [XS] Ensure a dedicated migration branch (e.g., `migrate/sqlalchemy-2-select-style`) is available and all contributors are aware of the freeze on merging new legacy-style query code during migration
+- [ ] [XS] Confirm SQLAlchemy version installed is ≥ 1.4 (required for `select()` compatibility shim) by running `pip show sqlalchemy` and recording the output
+- [ ] [XS] Confirm Python environment is active and `pip` or equivalent package manager is accessible before beginning any dependency changes
+- [ ] [XS] Verify test suite can be executed end-to-end locally (e.g., `pytest`) and produces a passing baseline before any changes are made
+- [ ] [XS] Ensure write access to the repository and permission to open pull requests against the main branch
 
 ---
 
 ## Phase 1 — Preparation
 
-- [ ] [S] Audit all files containing `session.query(` calls using `grep -rn "session\.query\("` and produce a prioritized inventory list grouped by module, recording file path, line number, and query complexity (simple fetch, filter, join, subquery)
-- [ ] [S] Audit all files containing `.filter(`, `.filter_by(`, `.first()`, `.all()`, `.one()`, `.one_or_none()` chained on legacy `Query` objects and append findings to the inventory list
-- [ ] [XS] Identify any use of `Query.update()` or `Query.delete()` (bulk DML via legacy API) across the codebase using `grep -rn "\.query(.*)\.\(update\|delete\)("` and flag these separately as they require `update()` / `delete()` construct migration
-- [ ] [XS] Capture the current test suite pass/fail baseline by running the full test suite and saving output to `migration-baseline-test-results.txt` in the repo root for regression comparison
-- [ ] [XS] Enable SQLAlchemy's legacy query deprecation warnings by setting `SQLALCHEMY_WARN_20=1` (for 1.4.x) or confirming 2.0 engine raises `LegacyAPIWarning`, and run the test suite once to surface all warning locations — save output to `migration-warnings-baseline.txt`
-- [ ] [XS] Configure CI to treat `LegacyAPIWarning` / `RemovedIn20Warning` as errors (add `-W error::sqlalchemy.exc.RemovedIn20Warning` to pytest invocation in `pytest.ini`, `pyproject.toml [tool.pytest.ini_options]`, or CI config) so regressions are caught automatically during migration
+- [ ] [S] Create a dedicated migration branch (e.g., `migrate/sqlalchemy-2-select-style`) from the current default branch to isolate all changes
+- [ ] [S] Run a full-codebase grep/search for all occurrences of `session.query(`, `.filter(`, `.filter_by(`, `.first()`, `.all()`, `.one()`, `.one_or_none()`, `.scalar()` on `Query` objects and export results to a `migration-audit.txt` file for tracking
+- [ ] [S] Run a full-codebase grep for `from sqlalchemy.orm import Query` and any direct subclassing of `Query` to identify custom query classes requiring special handling
+- [ ] [XS] Enable SQLAlchemy's legacy query deprecation warnings by setting `SQLALCHEMY_WARN_20=1` (SQLAlchemy 1.4) or equivalent and capture the full warning output to `deprecation-warnings.txt`
+- [ ] [XS] Record the current test suite pass/fail counts and coverage percentage as a regression baseline before any code changes
 
 ---
 
 ## Phase 2 — Core Upgrade
 
-> Tasks are ordered from lowest-risk (simple fetches) to highest-risk (bulk DML, subqueries). Complete each group before proceeding to the next.
-
-### 2a — Engine / Session Configuration
-
-- [ ] [XS] Update `create_engine()` calls to remove `future=False` or add `future=True` in the engine initialization file (commonly `db.py`, `database.py`, or `core/db.py`) to opt into 2.0 connection behavior
-- [ ] [XS] Replace any `Session(bind=engine)` or `sessionmaker(bind=engine)` patterns with the 2.0-compatible `sessionmaker(engine)` form in the session factory module
-
-### 2b — Simple Single-Table Fetches
-
-- [ ] [M] Migrate all `session.query(Model).all()` calls to `session.execute(select(Model)).scalars().all()` in every file identified in the Phase 1 inventory — update imports to include `from sqlalchemy import select`
-- [ ] [M] Migrate all `session.query(Model).first()` calls to `session.execute(select(Model)).scalars().first()` across all affected files
-- [ ] [M] Migrate all `session.query(Model).one()` and `.one_or_none()` calls to `session.execute(select(Model)).scalars().one()` / `.one_or_none()` across all affected files
-
-### 2c — Filtered Queries
-
-- [ ] [M] Migrate all `session.query(Model).filter(...)` chains to `session.execute(select(Model).where(...)).scalars()` equivalents, replacing `.filter()` with `.where()` in every affected file
-- [ ] [M] Migrate all `session.query(Model).filter_by(**kwargs)` calls to `select(Model).filter_by(**kwargs)` (`.filter_by()` is retained on `Select` in 2.0) or explicit `.where()` clauses across all affected files
-
-### 2d — Ordering, Limiting, and Offsetting
-
-- [ ] [S] Migrate all `.order_by()`, `.limit()`, and `.offset()` clauses chained on legacy `Query` objects to equivalent clauses on `select()` constructs in all affected files (syntax is identical; ensure they are now chained on the `Select` object, not the result)
-
-### 2e — Joins
-
-- [ ] [L] Migrate all `session.query(Model).join(OtherModel, condition)` patterns to `select(Model).join(OtherModel, condition)` constructs in all affected files, verifying that joined-load behavior and result unpacking (e.g., `Row` vs scalar) is preserved
-- [ ] [S] Migrate all `session.query(Model, OtherModel)` multi-entity queries to `select(Model, OtherModel)` and update result unpacking from tuple indexing to `row.Model` / `row.OtherModel` named-attribute access where applicable
-
-### 2f — Aggregates and Scalar Results
-
-- [ ] [S] Migrate all `session.query(func.count(...)).scalar()` calls to `session.execute(select(func.count(...))).scalar()` in all affected files
-- [ ] [S] Migrate all `session.query(Model.column)` column-only projections to `select(Model.column)` and update result unpacking to use `.scalars()` or column-keyed `Row` access in all affected files
-
-### 2g — Subqueries
-
-- [ ] [M] Migrate all `session.query(...).subquery()` usages to `select(...).subquery()` constructs and update any parent queries that reference the subquery alias in all affected files
-
-### 2h — Bulk DML (High Risk)
-
-- [ ] [M] Migrate all `session.query(Model).filter(...).update({...})` bulk-update calls to `session.execute(update(Model).where(...).values(...))` using `from sqlalchemy import update` in all affected files — verify `synchronize_session` strategy is explicitly set
-- [ ] [M] Migrate all `session.query(Model).filter(...).delete()` bulk-delete calls to `session.execute(delete(Model).where(...))` using `from sqlalchemy import delete` in all affected files — verify `synchronize_session` strategy is explicitly set
-
-### 2i — ORM Relationship Loading
-
-- [ ] [S] Audit and migrate any `session.query(Model).options(joinedload(...))` or `subqueryload(...)` calls to `select(Model).options(joinedload(...))` equivalents in all affected files, confirming loader strategy imports come from `sqlalchemy.orm`
+- [ ] [S] Upgrade SQLAlchemy to the latest 2.x release in the project's dependency file (e.g., `requirements.txt`, `pyproject.toml`, or `setup.cfg`) and resolve any direct version conflicts with pinned packages
+- [ ] [M] Replace all `session.query(Model).filter(...)` patterns with `session.execute(select(Model).where(...))` equivalents, updating result access from `.all()` / `.first()` to `.scalars().all()` / `.scalars().first()` across all identified source files
+- [ ] [M] Replace all `session.query(Model).filter_by(...)` patterns with `select(Model).where(Model.attr == value)` equivalents in all identified source files
+- [ ] [S] Replace all `session.query(Model).get(pk)` calls with `session.get(Model, pk)` (the SQLAlchemy 2.0 canonical replacement) across all identified source files
+- [ ] [S] Replace all `session.query(func.count(...))` and aggregate query patterns with `select(func.count(...))` equivalents and update scalar result extraction to use `session.execute(...).scalar()`
+- [ ] [S] Replace all `session.query(Model.col1, Model.col2)` column-subset queries with `select(Model.col1, Model.col2)` and update result unpacking to use `.mappings()` or tuple access as appropriate
+- [ ] [M] Refactor any custom `Query` subclasses to standalone functions or repository methods using `select()` style, removing inheritance from `sqlalchemy.orm.Query`
+- [ ] [S] Add `from sqlalchemy import select` and `from sqlalchemy import func` imports (as needed) to every module modified, and remove now-unused `Query` imports
+- [ ] [XS] Remove the `SQLALCHEMY_WARN_20=1` environment variable flag (or equivalent) from any local dev config files after migration is complete
 
 ---
 
 ## Phase 3 — Testing & Validation
 
-- [ ] [S] Run the full test suite after each Phase 2 sub-group completion and compare output against `migration-baseline-test-results.txt` — record any new failures immediately before proceeding
-- [ ] [S] Confirm zero `RemovedIn20Warning` / `LegacyAPIWarning` warnings remain in test output after all Phase 2 tasks are complete
-- [ ] [S] Execute `grep -rn "session\.query\(" . --include="*.py"` and `grep -rn "\.query\(" . --include="*.py"` to verify no legacy `Query` API calls remain in the codebase
-- [ ] [XS] Verify all result-unpacking code (loops, list comprehensions, tuple destructuring) that consumes query results still functions correctly by reviewing test coverage for each migrated module
-- [ ] [M] Write or update integration tests for any bulk DML paths (`update()` / `delete()`) migrated in Phase 2h to assert row counts and session state are correct post-execution
+- [ ] [M] Run the full test suite (`pytest` or equivalent) against the migrated codebase and resolve all failures caused by changed result types (e.g., `Row` vs model instance, `ScalarResult` vs `list`)
+- [ ] [S] Verify that no SQLAlchemy `LegacyAPIWarning` or `RemovedIn20Warning` deprecation warnings remain in test output after migration
+- [ ] [S] Compare post-migration test pass/fail counts and coverage percentage against the pre-migration baseline recorded in Phase 1 and confirm no regression
+- [ ] [S] Manually execute or review integration tests covering critical query paths (e.g., authentication, data retrieval, reporting) to confirm correct result shapes and values
+- [ ] [XS] Confirm `migration-audit.txt` entries are fully resolved by re-running the original grep patterns and verifying zero remaining matches for `session.query(`
 
 ---
 
 ## Phase 4 — CI/CD & Infrastructure
 
-- [ ] [XS] Remove the `SQLALCHEMY_WARN_20=1` environment variable (if set for 1.4 transition) from CI configuration now that migration to 2.0 style is complete
-- [ ] [XS] Retain (or promote to permanent) the `-W error::sqlalchemy.exc.SAWarning` pytest flag in `pytest.ini` or `pyproject.toml [tool.pytest.ini_options]` to prevent future regressions to legacy API usage
-- [ ] [XS] Update `requirements.txt`, `pyproject.toml`, or `setup.cfg` to pin SQLAlchemy to `>=2.0,<3.0` (or the appropriate lower bound confirmed in Prerequisites) to prevent accidental downgrade
+- [ ] [XS] Update the CI pipeline dependency installation step to install the upgraded SQLAlchemy 2.x version and confirm the pipeline resolves dependencies without conflicts
+- [ ] [XS] Remove `SQLALCHEMY_WARN_20=1` from any CI environment variable configuration if it was added during the migration process
 
 ---
 
 ## Phase 5 — Documentation & Rollout
 
-- [ ] [XS] Add an entry to `CHANGELOG.md` (or equivalent) documenting the migration from SQLAlchemy legacy `Query` API to 2.0 `select()` style, referencing the affected modules and the SQLAlchemy 2.0 migration guide URL (`https://docs.sqlalchemy.org/en/20/changelog/migration_20.html`)
-- [ ] [XS] Update any internal developer documentation or `README` sections that contain code examples using `session.query()` to show the equivalent `select()` style
-- [ ] [XS] Notify the team that all new query code must use `select()` style and add a note to the contributing guide (e.g., `CONTRIBUTING.md`) referencing the SQLAlchemy 2.0 query API as the project standard
-- [ ] [XS] Monitor application error logs and APM tooling (if available) for any `sqlalchemy` related exceptions in the first 48 hours post-merge to catch any runtime regressions not covered by tests
+- [ ] [XS] Add a `CHANGELOG` entry documenting the migration from SQLAlchemy legacy `Query` API to 2.0 `select()` style, including the SQLAlchemy version bumped to
+- [ ] [XS] Update any internal developer documentation or README sections that reference `session.query()` patterns with the equivalent `select()` style examples
+- [ ] [S] Conduct a pull request review with at least one other engineer, using `migration-audit.txt` as a checklist to confirm all identified call sites were addressed
+- [ ] [XS] Monitor application error logs and query-related exceptions for 48 hours post-merge to catch any runtime result-handling regressions not covered by tests
