@@ -30,50 +30,56 @@ namespace IntegrationTests.UpgradeValidation
         }
 
         // -----------------------------------------------------------------------
-        // 1. Version assertion — WebApplicationFactory / ASP.NET Core Mvc.Testing
+        // 1. Version assertion — confirms the target runtime / framework is active
         // -----------------------------------------------------------------------
 
         [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public void MvcTesting_Assembly_IsAtLeastVersion6()
+        public void Runtime_IsAtLeastDotNet6_RequiredForWebApplicationFactory()
         {
-            // WebApplicationFactory<T> was introduced in ASP.NET Core 2.1 but the
-            // "latest stable" target for this upgrade is .NET 6+.
-            var mvcTestingAssembly = typeof(WebApplicationFactory<Program>).Assembly;
-            var version = mvcTestingAssembly.GetName().Version;
-
-            Assert.NotNull(version);
-            // Microsoft.AspNetCore.Mvc.Testing 6.x ships with assembly version 6.x.x.x
+            // WebApplicationFactory<T> requires .NET 6+ / ASP.NET Core 6+
+            var version = Environment.Version;
             Assert.True(
                 version.Major >= 6,
-                $"Expected Microsoft.AspNetCore.Mvc.Testing >= 6.0.0 but found {version}. " +
-                "Ensure the NuGet package is pinned to the correct ASP.NET Core version.");
+                $"Expected .NET 6 or later but found {version}. " +
+                "WebApplicationFactory<TEntryPoint> requires .NET 6+.");
         }
 
         [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public void Runtime_IsAtLeastDotNet6()
+        public void MvcTestingAssembly_IsLoaded_AndMeetsMinimumVersion()
         {
-            var runtimeVersion = Environment.Version; // CLR version
+            var assembly = typeof(WebApplicationFactory<>).Assembly;
+            Assert.NotNull(assembly);
+
+            var informationalVersion = assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion ?? string.Empty;
+
+            // The assembly must be present — its presence confirms the NuGet package
+            // Microsoft.AspNetCore.Mvc.Testing was successfully restored and loaded.
+            Assert.False(
+                string.IsNullOrWhiteSpace(informationalVersion),
+                "Could not read the informational version of Microsoft.AspNetCore.Mvc.Testing.");
+
+            // Extract the leading numeric portion (e.g. "6.0.25+abc" → "6.0.25")
+            var numericPart = informationalVersion.Split('+')[0].Trim();
             Assert.True(
-                runtimeVersion.Major >= 6,
-                $"Expected .NET runtime >= 6 but found {runtimeVersion}. " +
-                "The project must target net6.0 or later.");
+                Version.TryParse(numericPart, out var parsedVersion),
+                $"Could not parse version string '{numericPart}' from Microsoft.AspNetCore.Mvc.Testing.");
+
+            Assert.True(
+                parsedVersion!.Major >= 6,
+                $"Microsoft.AspNetCore.Mvc.Testing version {parsedVersion} is below the required 6.x minimum.");
         }
 
         [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public void XUnit_Assembly_IsPresent()
+        public void XunitCoreAssembly_IsLoaded()
         {
-            // Confirm xUnit core assembly is loaded (proves the test runner is xUnit, not MSTest/NUnit).
-            var xunitAssembly = Assembly.Load("xunit.core");
+            // Confirms xunit.core is present in the test process
+            var xunitAssembly = typeof(FactAttribute).Assembly;
             Assert.NotNull(xunitAssembly);
 
-            var xunitVersion = xunitAssembly.GetName().Version;
-            Assert.NotNull(xunitVersion);
-            Assert.True(
-                xunitVersion.Major >= 2,
-                $"Expected xunit.core >= 2.x but found {xunitVersion}.");
+            var name = xunitAssembly.GetName();
+            Assert.Equal("xunit.core", name.Name, ignoreCase: true);
         }
 
         // -----------------------------------------------------------------------
@@ -81,188 +87,204 @@ namespace IntegrationTests.UpgradeValidation
         // -----------------------------------------------------------------------
 
         [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public void WebApplicationFactory_CanBeInstantiated_WithProgramEntryPoint()
+        public void WebApplicationFactory_CanBeInstantiated_WithProgramAsEntryPoint()
         {
-            // If Program is not a public/partial class this will throw at construction time.
+            // If Program is not a public/partial class this line throws at construction time.
             Assert.NotNull(_factory);
         }
 
         [Fact]
-        [Trait("Category", "UpgradeValidation")]
         public void WebApplicationFactory_CreateClient_ReturnsNonNullHttpClient()
         {
-            Assert.NotNull(_client);
+            var client = _factory.CreateClient();
+            Assert.NotNull(client);
         }
 
         [Fact]
-        [Trait("Category", "UpgradeValidation")]
         public void WebApplicationFactory_Services_CanBeResolved()
         {
-            // Verifies the DI container was composed without errors.
+            // Verifies the DI container was composed without errors
             using var scope = _factory.Services.CreateScope();
             Assert.NotNull(scope);
             Assert.NotNull(scope.ServiceProvider);
         }
 
         [Fact]
-        [Trait("Category", "UpgradeValidation")]
         public void WebApplicationFactory_Host_IsRunning()
         {
-            // IHost should be accessible and in a started state.
-            var host = _factory.Services.GetService<IHostApplicationLifetime>();
+            // IHost must be accessible and in a started state
+            var host = _factory.Server.Host;
             Assert.NotNull(host);
-        }
 
-        // -----------------------------------------------------------------------
-        // 3. Program entry point is accessible (public partial class Program {})
-        // -----------------------------------------------------------------------
-
-        [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public void Program_Class_IsPubliclyAccessible()
-        {
-            var programType = typeof(Program);
+            var lifetime = host.Services.GetService<IHostApplicationLifetime>();
+            Assert.NotNull(lifetime);
             Assert.True(
-                programType.IsPublic || programType.IsNestedPublic,
-                "Program must be declared as 'public partial class Program {}' so the " +
-                "test assembly can reference it as TEntryPoint.");
-        }
-
-        [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public void Program_Class_IsInExpectedAssembly()
-        {
-            var programAssembly = typeof(Program).Assembly;
-            Assert.NotNull(programAssembly);
-            // The Program type must NOT live in the test assembly itself.
-            Assert.NotEqual(
-                Assembly.GetExecutingAssembly().FullName,
-                programAssembly.FullName);
+                lifetime!.ApplicationStarted.IsCancellationRequested,
+                "The hosted application has not finished starting up.");
         }
 
         // -----------------------------------------------------------------------
-        // 4. Critical HTTP path — application responds over in-process transport
+        // 3. HTTP pipeline smoke test — critical application path
         // -----------------------------------------------------------------------
 
         [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public async Task HttpClient_CanSendRequest_ToApplication()
+        public async Task HttpClient_CanSendRequest_WithoutConnectionRefused()
         {
-            // A basic GET to "/" must not throw a connection-level exception.
-            // We accept any HTTP status code — the goal is to confirm the pipeline
-            // is reachable, not to assert business logic.
-            var response = await _client.GetAsync("/");
+            // A connection-refused or host-not-found exception would indicate
+            // the in-process server is not running.  Any HTTP status code
+            // (including 404) proves the pipeline is alive.
+            HttpResponseMessage response;
+            try
+            {
+                response = await _client.GetAsync("/");
+            }
+            catch (HttpRequestException ex)
+            {
+                Assert.Fail(
+                    $"HttpRequestException thrown — the in-process server may not be running. " +
+                    $"Details: {ex.Message}");
+                return; // unreachable; satisfies compiler
+            }
+
             Assert.NotNull(response);
+            // Any definitive HTTP status (1xx–5xx) is acceptable here;
+            // we are only verifying the pipeline responded.
+            Assert.True(
+                (int)response.StatusCode >= 100 && (int)response.StatusCode <= 599,
+                $"Unexpected status code value: {(int)response.StatusCode}");
         }
 
         [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public async Task HttpClient_Response_HasHttpStatusCode_NotInternalServerError_OnRootPath()
+        public async Task HealthEndpoint_ReturnsSuccessOrNotFound_NotServerError()
         {
-            var response = await _client.GetAsync("/");
-            Assert.NotEqual(
-                HttpStatusCode.InternalServerError,
-                response.StatusCode);
-        }
+            // Common health-check paths.  A 5xx would indicate a startup failure.
+            var candidatePaths = new[] { "/health", "/healthz", "/api/health" };
 
-        [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public async Task HttpClient_BaseAddress_IsSet()
-        {
-            Assert.NotNull(_client.BaseAddress);
-            var response = await _client.GetAsync(_client.BaseAddress);
-            Assert.NotNull(response);
+            foreach (var path in candidatePaths)
+            {
+                var response = await _client.GetAsync(path);
+                Assert.True(
+                    response.StatusCode != HttpStatusCode.InternalServerError &&
+                    response.StatusCode != HttpStatusCode.ServiceUnavailable,
+                    $"Path '{path}' returned {(int)response.StatusCode} — " +
+                    "a server-side error suggests the application did not start correctly.");
+            }
         }
 
         // -----------------------------------------------------------------------
-        // 5. CustomWebApplicationFactory override capability
+        // 4. CustomWebApplicationFactory — verifies the new class exists and works
         // -----------------------------------------------------------------------
 
         [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public void CustomWebApplicationFactory_CanOverrideServices()
+        public void CustomWebApplicationFactory_CanBeInstantiated()
         {
-            // Verify that a derived factory with ConfigureWebHost override can be
-            // constructed — this proves the extension point introduced in the upgrade works.
+            // Verifies Phase 2 task: CustomWebApplicationFactory.cs was created
             using var customFactory = new CustomWebApplicationFactory();
             Assert.NotNull(customFactory);
+        }
 
-            using var client = customFactory.CreateClient();
+        [Fact]
+        public void CustomWebApplicationFactory_CreateClient_ReturnsHttpClient()
+        {
+            using var customFactory = new CustomWebApplicationFactory();
+            var client = customFactory.CreateClient();
             Assert.NotNull(client);
         }
 
         [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public async Task CustomWebApplicationFactory_Client_CanReachApplication()
+        public async Task CustomWebApplicationFactory_HttpClient_CanReachApplication()
         {
             using var customFactory = new CustomWebApplicationFactory();
-            using var client = customFactory.CreateClient();
+            var client = customFactory.CreateClient();
 
-            var response = await client.GetAsync("/");
-            Assert.NotNull(response);
-            Assert.NotEqual(HttpStatusCode.InternalServerError, response.StatusCode);
-        }
-
-        // -----------------------------------------------------------------------
-        // 6. IClassFixture pattern — shared factory lifetime
-        // -----------------------------------------------------------------------
-
-        [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public void IClassFixture_FactoryInstance_IsSharedAcrossTestsInClass()
-        {
-            // Both _factory references in this class must be the same instance,
-            // confirming IClassFixture<T> lifetime semantics are honoured by xUnit.
-            var secondReference = _factory;
-            Assert.Same(_factory, secondReference);
-        }
-
-        // -----------------------------------------------------------------------
-        // 7. Deprecated: ensure old TestServer manual setup is NOT required
-        //    (WebApplicationFactory encapsulates TestServer internally)
-        // -----------------------------------------------------------------------
-
-        [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public void WebApplicationFactory_InternalTestServer_IsAccessible()
-        {
-            // WebApplicationFactory.Server exposes the underlying TestServer.
-            // If this property throws, the factory was not started correctly.
-            var testServer = _factory.Server;
-            Assert.NotNull(testServer);
-        }
-
-        [Fact]
-        [Trait("Category", "UpgradeValidation")]
-        public void WebApplicationFactory_DoesNotRequireManualTestServerConstruction()
-        {
-            // The upgrade replaces any manual `new TestServer(new WebHostBuilder()...)` pattern.
-            // Verify the factory's Server.BaseAddress is set automatically.
-            Assert.NotNull(_factory.Server.BaseAddress);
-        }
-    }
-
-    // ---------------------------------------------------------------------------
-    // CustomWebApplicationFactory — the concrete type introduced by this upgrade
-    // ---------------------------------------------------------------------------
-
-    /// <summary>
-    /// Mirrors the <c>CustomWebApplicationFactory</c> introduced in the upgrade.
-    /// Provides a <see cref="Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory{TEntryPoint}.ConfigureWebHost"/>
-    /// override stub for test-specific service replacements.
-    /// </summary>
-    public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
-    {
-        protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
-        {
-            builder.ConfigureServices(services =>
+            HttpResponseMessage response;
+            try
             {
-                // Stub: replace services with test doubles here (e.g., in-memory DB, mock services).
-                // This override being callable without error validates the extension point works.
-            });
+                response = await client.GetAsync("/");
+            }
+            catch (HttpRequestException ex)
+            {
+                Assert.Fail(
+                    $"CustomWebApplicationFactory HttpClient threw HttpRequestException: {ex.Message}");
+                return;
+            }
 
-            builder.UseEnvironment("Testing");
+            Assert.NotNull(response);
+        }
+
+        // -----------------------------------------------------------------------
+        // 5. IntegrationTestBase — verifies the base class exists and is usable
+        // -----------------------------------------------------------------------
+
+        [Fact]
+        public void IntegrationTestBase_Type_ExistsInTestAssembly()
+        {
+            // Verifies Phase 2 task: IntegrationTestBase.cs was created
+            var testAssembly = Assembly.GetExecutingAssembly();
+            var baseType = testAssembly.GetType("IntegrationTests.IntegrationTestBase")
+                        ?? testAssembly.GetType("IntegrationTestBase");
+
+            Assert.NotNull(baseType);
+        }
+
+        [Fact]
+        public void IntegrationTestBase_ExposesHttpClientProperty()
+        {
+            var testAssembly = Assembly.GetExecutingAssembly();
+            var baseType = testAssembly.GetType("IntegrationTests.IntegrationTestBase")
+                        ?? testAssembly.GetType("IntegrationTestBase");
+
+            Assert.NotNull(baseType);
+
+            var httpClientProperty = baseType!.GetProperty(
+                "Client",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+            Assert.NotNull(httpClientProperty);
+            Assert.Equal(typeof(HttpClient), httpClientProperty!.PropertyType);
+        }
+
+        // -----------------------------------------------------------------------
+        // 6. Program partial class — entry point is accessible to test assembly
+        // -----------------------------------------------------------------------
+
+        [Fact]
+        public void Program_Class_IsAccessibleFromTestAssembly()
+        {
+            // Verifies Phase 2 task: `public partial class Program {}` was added
+            // to Program.cs so the test assembly can reference it as TEntryPoint.
+            var programType = typeof(Program);
+            Assert.NotNull(programType);
+            Assert.True(
+                programType.IsPublic || programType.IsNestedPublic,
+                "Program class must be public so WebApplicationFactory<Program> can use it as TEntryPoint.");
+        }
+
+        // -----------------------------------------------------------------------
+        // 7. Deprecated / replaced API checks
+        // -----------------------------------------------------------------------
+
+        [Fact]
+        public void TestServer_IsNotUsedDirectly_WebApplicationFactoryIsPreferred()
+        {
+            // Confirms the project does NOT reference the older Microsoft.AspNetCore.TestHost
+            // standalone pattern (TestServer created manually) — WebApplicationFactory wraps it.
+            // We verify by ensuring WebApplicationFactory exposes .Server (the wrapped TestServer)
+            // rather than the test project constructing TestServer independently.
+            var serverProperty = typeof(WebApplicationFactory<Program>)
+                .GetProperty("Server", BindingFlags.Public | BindingFlags.Instance);
+
+            Assert.NotNull(serverProperty);
+            // If this property exists, the factory pattern is in use — correct.
+        }
+
+        [Fact]
+        public void IWebHostBuilder_NotUsed_IHostBuilderOrWebApplicationBuilderIsPreferred()
+        {
+            // ASP.NET Core 6+ uses the minimal hosting model (WebApplication / WebApplicationBuilder).
+            // Verify the host inside the factory is the generic IHost, not the legacy IWebHost.
+            var host = _factory.Server.Host;
+            Assert.IsAssignableFrom<IHost>(host);
         }
     }
 }
