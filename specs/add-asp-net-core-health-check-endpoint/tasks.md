@@ -18,41 +18,46 @@
 ## Phase 1 — Preparation
 
 - [ ] [XS] Create a feature branch named `feature/health-check-endpoint` from the default branch in the repository
-- [ ] [S] Capture the current test baseline by running the existing test suite (`dotnet test`) and saving the output (pass count, coverage %) to `docs/test-baseline-pre-healthcheck.txt` for regression comparison
-- [ ] [XS] Audit `Program.cs` (or `Startup.cs`) for any existing middleware registrations that could conflict with a new `/health` route (e.g., catch-all route handlers, authentication middleware applied globally)
-- [ ] [XS] Confirm whether the project uses the minimal-hosting model (`WebApplication.CreateBuilder` in `Program.cs`) or the classic `Startup.cs` pattern, and note which migration path applies
+- [ ] [S] Capture the current test baseline by running the existing test suite (`dotnet test`) and recording pass/fail counts and code-coverage percentage in a `baseline.txt` artifact committed to the branch
+- [ ] [XS] Audit the `.csproj` file for any existing health-check–related NuGet references (e.g. `AspNetCore.HealthChecks.*`) to avoid duplicate or conflicting registrations
 
 ---
 
 ## Phase 2 — Core Upgrade
 
-- [ ] [S] Register the health-check services by adding `builder.Services.AddHealthChecks()` (minimal hosting) or `services.AddHealthChecks()` (Startup.cs `ConfigureServices`) in `Program.cs` / `Startup.cs`
-- [ ] [S] Map the health-check endpoint by adding `app.MapHealthChecks("/health")` (minimal hosting) or `app.UseHealthChecks("/health")` (Startup.cs `Configure`) in `Program.cs` / `Startup.cs`
-- [ ] [M] Create `HealthChecks/` directory and implement a custom `IHealthCheck` class (e.g., `DatabaseHealthCheck.cs`) if the application has a database dependency, registering it via `.AddCheck<DatabaseHealthCheck>("database")` in the service registration call
-- [ ] [S] Add a dedicated `HealthCheckOptions` configuration to return a JSON response body by creating `Configuration/HealthCheckResponseWriter.cs` with a `WriteResponse` method using `System.Text.Json` and wiring it into `MapHealthChecks("/health", options)` in `Program.cs`
-- [ ] [XS] Exclude the `/health` endpoint from authentication/authorization middleware by applying `.AllowAnonymous()` or configuring `RequireHost` / `RequireAuthorization(false)` on the `MapHealthChecks` call in `Program.cs` to prevent false negatives from probes
+- [ ] [S] Register the health-check services in `Program.cs` (or `Startup.ConfigureServices` for older project styles) by adding `builder.Services.AddHealthChecks()` and any initial liveness/readiness checks
+- [ ] [XS] Map the health-check endpoint in `Program.cs` (or `Startup.Configure`) by calling `app.MapHealthChecks("/health")` within the middleware pipeline, placed after authentication/authorization middleware but before catch-all routes
+- [ ] [S] Create a dedicated `HealthChecks/` folder and add a `ReadinessHealthCheck.cs` class implementing `IHealthCheck` to verify any critical downstream dependency (e.g. database reachability), if applicable per actual project dependencies
+- [ ] [S] Create `HealthChecks/LivenessHealthCheck.cs` implementing `IHealthCheck` for a lightweight in-process liveness signal (e.g. always-healthy canary), if a separate liveness probe is required
+- [ ] [XS] Register readiness and liveness checks with tags in `Program.cs` using `.AddCheck<ReadinessHealthCheck>("readiness", tags: new[] { "ready" })` and `.AddCheck<LivenessHealthCheck>("liveness", tags: new[] { "live" })` so they can be filtered independently
+- [ ] [XS] Map tagged sub-routes in `Program.cs`: `app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = r => r.Tags.Contains("ready") })` and the equivalent for `/health/live`
+- [ ] [S] Add a custom `HealthCheckResponseWriter` helper in `HealthChecks/HealthCheckResponseWriter.cs` to serialize a structured JSON response (status, results, duration) instead of the plain-text default, and wire it into `HealthCheckOptions.ResponseWriter`
 
 ---
 
 ## Phase 3 — Testing & Validation
 
-- [ ] [M] Add an integration test class `Tests/HealthCheckEndpointTests.cs` using `WebApplicationFactory<Program>` that asserts `GET /health` returns HTTP `200 OK` and a `Content-Type` of `application/json`
-- [ ] [S] Add a test case in `Tests/HealthCheckEndpointTests.cs` that simulates a degraded dependency (mock the `IHealthCheck` to return `Unhealthy`) and asserts the endpoint returns HTTP `503 Service Unavailable`
-- [ ] [XS] Run `dotnet test` and confirm all pre-existing tests still pass; compare pass count against `docs/test-baseline-pre-healthcheck.txt`
-- [ ] [XS] Perform a manual smoke test against a locally running instance: `curl -i http://localhost:<port>/health` and verify the JSON payload contains `"status": "Healthy"`
+- [ ] [M] Add integration tests in the existing test project (e.g. `tests/<ProjectName>.Tests/`) using `WebApplicationFactory<Program>` to assert that `GET /health` returns `200 OK` with a valid JSON body when all checks pass
+- [ ] [S] Add integration tests asserting that `GET /health/ready` and `GET /health/live` return correct status codes and tagged results independently
+- [ ] [S] Add a unit test for `ReadinessHealthCheck.CheckHealthAsync` covering both healthy and degraded/unhealthy paths using a mocked dependency
+- [ ] [XS] Re-run `dotnet test` and confirm no regressions against the `baseline.txt` counts captured in Phase 1; record new coverage delta in the PR description
 
 ---
 
 ## Phase 4 — CI/CD & Infrastructure
 
-- [ ] [S] Update the CI pipeline configuration (`.github/workflows/*.yml`, `azure-pipelines.yml`, or equivalent) to add a post-deploy smoke-test step that calls `GET /health` and fails the pipeline if the response is not `200`
-- [ ] [XS] If a `Dockerfile` exists, verify the `EXPOSE` instruction includes the application port and that any container health-check instruction (`HEALTHCHECK CMD curl --fail http://localhost:<port>/health`) is added to the `Dockerfile`
-- [ ] [XS] If Kubernetes manifests exist (`k8s/*.yaml` or `helm/`), add `livenessProbe` and `readinessProbe` stanzas pointing to `/health` in the relevant `Deployment` resource
+- [ ] [S] Update the CI pipeline configuration file (e.g. `.github/workflows/ci.yml`, `azure-pipelines.yml`, or equivalent) to add a smoke-test step that calls `GET /health` against the deployed preview/staging environment and fails the pipeline on a non-`200` response
+- [ ] [XS] If a `Dockerfile` exists, add or update the `HEALTHCHECK` instruction to `HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://localhost:<PORT>/health || exit 1` using the correct application port
+- [ ] [XS] If Kubernetes manifests exist, add `livenessProbe` and `readinessProbe` stanzas pointing to `/health/live` and `/health/ready` respectively in the relevant `Deployment` YAML file
 
 ---
 
 ## Phase 5 — Documentation & Rollout
 
-- [ ] [XS] Add a `## Health Check` section to `README.md` documenting the `/health` endpoint URL, expected response schema, and HTTP status codes (`200 Healthy`, `503 Unhealthy/Degraded`)
-- [ ] [XS] Update `CHANGELOG.md` with an entry under the current version describing the addition of the `/health` endpoint
-- [ ] [XS] Notify the infrastructure/ops team of the new endpoint path so load-balancer and uptime-monitor configurations can be updated to use `/health` for probe checks
+- [ ] [XS] Add a `CHANGELOG.md` entry (or update the existing changelog) documenting the new `/health`, `/health/ready`, and `/health/live` endpoints, their response schema, and the ASP.NET Core version they target
+- [ ] [XS] Update `README.md` (or the project's operations runbook) with a "Health Checks" section describing endpoint URLs, expected response codes, and how to interpret the JSON payload
+- [ ] [XS] Verify that the health-check endpoints are excluded from authentication middleware (i.e. `AllowAnonymous` or placed before `UseAuthorization`) and document this decision in the PR description to prevent accidental lock-out of monitoring agents
+
+---
+
+> **Out of scope for this task:** database migrations, dependency version bumps unrelated to health checks, observability/metrics endpoints (e.g. Prometheus `/metrics`), and any changes to business logic.
