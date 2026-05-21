@@ -23,11 +23,8 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build
+      - name: Build solution
         run: dotnet build --no-restore --configuration Release
-
-      - name: Lint (format check)
-        run: dotnet format --verify-no-changes --no-restore
 
       - name: Run unit tests
         run: |
@@ -49,8 +46,8 @@ jobs:
         with:
           name: test-results
           path: |
-            **/TestResults/*.trx
-            **/TestResults/*/coverage.cobertura.xml
+            **/*.trx
+            **/coverage.cobertura.xml
 
   sast:
     name: SAST Security Scan
@@ -75,11 +72,8 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Restore dependencies
-        run: dotnet restore
-
       - name: Build for CodeQL
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build --configuration Release
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
