@@ -2,88 +2,73 @@
 
 ## Summary
 
-This spec covers the addition of a standard ASP.NET Core health-check endpoint to the application. The expected outcome is a dedicated HTTP endpoint that reports the live/ready status of the service, enabling orchestration platforms (e.g., Kubernetes, load balancers, monitoring tools) to probe application health without relying on ad-hoc workarounds or application-specific conventions.
-
----
+This spec covers the addition of a standard ASP.NET Core health-check endpoint to the application. The expected outcome is a dedicated HTTP endpoint that reports the application's operational status, enabling load balancers, container orchestrators (e.g., Kubernetes liveness/readiness probes), and monitoring systems to programmatically determine service health without relying on application-specific logic or manual inspection.
 
 ## Motivation
 
-- **Operational visibility:** The application currently lacks a standardized health-check surface, making it difficult for infrastructure tooling to determine whether the service is healthy, degraded, or unavailable.
-- **Orchestration compatibility:** Container orchestrators (e.g., Kubernetes) require liveness and readiness probes. Without a dedicated endpoint, deployments rely on TCP checks or custom scripts, which are fragile and incomplete.
-- **Upgrade urgency:** Medium — the absence of health checks is a recognized operational gap that increases mean time to detection (MTTD) for service degradation.
-- **Tech debt:** Lack of a health-check endpoint is a missing baseline capability for any production-grade ASP.NET Core service. ASP.NET Core has included first-party health-check middleware (`Microsoft.Extensions.Diagnostics.HealthChecks`) since version 2.2; not using it represents accumulated tech debt against the platform standard.
+- **Operational visibility:** The application currently lacks a standardized health-check surface, making automated health monitoring and orchestration-level decisions (restart, traffic routing) impossible without custom workarounds.
+- **Container/orchestration readiness:** Modern deployment targets (Kubernetes, Azure Container Apps, AWS ECS, etc.) require a dedicated health endpoint to implement liveness and readiness probes. Absence of this endpoint is a medium-urgency gap that blocks safe automated deployments.
+- **Upgrade urgency:** Medium — the application is deployable today but is not production-safe in orchestrated environments without this capability.
+- **Compliance/reliability:** Health endpoints are a baseline requirement for 12-factor application compliance and SRE observability standards.
 
-> **Note:** Specific runtime and framework versions were not provided in the tech analysis. See [Open Questions](#open-questions).
-
----
+> **Note:** Specific runtime version, framework version, and build toolchain details were not provided in the tech analysis. See [Open Questions](#open-questions) for items that must be resolved before implementation begins.
 
 ## Current State
 
-- **No existing health-check endpoint** has been identified in the application. There is no route, controller action, or middleware currently serving a standardized health or readiness response.
-- **No registration** of `IHealthChecksBuilder` or `AddHealthChecks()` in the service registration pipeline has been confirmed.
-- **No middleware** mapping (e.g., `MapHealthChecks`) is present in the request pipeline configuration.
-- Specific classes, configuration keys, and startup/program entry points are TODO pending codebase review.
-
----
+- **Health monitoring:** TODO — no existing health-check endpoint or middleware has been identified in the provided context. Confirm whether any ad-hoc liveness route (e.g., a `/ping` or `/status` controller action) exists.
+- **Startup/middleware pipeline:** TODO — the specific startup configuration class or minimal-API bootstrap file is unknown from the provided context. The middleware registration point must be identified.
+- **Configuration:** TODO — no existing health-check configuration keys have been identified.
+- **Dependencies checked:** TODO — it is unknown which downstream dependencies (databases, caches, external APIs) are in scope for health reporting.
 
 ## Proposed Changes
 
 | Component | Before | After | Breaking? |
 |---|---|---|---|
-| Service registration (DI container) | No health-check services registered | `AddHealthChecks()` registered with relevant dependency checks | N |
-| Request pipeline / middleware | No health-check route mapped | Health-check endpoint mapped at a defined route (e.g., `/health` or `/healthz`) | N |
-| Liveness probe route | Not present | Dedicated liveness route returning live/not-live status | N |
-| Readiness probe route | Not present | Dedicated readiness route returning ready/not-ready status (if applicable) | N |
-| Health-check response format | N/A | Standard JSON or plain-text response conforming to ASP.NET Core `HealthReport` schema | N |
-| Authentication/authorization on health route | N/A | Health endpoint explicitly excluded from authentication requirements (or scoped as appropriate) | N |
-
-**What is added:**
-- Registration of the ASP.NET Core built-in health-check infrastructure.
-- One or more named health checks covering critical dependencies (e.g., database connectivity, external service reachability — specifics TODO).
-- Mapped HTTP route(s) for health probes.
-
-**What is removed:**
-- Any ad-hoc ping/status endpoints that duplicate this concern (TODO — confirm whether any exist).
-
----
+| HTTP routing | No `/health` route exists | `GET /health` returns health status (HTTP 200/503) | N |
+| Middleware pipeline | No health-check middleware registered | ASP.NET Core `HealthCheckMiddleware` registered in the request pipeline | N |
+| Service registration | No health-check services registered | Health-check services added to the DI container | N |
+| Health checks (liveness) | N/A | Basic liveness check confirming the process is running | N |
+| Health checks (readiness) | N/A | TODO — readiness checks for downstream dependencies (DB, cache, etc.) to be defined | N |
+| Response format | N/A | JSON body with status field; HTTP 200 for `Healthy`, HTTP 503 for `Unhealthy` or `Degraded` | N |
+| Configuration keys | N/A | TODO — any threshold or dependency-specific config keys to be named once dependencies are confirmed | N |
 
 ## Compatibility & Breaking Changes
 
 | Change | Impact | Migration Path |
 |---|---|---|
-| New `/health` (or `/healthz`) route added | Minimal — additive change; no existing route is modified | No caller migration required; infrastructure teams should update probe configurations to use the new route |
-| Existing ad-hoc status endpoints (if any) deprecated | Callers relying on the old endpoint will need to update | TODO — identify callers and coordinate cutover before removing legacy endpoint |
-| Authorization policy applied (or explicitly bypassed) to health route | Security posture change | TODO — confirm policy with security/platform team before finalizing |
-
----
+| New route `GET /health` | Additive only — no existing route is displaced | No migration required; callers must opt in to consume the new endpoint |
+| New route `GET /health/live` (liveness sub-path, if adopted) | Additive | No migration required |
+| New route `GET /health/ready` (readiness sub-path, if adopted) | Additive | No migration required |
+| DI service registration added to startup | No breaking change to existing registrations expected | TODO — confirm no naming collision with any existing custom service named `HealthCheck` |
+| TODO — if an existing ad-hoc `/ping` or `/status` route is found | Potential duplication or conflict | TODO — define whether the legacy route is removed, aliased, or retained alongside the new endpoint |
 
 ## Acceptance Criteria
 
-1. **Given** the application is running, **when** an HTTP GET request is made to the health-check endpoint, **then** the response status code is `200 OK` and the body indicates a healthy status.
+1. **Given** the application is running and healthy, **when** an HTTP GET request is made to `/health`, **then** the response status code is `200 OK` and the response body contains a status field with the value `Healthy`.
 
-2. **Given** a registered dependency (e.g., database) is unavailable, **when** an HTTP GET request is made to the health-check endpoint, **then** the response status code is `503 Service Unavailable` and the body indicates an unhealthy or degraded status identifying the failing check by name.
+2. **Given** the application is running and healthy, **when** an HTTP GET request is made to `/health`, **then** the response `Content-Type` header is `application/json`.
 
-3. **Given** the application is running, **when** the health-check endpoint is called, **then** the response is returned within 5 seconds under normal operating conditions.
+3. **Given** a registered downstream dependency (e.g., database) is unreachable, **when** an HTTP GET request is made to `/health`, **then** the response status code is `503 Service Unavailable` and the response body reflects an `Unhealthy` or `Degraded` status.
 
-4. **Given** the application's authentication middleware is active, **when** an unauthenticated HTTP GET request is made to the health-check endpoint, **then** the response is not `401 Unauthorized` (the endpoint is accessible without credentials, or per the agreed authorization policy — TODO confirm policy).
+4. **Given** the application is running, **when** an HTTP GET request is made to `/health` by an unauthenticated client, **then** the endpoint responds without requiring authentication (i.e., the health route is excluded from auth middleware). *(TODO — confirm authorization policy with security owner.)*
 
-5. **Given** a CI pipeline build, **when** the application starts in the test environment, **then** an automated probe of the health-check endpoint returns `200 OK`, confirming the endpoint is reachable and all registered checks pass.
+5. **Given** the application is deployed in a Kubernetes environment, **when** the liveness probe is configured to call `GET /health` (or `GET /health/live`), **then** the probe succeeds within the configured timeout and the pod is not restarted under normal operating conditions.
 
-6. **Given** the health-check endpoint is called, **when** the response body is inspected, **then** it conforms to the expected schema (status field present; individual check results enumerable) as defined by the ASP.NET Core `HealthReport` response writer in use.
+6. **Given** the application is deployed in a Kubernetes environment, **when** the readiness probe is configured to call `GET /health` (or `GET /health/ready`), **then** the probe returns unhealthy and the pod is removed from the load-balancer pool when a required dependency is unavailable.
 
-7. **Given** a liveness and readiness route are configured separately, **when** each route is probed independently, **then** each returns a response reflecting only the checks registered to that probe group.
+7. **Given** the health-check endpoint is called, **when** the application is under normal load, **then** the endpoint responds in under 500 ms (p99) as verified by a load-test or integration-test assertion.
 
----
+8. **Given** the CI pipeline runs, **when** integration tests execute, **then** at least one automated test asserts the `/health` endpoint returns `200 OK` with a `Healthy` status against a locally running instance of the application.
 
 ## Open Questions
 
 | # | Question | Owner | Due Date |
 |---|---|---|---|
-| 1 | What is the exact ASP.NET Core runtime version in use? This determines which health-check API surface is available. | TODO | TODO |
-| 2 | What specific dependencies (database, cache, external APIs) must be covered by registered health checks? | TODO | TODO |
-| 3 | Should liveness and readiness be split into separate routes, or is a single `/health` route sufficient? | TODO | TODO |
-| 4 | What is the agreed URL path for the health endpoint (`/health`, `/healthz`, `/status`, etc.)? | TODO | TODO |
-| 5 | Should the health endpoint be excluded from authentication, or require a specific role/policy? | TODO | TODO |
-| 6 | Are there any existing ad-hoc ping/status endpoints that should be deprecated once this endpoint is live? | TODO | TODO |
-| 7 | What response format is required — plain text, JSON `HealthReport`, or a custom schema expected by the monitoring platform? | TODO | TODO |
-| 8 | Does the health-check endpoint need to be excluded from access logs or rate limiting to avoid noise? | TODO | TODO |
+| 1 | What is the exact runtime and ASP.NET Core version in use? This determines which `Microsoft.Extensions.Diagnostics.HealthChecks` package version to target. | TODO | TODO |
+| 2 | Which downstream dependencies (databases, caches, message brokers, external APIs) must be included in readiness health checks? | TODO | TODO |
+| 3 | Should the endpoint expose a single `/health` route or separate `/health/live` and `/health/ready` sub-paths for liveness vs. readiness? | TODO | TODO |
+| 4 | Is there an existing ad-hoc health or ping route that must be removed or aliased? | TODO | TODO |
+| 5 | What authorization policy applies to the health endpoint — fully public, IP-restricted, or internal-network only? | TODO (Security Owner) | TODO |
+| 6 | Should the health response body include detailed dependency-level status, or only a top-level aggregate status? (Detailed output may expose internal topology.) | TODO (Security Owner) | TODO |
+| 7 | What is the build toolchain and project structure? This determines where service registration and middleware pipeline changes are made. | TODO | TODO |
+| 8 | Are there any existing monitoring or alerting integrations (e.g., Application Insights, Datadog) that should consume the new endpoint automatically? | TODO | TODO |
