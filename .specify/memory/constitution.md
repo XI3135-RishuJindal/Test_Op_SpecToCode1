@@ -13,23 +13,23 @@
 
 ## Guiding Principles
 
-1. **Prefer the built-in `IHealthChecksBuilder` API over custom middleware** because reinventing health-check plumbing increases maintenance surface and bypasses framework-managed status aggregation.
-2. **Prefer additive changes over modifications to existing startup/middleware pipeline** because the tech analysis flags unknown runtime and framework versions — invasive changes risk breaking undocumented dependencies.
-3. **Prefer explicit, named health-check registrations over a single catch-all check** because granular checks (liveness vs. readiness) give operators actionable signal without requiring code changes later.
-4. **Prefer returning standard HTTP status codes (`200 OK` / `503 Service Unavailable`) over custom response schemas** because downstream infrastructure tooling expects the ASP.NET Core default contract.
-5. **Prefer feature-flagged or route-isolated endpoint registration** over global middleware insertion because it limits blast radius if the host application's routing configuration is partially unknown.
+1. **Prefer the built-in `IHealthChecksBuilder` API over custom middleware** because reinventing health-check plumbing increases maintenance surface and diverges from the ASP.NET Core ecosystem standard.
+2. **Prefer additive changes over modifications to existing startup/middleware pipeline** because the upgrade urgency is medium and risk of regression must be kept low.
+3. **Prefer explicit liveness and readiness separation over a single combined endpoint** because container orchestrators (Kubernetes, etc.) treat the two signals differently; conflating them causes incorrect restart or traffic-routing behaviour.
+4. **Prefer thin, dependency-free health checks at initial delivery over deep dependency probing** because scope is constrained to a moderate effort option — deep checks (DB, cache, downstream APIs) can be added incrementally once the scaffold is in place.
+5. **Prefer configuration-driven endpoint paths over hard-coded strings** because deployment environments may require different URL conventions without a code change.
 
 ---
 
 ## Constraints
 
-- **Timeline / Effort:** Moderate option — treat as a bounded, single-engineer task. No multi-sprint re-architecture is in scope.
-- **Scope Freeze:** Only the health-check endpoint feature is in scope. Refactoring unrelated startup code, upgrading NuGet packages beyond what health-checks require, or adding dashboards are explicitly out of scope.
-- **Technology Mandates:**
-  - Must use `Microsoft.Extensions.Diagnostics.HealthChecks` (ships in-box with ASP.NET Core 2.2+). No third-party health-check frameworks unless the existing project already depends on one.
-  - Target runtime version: **TODO** — confirm the project's current `<TargetFramework>` before selecting package versions.
-  - Build tool: **TODO** — confirm whether the project uses `dotnet CLI`, MSBuild scripts, or a CI pipeline gate before defining the build/deploy step.
-- **No Breaking Changes:** The existing API surface and middleware order must remain unchanged for all routes outside `/health*`.
+| Category | Constraint |
+|---|---|
+| **Effort ceiling** | Moderate option — treat as a small, focused change (TODO: confirm exact person-days once option details are provided). No architectural refactoring is in scope. |
+| **Runtime / framework** | Must use `Microsoft.Extensions.Diagnostics.HealthChecks` (ships in-box with ASP.NET Core 2.2+). TODO: confirm exact runtime version in use; minimum target is ASP.NET Core 2.2. |
+| **Scope freeze** | Only health-check scaffolding is in scope. No changes to business logic, data models, authentication flows, or unrelated middleware. |
+| **Breaking changes** | Zero breaking changes to existing API surface or middleware order are permitted. |
+| **Technology mandates** | TODO: confirm cloud provider / orchestrator requirements (e.g., Azure App Service health probes vs. Kubernetes probes) that may dictate exact response schema. |
 
 ---
 
@@ -37,11 +37,11 @@
 
 | Standard | Measurable Bar |
 |---|---|
-| Unit test coverage | At least one passing unit/integration test per registered health check, verifying both `Healthy` and `Unhealthy` response paths. |
-| Integration test | One `WebApplicationFactory`-based test confirming the endpoint returns `200` when all checks pass and `503` when any check fails. |
-| Code review | All changes require at least one peer-review approval before merge; reviewer must verify middleware order is preserved. |
-| Documentation | A `HEALTHCHECK.md` (or inline XML doc) describing the endpoint URL, response schema, and how to add new checks — committed alongside the code. |
-| Deployment gate | CI pipeline must run all health-check tests and return green before merge to the main branch. |
+| **Test coverage** | At minimum, one integration test per exposed health endpoint asserting HTTP 200 (healthy) and, where applicable, HTTP 503 (unhealthy) responses. |
+| **Code review** | All changes require at least one peer-review approval before merge; reviewer must verify middleware registration order is correct. |
+| **Documentation** | A concise README section (or inline XML doc) must describe: endpoint URL(s), expected response codes, and how to add a new check. |
+| **Deployment gate** | CI pipeline must execute health-check integration tests and return green before any merge to the main branch. |
+| **Response contract** | Healthy response must return `HTTP 200`; degraded/unhealthy must return `HTTP 503`. Response body format must be consistent (JSON recommended; TODO: confirm if a specific schema is mandated by the monitoring platform). |
 
 ---
 
@@ -49,7 +49,7 @@
 
 | ID | Decision | Rationale | Status |
 |---|---|---|---|
-| ADR-001 | Use `Microsoft.Extensions.Diagnostics.HealthChecks` as the implementation foundation | Ships in-box with ASP.NET Core; no additional licensing or dependency risk. | Accepted |
-| ADR-002 | Expose endpoint at `/health` (default route) | Industry-standard path expected by Kubernetes, AWS ALB, and most monitoring agents. Override path is a config value if the host requires a different route. | Accepted |
-| ADR-003 | Separate liveness and readiness checks if the host supports ASP.NET Core 3.0+ endpoint routing | Allows orchestrators to distinguish "restart the pod" from "remove from load balancer" scenarios. Conditional on confirmed runtime version. | Proposed |
-| ADR-004 | Runtime and build-tool versions to be confirmed before implementation begins | Tech analysis lists both as unknown; wrong assumptions could cause silent package incompatibilities. | **TODO** |
+| ADR-001 | Use `Microsoft.Extensions.Diagnostics.HealthChecks` as the implementation mechanism | It is the idiomatic, in-box ASP.NET Core solution; avoids third-party dependencies for a standard concern. | Accepted |
+| ADR-002 | Expose separate `/health/live` and `/health/ready` endpoints rather than a single `/health` | Aligns with orchestrator best practices; liveness and readiness have distinct semantics. | Proposed — confirm with ops team |
+| ADR-003 | Defer deep dependency health checks (DB, external services) to a follow-on task | Keeps this change within the moderate effort ceiling and reduces risk of introducing new failure modes at launch. | Accepted |
+| ADR-004 | Runtime version and cloud provider TBD | Tech analysis lists runtime as unknown; version-specific registration API (`MapHealthChecks` vs. `UseHealthChecks`) depends on this. | TODO |
