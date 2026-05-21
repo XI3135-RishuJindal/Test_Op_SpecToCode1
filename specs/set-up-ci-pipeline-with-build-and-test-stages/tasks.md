@@ -1,69 +1,55 @@
 # TASKS: Set up CI Pipeline with Build and Test Stages
 
-> **Note:** Tech analysis did not specify language, runtime, or build tool. Tasks below are scoped to what is determinable from the goal. Assignee must resolve unknowns in Phase 1 before proceeding to later phases. Tasks marked with ⚠️ require Phase 1 findings to be completed first.
+> **Note:** The tech analysis provided does not specify a language, runtime, build tool, or framework. The tasks below are scoped to what can be determined from the task description alone. **Before work begins, the assigned engineer or AI agent must confirm the language, runtime, and build toolchain and update this document accordingly.** Tasks that depend on those specifics are marked with `⚠️ confirm stack first`.
 
 ---
 
 ## Prerequisites
 
-- [ ] [XS] Confirm repository hosting platform (GitHub, GitLab, Bitbucket, etc.) and verify CI/CD feature is enabled for the target repository
-- [ ] [XS] Confirm team members requiring write access to the repository have it, and that a service account or bot token is available for CI runner authentication
-- [ ] [XS] Verify that branch protection rules can be configured on the main/default branch to enforce CI gates
+- [ ] [XS] Confirm the repository's primary language, runtime version, and build tool by inspecting the repository root (e.g., `package.json`, `pom.xml`, `pyproject.toml`, `go.mod`, `Makefile`) and record findings in a `STACK.md` or inline comment before any other task is started
+- [ ] [XS] Verify that the target CI platform (GitHub Actions, GitLab CI, CircleCI, etc.) is accessible and that repository-level CI configuration permissions are granted to the working account
+- [ ] [XS] Confirm that secrets or environment variables required for the build (e.g., package registry tokens, environment-specific keys) are available in the CI platform's secret store before pipeline tasks begin
 
 ---
 
 ## Phase 1 — Preparation
 
-- [ ] [S] Audit the repository root to identify the language, runtime, build tool, and existing test framework — document findings in `docs/tech-stack.md` (create if absent)
-- [ ] [S] Identify all build commands (e.g., `make build`, `npm run build`, `./gradlew build`) and test commands (e.g., `npm test`, `pytest`, `./gradlew test`) by inspecting the root-level build manifest (e.g., `package.json`, `Makefile`, `build.gradle`, `pom.xml`, `pyproject.toml`) and record them in `docs/tech-stack.md`
-- [ ] [XS] Create a dedicated feature branch `ci/setup-build-test-pipeline` from the default branch for all CI configuration work
-- [ ] [XS] Capture the current test suite baseline (pass/fail counts, coverage if available) by running the test command locally and recording output in `docs/ci-baseline.md` (create if absent)
-- [ ] [XS] Confirm which CI platform will be used (e.g., GitHub Actions, GitLab CI, CircleCI) based on repository hosting, and document the decision in `docs/tech-stack.md`
+- [ ] [XS] Create a dedicated feature branch (e.g., `ci/build-and-test-pipeline`) from the default branch in the repository for all CI configuration changes
+- [ ] [S] ⚠️ Audit existing test suite in the repository root and test directories to confirm tests can be executed locally with a single command (e.g., `npm test`, `mvn test`, `pytest`, `go test ./...`) and document the exact command in a `CONTRIBUTING.md` or `README.md` section
+- [ ] [XS] Record the current baseline test results (pass count, fail count, duration) by running the test command locally and saving output to `ci/baseline-test-results.txt` on the feature branch for later regression comparison
 
 ---
 
 ## Phase 2 — Core Upgrade
 
-> ⚠️ Complete Phase 1 before starting. Replace placeholder filenames below with actuals identified in Phase 1.
-
-- [ ] [S] Create the CI configuration file for the chosen platform (e.g., `.github/workflows/ci.yml` for GitHub Actions, `.gitlab-ci.yml` for GitLab CI) with a skeleton defining `build` and `test` stages and triggering on push and pull request events to the default branch
-- [ ] [S] Add the `build` stage job to the CI configuration file: specify the correct runner image matching the identified runtime, install dependencies using the identified build tool command, and run the identified build command
-- [ ] [S] Add the `test` stage job to the CI configuration file: depend on the `build` stage, run the identified test command, and configure the job to fail the pipeline on any test failure
-- [ ] [XS] Add a `.gitignore` entry (or confirm existing entry) to exclude local build artifacts and CI cache directories from version control in `.gitignore`
-- [ ] [XS] Configure dependency caching in the CI configuration file for the identified package manager (e.g., `actions/cache` for npm/pip/maven) to reduce pipeline run time
+- [ ] [M] ⚠️ Create the CI platform configuration file (e.g., `.github/workflows/ci.yml` for GitHub Actions, `.gitlab-ci.yml` for GitLab CI, `.circleci/config.yml` for CircleCI) with a `build` stage that checks out the repository, installs dependencies, and compiles/builds the project using the confirmed build tool command
+- [ ] [M] ⚠️ Add a `test` stage to the CI configuration file that depends on the `build` stage, executes the confirmed test command, and fails the pipeline on any test failure
+- [ ] [S] ⚠️ Configure the CI pipeline trigger rules in the CI configuration file to run on `push` to the default branch and on all pull requests targeting the default branch
+- [ ] [XS] Add a pipeline status badge to `README.md` pointing to the new CI workflow so build status is visible on the repository landing page
 
 ---
 
 ## Phase 3 — Testing & Validation
 
-- [ ] [S] Trigger the CI pipeline manually on the feature branch `ci/setup-build-test-pipeline` and verify the `build` stage completes successfully with zero errors
-- [ ] [S] Verify the `test` stage executes all tests identified in the baseline captured in `docs/ci-baseline.md` and that pass/fail counts match the baseline
-- [ ] [XS] Intentionally introduce a failing test locally, push to the feature branch, and confirm the CI pipeline correctly reports a failed `test` stage — then revert the change
-- [ ] [XS] Confirm pipeline run time is reasonable (document actual duration in `docs/ci-baseline.md`) and that dependency caching is functioning by comparing a cached vs. uncached run
+- [ ] [S] Push the feature branch and verify the CI pipeline triggers automatically, completes the `build` stage successfully, and completes the `test` stage successfully in the CI platform UI
+- [ ] [XS] Introduce a deliberate failing test in a throwaway commit on the feature branch, confirm the CI pipeline reports a failure on the `test` stage, then revert the commit to confirm the pipeline returns to green
+- [ ] [XS] Compare CI test results (pass count, duration) against the baseline recorded in `ci/baseline-test-results.txt` and confirm no regressions have been introduced by the pipeline configuration itself
 
 ---
 
 ## Phase 4 — CI/CD & Infrastructure
 
-- [ ] [XS] Configure branch protection on the default branch to require the CI pipeline (`build` and `test` stages) to pass before pull requests can be merged — document the setting location in `docs/ci-baseline.md`
-- [ ] [XS] Verify that the CI configuration file does not embed secrets in plain text and that any required credentials are stored in the platform's secrets/environment variable store (e.g., GitHub Actions Secrets, GitLab CI Variables)
+- [ ] [XS] ⚠️ Pin the CI runner image or action versions (e.g., `actions/checkout@v4`, `actions/setup-node@v4`) to explicit version tags in the CI configuration file to prevent uncontrolled upstream changes from breaking the pipeline
+- [ ] [XS] ⚠️ Add dependency caching configuration (e.g., `actions/cache` for npm/Maven/pip/Go module cache) to the CI configuration file to reduce build times on repeated runs
 
 ---
 
 ## Phase 5 — Documentation & Rollout
 
-- [ ] [XS] Update `README.md` to add a CI status badge pointing to the new pipeline and a brief section describing how to run the build and test commands locally
-- [ ] [XS] Add a `CONTRIBUTING.md` entry (create if absent) documenting the CI gate requirement: all PRs must pass the `build` and `test` stages before merge
-- [ ] [XS] Open a pull request from `ci/setup-build-test-pipeline` to the default branch, confirm the pipeline runs automatically on the PR, and request review from at least one team member
-- [ ] [XS] After merge, monitor the first two post-merge pipeline runs on the default branch and record any flakiness or failures in `docs/ci-baseline.md`
+- [ ] [XS] Add a `## CI Pipeline` section to `README.md` or `CONTRIBUTING.md` documenting the pipeline stages, how to interpret results, and how to run the same build and test commands locally
+- [ ] [XS] Open a pull request from `ci/build-and-test-pipeline` to the default branch, confirm the new CI pipeline runs and passes on the PR itself as a live validation of the setup, then merge after review
+- [ ] [XS] Delete the `ci/baseline-test-results.txt` file or move it to `.github/` documentation if it should be retained, and confirm no temporary files were merged to the default branch unintentionally
 
 ---
 
-**Open Questions (must resolve in Phase 1 before proceeding):**
-
-| # | Question | Owner |
-|---|----------|-------|
-| 1 | What is the language and runtime? | Assignee |
-| 2 | What is the build tool and build command? | Assignee |
-| 3 | What is the test framework and test command? | Assignee |
-| 4 | Which CI platform will be used? | Assignee |
+**⚠️ Blocking dependency:** Tasks in Phase 2 and beyond cannot be completed with full specificity until the stack confirmation task in Prerequisites is resolved. An AI coding agent picking up Phase 2 tasks must read the output of the Prerequisites confirmation step before generating any CI configuration file content.
