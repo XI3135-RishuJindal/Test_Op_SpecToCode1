@@ -10,31 +10,34 @@
 
 ## Guiding Principles
 
-1. **Prefer automation over manual verification** because the absence of any CI pipeline means quality checks currently depend entirely on individual discipline — an unreliable and unscalable approach.
-2. **Prefer explicit, sequential stages (build → test) over a single monolithic job** because separating concerns makes failures easier to diagnose and allows the test stage to be skipped if the build itself fails.
-3. **Prefer fast feedback over exhaustive coverage in the initial pipeline** because the immediate goal is to establish a working baseline; additional stages (lint, security scan, deploy) can be added incrementally once the foundation is stable.
-4. **Prefer pipeline-as-code (checked into the repository) over UI-configured pipelines** because version-controlled configuration is auditable, reproducible, and reviewable like any other change.
-5. **Prefer failing loudly and early over silent failures** because a CI pipeline that does not block on failure provides no meaningful quality gate.
+1. **Prefer automation over manual verification** because the absence of any CI pipeline means quality checks currently depend entirely on individual developer discipline, which is not scalable or reliable.
+2. **Prefer explicit, sequential stages (build → test) over a single monolithic job** because separating stages makes failures easier to diagnose and allows the pipeline to fail fast at the earliest broken step.
+3. **Prefer a pipeline definition committed to the repository over externally managed configuration** because infrastructure-as-code ensures the pipeline is versioned, reviewable, and reproducible alongside the source it validates.
+4. **Prefer minimal, sufficient tooling over feature-rich complexity** because the upgrade urgency is medium and the tech stack details are currently unknown; the pipeline must be deliverable quickly and extended later as the stack is clarified.
+5. **Prefer clear pass/fail signals over silent failures** because contributors must receive unambiguous feedback on whether their changes broke the build or tests.
 
 ---
 
 ## Constraints
 
-- **Timeline / Effort:** Effort ceiling is governed by the "moderate" upgrade option. Scope is limited to build and test stages only — no deployment, release, or environment-provisioning work is in scope for this task.
-- **Technology Mandates:** TODO — specific language runtime, build tool, and test framework are unknown at this time. These must be confirmed before pipeline configuration can be finalised. The pipeline tooling (e.g. GitHub Actions, GitLab CI, CircleCI) must be decided and recorded in the Decision Log once known.
-- **Scope Freeze:** Pipeline scope is strictly limited to **build** and **test** stages. Any additional stages are out of scope and must be tracked as separate tasks.
-- **Repository Requirement:** The pipeline configuration file must live in the repository (not configured solely through a CI provider's UI).
+- **Timeline / Effort:** Effort ceiling is governed by the "moderate" upgrade option. Scope is limited strictly to build and test stages — no deployment, release, or environment-provisioning work is in scope.
+- **Technology Mandates:**
+  - TODO: Confirm target CI platform (e.g., GitHub Actions, GitLab CI, CircleCI) once repository host is known.
+  - TODO: Confirm runtime version(s), build tool, and package manager once language/stack is identified.
+  - TODO: Confirm any compliance or secrets-management requirements that must be reflected in pipeline configuration.
+- **Scope Freeze:** The pipeline is limited to **build** and **test** stages only. Linting, security scanning, and deployment stages are explicitly out of scope for this task.
+- **Budget:** No additional paid CI infrastructure should be provisioned without explicit approval; default to free-tier or already-licensed tooling.
 
 ---
 
 ## Quality Standards
 
-- **Pipeline must pass on the default branch** before this task is considered complete — a green build on `main` (or equivalent) is the acceptance criterion.
-- **Both stages must be independently identifiable** in CI output (separate named jobs or steps), not merged into a single undifferentiated script.
-- **Test stage must execute the project's existing test suite** (or a placeholder that fails explicitly if no tests exist), producing a non-zero exit code on test failure.
-- **Pipeline configuration changes must be reviewed via pull request** — no direct commits to the default branch for CI config files.
-- **README or equivalent documentation must include a CI status badge** and a brief description of the pipeline stages once the pipeline is operational.
-- **TODO:** Define minimum test coverage threshold once the language and test framework are confirmed.
+- **Pipeline-as-code:** The full pipeline definition must live in the repository (e.g., `.github/workflows/`, `.gitlab-ci.yml`) and be subject to standard code review before merge.
+- **Stage success criteria:** The build stage must exit non-zero on any compilation or dependency-resolution error; the test stage must exit non-zero if any test fails or if the test runner cannot be invoked.
+- **Code review:** All pipeline configuration changes require at least **one peer review approval** before merging to the default branch.
+- **Documentation:** A `CI.md` (or equivalent section in `README.md`) must describe how to run the build and test commands locally, mirroring what the pipeline executes — no undocumented magic commands in CI.
+- **Reproducibility:** The pipeline must produce the same result when re-run on the same commit with no external state changes (i.e., dependency versions must be pinned or locked).
+- **TODO:** Define minimum test-coverage floor once the test framework and existing coverage baseline are known.
 
 ---
 
@@ -42,7 +45,8 @@
 
 | ID | Decision | Rationale | Status |
 |----|----------|-----------|--------|
-| ADR-001 | Pipeline configuration stored as code in the repository | Ensures reproducibility, auditability, and peer review of pipeline changes | Accepted |
-| ADR-002 | Pipeline scoped to build and test stages only | Matches the stated task boundary; additional stages deferred to avoid scope creep | Accepted |
-| ADR-003 | CI platform selection | TODO — platform not yet determined; must be decided based on repository host and team tooling | Proposed |
-| ADR-004 | Language, runtime, and build tool selection | TODO — tech stack is unknown; pipeline implementation is blocked until this is resolved | Proposed |
+| ADR-001 | Implement build and test as separate, sequential pipeline stages | Enables fast-fail at build before running tests; improves diagnostic clarity | Accepted |
+| ADR-002 | Store pipeline configuration in the repository under version control | Ensures pipeline changes are reviewed, auditable, and tied to the code they govern | Accepted |
+| ADR-003 | Defer linting, security scanning, and deployment stages to future tasks | Keeps scope within the moderate effort ceiling; avoids scope creep on an unknown stack | Accepted |
+| ADR-004 | CI platform selection | TODO — to be decided once repository host and any existing tooling licenses are confirmed | Proposed |
+| ADR-005 | Runtime and build tool versions | TODO — to be pinned once language/stack is identified from repository inspection | Proposed |
