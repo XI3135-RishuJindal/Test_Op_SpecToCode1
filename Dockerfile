@@ -1,22 +1,22 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+FROM nginx:alpine
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
-COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://localhost/health || exit 1
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN apk add --no-cache openssl && \
+    mkdir -p /etc/nginx/ssl && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /etc/nginx/ssl/server.key \
+        -out /etc/nginx/ssl/server.crt \
+        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+RUN mkdir -p /etc/nginx/conf.d
+
+COPY nginx.conf /etc/nginx/nginx.conf
+
+RUN mkdir -p /usr/share/nginx/html && \
+    echo '{"status":"ok"}' > /usr/share/nginx/html/health
+
+EXPOSE 80 443
+
+CMD ["nginx", "-g", "daemon off;"]
