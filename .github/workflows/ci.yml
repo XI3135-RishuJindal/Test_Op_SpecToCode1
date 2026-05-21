@@ -72,11 +72,8 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Restore dependencies
-        run: dotnet restore
-
       - name: Build for CodeQL
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build --configuration Release
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
