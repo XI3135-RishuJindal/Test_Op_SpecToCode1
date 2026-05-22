@@ -1,0 +1,21 @@
+## Tasks (auto-derived from plan — review and refine)
+
+- [ ] Introduce an audit emission layer with a clean interface (IAuditLogger) and a concrete R06AuditLogger that posts JSON payloads to the R-06 endpoint using a typed HttpClient. All emission goes through a bounded in-memory channel processed by a BackgroundService to decouple network I/O from request latency.
+- [ ] Add a CorrelationIdMiddleware to ensure a correlation_id is present on all requests. Propagate it to the audit payload and to Serilog’s log context.
+- [ ] Implement a SsoAuditEvent model that matches the R-06 schema. Provide a PiiRedactor utility to pseudonymize user identifiers (SHA-256 + configured salt), hash user agent strings, and mask IPs.
+- [ ] Auth endpoints: add minimal SSO endpoints in Controllers/AuthController.cs:
+- [ ] GET /api/auth/sso/login (initiates flow; emits flow_initiated)
+- [ ] GET /api/auth/sso/callback (handles state; emits success/failure events as applicable)
+- [ ] JwtBearer events: wire OnAuthenticationFailed, OnChallenge to emit token_validation_failed (and relevant http_status). This provides coverage for protected API calls failing auth.
+- [ ] Redirect URI validation: add a validator service to accept/reject return URLs from configuration allowlist; emit redirect_uri_rejected on failure.
+- [ ] HTTP POST {Audit:R06:EndpointUrl}
+- [ ] Headers: Content-Type: application/json; Authorization: Bearer {Audit:R06:ApiKey}; X-Service: {Audit:Service}; X-Env: {Audit:Environment}
+- [ ] Body: SsoAuditEvent serialized as compact JSON using System.Text.Json with camelCase.
+- [ ] Timeouts: 2s per request; Retries: 3 with exponential backoff for 5xx/timeouts; respect cancellation.
+- [ ] Expected responses: 202 Accepted or 200 OK = success; 4xx client errors not retried.
+- [ ] Models/Audit/SsoAuditEvent.cs with required fields listed in the spec; nullable optional fields.
+- [ ] Models/Audit/EmissionResult.cs to encapsulate HTTP result for metrics.
+- [ ] Services/Audit/PiiRedactor.cs with methods: Pseudonymize(string), MaskIp(string), Hash(string input).
+- [ ] appsettings*.json:
+- [ ] "Audit": { "Enabled": true, "Service": "api-gateway", "Environment": "Development", "PseudonymizationSalt": "dev-only-change-me", "R06": { "EndpointUrl": "https://audit.example.com/r06/events", "ApiKey": "replace-in-secure-store" }, "QueueCapacity": 1000, "TimeoutSeconds": 2, "MaxRetries": 3 }
+- [ ] Feature flag check inside IAuditLogger; when disabled

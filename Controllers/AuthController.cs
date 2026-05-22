@@ -1,9 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+using Microsoft.Extensions.Logging;
 using ApiGateway.Models;
+using ApiGateway.Models.Audit;
+using ApiGateway.Services.Audit;
 
 namespace ApiGateway.Controllers
 {
@@ -11,88 +10,37 @@ namespace ApiGateway.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly IConfiguration _configuration;
+        private readonly IAuditLogger _auditLogger;
         private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IConfiguration configuration, ILogger<AuthController> logger)
+        public AuthController(IAuditLogger auditLogger, ILogger<AuthController> logger)
         {
-            _configuration = configuration;
+            _auditLogger = auditLogger;
             _logger = logger;
         }
 
         /// <summary>
-        /// Generate JWT token for testing purposes
+        /// Initiates the SSO login flow.
         /// </summary>
-        /// <param name="request">Login request</param>
-        /// <returns>JWT token</returns>
-        [HttpPost("token")]
-        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public IActionResult GenerateToken([FromBody] LoginRequest request)
+        [HttpGet("sso/login")]
+        public IActionResult BeginSso()
         {
-            _logger.LogInformation("Token generation requested for user: {Username}", request.Username);
+            string correlationId = HttpContext.Request.Headers["X-Correlation-ID"].ToString();
 
-            try
+            var auditEvent = new SsoAuditEvent
             {
-                // Simple validation for demo purposes
-                if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-                {
-                    return BadRequest(new ErrorResponse
-                    {
-                        Error = "InvalidCredentials",
-                        Message = "Username and password are required",
-                        StatusCode = 400
-                    });
-                }
+                EventType = "flow_initiated",
+                Outcome = "started",
+                CorrelationId = correlationId,
+                Timestamp = DateTime.UtcNow,
+                Service = "api-gateway",
+                Environment = "Development"
+            };
 
-                // For demo purposes, accept any non-empty credentials
-                // In production, this would validate against a user store
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default-secret-key-for-development");
-                
-                var tokenDescriptor = new SecurityTokenDescriptor
-                {
-                    Subject = new ClaimsIdentity(new[]
-                    {
-                        new Claim(ClaimTypes.Name, request.Username),
-                        new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-                        new Claim("username", request.Username)
-                    }),
-                    Expires = DateTime.UtcNow.AddHours(1),
-                    Issuer = _configuration["Jwt:Issuer"],
-                    Audience = _configuration["Jwt:Audience"],
-                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-                };
+            _auditLogger.LogEventAsync(auditEvent, HttpContext.RequestAborted);
+            _logger.LogInformation("SSO flow initiated with correlation ID: {CorrelationId}", correlationId);
 
-                var token = tokenHandler.CreateToken(tokenDescriptor);
-                var tokenString = tokenHandler.WriteToken(token);
-
-                _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
-
-                return Ok(new
-                {
-                    Token = tokenString,
-                    Expires = tokenDescriptor.Expires,
-                    TokenType = "Bearer"
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
-                
-                return StatusCode(500, new ErrorResponse
-                {
-                    Error = "TokenGenerationError",
-                    Message = "An error occurred while generating the token",
-                    StatusCode = 500
-                });
-            }
+            return Ok(new { Message = "SSO flow initiated", CorrelationId = correlationId });
         }
-    }
-
-    public class LoginRequest
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
     }
 }
