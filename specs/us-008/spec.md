@@ -1,49 +1,45 @@
-US-008: Create deferred Payments epic
+US-008: Redirect URI Whitelist Enforcement & HTTP Callback Rejection
 
-Summary (WHAT)
-Create and document a backlog epic for Payments that captures the problem statement, intended outcomes, prerequisites, deferrals, risks, non-functional requirements, and cross-service dependencies. The epic must be explicitly marked as out of scope for the current MVP and introduce no runtime behavior.
+What
+- Implement server-side enforcement to:
+  1) Validate redirect_uri against a pre-configured server-side whitelist during:
+     - Authorization request construction endpoint (applies to US-002).
+     - SSO callback handling endpoint.
+  2) Reject any callback request received over HTTP (non-HTTPS).
+- On rejection, emit structured audit logs and return i18n-ready error responses (stable error code + message key + human message).
+- Provide configuration to define the whitelist entries and how reverse-proxy forwarded headers are trusted.
 
-Why (business value)
-- Clarifies the end-to-end scope of taking and managing payments without blocking the MVP.
-- Aligns stakeholders on dependencies (identity, order/ledger, provider selection, compliance).
-- Reduces delivery risk by front-loading constraints (PCI, idempotency, reconciliation).
-- Enables progressive elaboration and sequencing for a later milestone.
+Why
+- Prevent open redirect attacks and untrusted callback abuse.
+- Enforce transport security for authentication flows.
+- Provide auditable events for security monitoring and compliance.
 
-Narrative
-As a product and engineering team, we need a well-defined Payments epic that documents how customers will authorize, capture, refund, and reconcile payments, so that we can plan and de-risk future delivery without introducing any payment functionality in the current MVP.
+Scope and narrative
+- Actors: 
+  - Client application initiating SSO.
+  - API Gateway (this repo) constructing authorization request and handling callbacks.
+  - External IdP (not implemented here; simulated).
+- Flows:
+  - Authorization request construction (GET /api/auth/authorize):
+    - Input: redirect_uri (query), state, response_type (optional for simulation).
+    - Behavior: Validate redirect_uri against whitelist. If valid, return the constructed authorization URL (simulation) or 302 to IdP in future. If not valid, return 400 with error code and message key; log audit event.
+  - Callback handling (GET /api/auth/callback):
+    - Input: code, state, redirect_uri (optional depending on IdP; validated if present).
+    - Behavior:
+      - Verify request is HTTPS. If behind reverse proxy, accept X-Forwarded-Proto=https when TrustForwardedHeaders is enabled.
+      - If insecure, reject with 400, emit audit log.
+      - If redirect_uri provided, validate against whitelist; if invalid, reject with 400 and log audit.
+      - Otherwise, simulate success response (actual token exchange is out-of-scope).
 
-Actors and stakeholders
-- Customer: initiates and reviews payments/refunds.
-- API Gateway: entry point for authenticated clients; no payment routes in MVP.
-- Payment Orchestrator (new service, future): handles provider interactions and state.
-- Finance/Ops: oversees reconciliation, disputes, settlements.
-- External payment providers: Stripe/Adyen/Braintree, bank rails, webhooks.
-
-In scope for this epic (documentation only)
-- Proposed domain model (PaymentIntent, Payment, Refund).
-- Proposed API surface (draft endpoints) to be implemented later.
-- Prerequisites and deferrals list.
-- Risk register and compliance considerations.
-- Cross-service dependencies and sequencing plan.
-
-Out of scope (for MVP and for this story)
-- Any code that processes or exposes payment routes in API Gateway.
-- Any data model or database schema changes.
-- Provider integration code, keys, webhooks, or credentials.
-- UI/payment form, card data collection, tokenization in the gateway.
-
-Acceptance criteria
-- The epic is documented at specs/create-deferred-payments-epic/spec.md with:
-  - Problem statement, goals, non-goals.
-  - Draft API endpoints and payloads (for reference only).
-  - Domain concepts and state transitions at a high level.
-  - Explicit statement: “Payments are out of scope for the current MVP.”
-- A plan exists at specs/create-deferred-payments-epic/plan.md that:
-  - Selects a target architecture (separate Payment Orchestrator behind the API Gateway).
-  - Lists prerequisites with owners and sequencing.
-  - Enumerates deferrals (what will NOT ship with the first payments release).
-  - Identifies observability, reliability, and security controls.
-- A disabled feature flag is introduced in appsettings.json under Payments.Enabled = false with Provider = "none"; no code paths read or act on it yet.
-- README.md includes a “Payments Epic (Deferred)” section linking to these specs and reiterating the out-of-scope status.
-- No new controllers, routes, or tests are added that expose payments.
-- openspec/changes/api-gateway/tasks.md and openspec/changes/api-gateway/specs/spec
+Functional acceptance criteria
+- Whitelist configuration:
+  - Maintained server-side via configuration key Security:RedirectUriWhitelist (array of URIs).
+  - Whitelist comparison:
+    - Normalize candidate and whitelist URIs.
+    - Compare scheme (case-insensitive), host (case-insensitive), port (explicit or implicit), and path (normalize trailing slash).
+    - Query string is ignored for whitelist matching.
+  - If parsing of redirect_uri fails, treat as invalid and reject.
+- HTTPS-only callback:
+  - A callback request must be considered secure if:
+    - HttpContext.Request.IsHttps == true OR
+    - X-Forwarded-Proto == "https" AND Security:

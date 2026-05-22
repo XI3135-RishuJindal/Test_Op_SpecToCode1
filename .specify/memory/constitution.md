@@ -1,48 +1,43 @@
-Purpose
-Establish durable quality principles, coding standards, architecture guardrails, and non-functional requirements to guide the creation of a deferred Payments epic. This governs decisions now (documentation-only, no runtime behavior) and later (when payments are implemented).
+Title: US-008 — Redirect URI Whitelist Enforcement & HTTPS-only Callback
 
-Quality principles
-- MVP safety first: no runtime or API surface introduced for payments in the current MVP; documentation and configuration may be added only if inert.
-- Security by design: treat all payment data as highly sensitive; assume PCI-DSS scope if card data ever transits or is stored; prefer tokenization and third-party vaulting.
-- Reliability and idempotency: all payment write operations must be idempotent; support retry-safe operations and exactly-once effects using outbox pattern.
-- Observability: emit structured logs with correlation IDs; define traces and metrics for any future payment flows (auth/capture/refund/reconcile).
-- Separation of concerns: API Gateway remains thin (routing/auth); orchestration and provider logic live outside of the gateway.
-- Backward compatibility: future payment APIs must be versioned and additive when possible.
-- Documentation-as-contract: specifications precede code; ADRs capture key architecture decisions; clear deferrals and prerequisites are mandatory.
+Quality principles and guardrails
+- Security-first:
+  - Only HTTPS callbacks are accepted. If the incoming callback request is not effectively HTTPS (Request.IsHttps == false and X-Forwarded-Proto != https), immediately reject and log an audit event.
+  - Redirect URIs must be validated server-side against a strict whitelist. No user-provided redirect URI may be reflected or used unless whitelisted.
+  - Do not allow open redirects. Never concatenate or reflect raw query parameters into Location headers without validation.
+  - Normalize and compare URIs using scheme, host, port, and path; ignore query string for whitelist checks. Enforce case-insensitive host comparison and consistent trailing slashes on path.
+  - Prefer exact matches. Wildcards/globs are out-of-scope unless explicitly configured and reviewed.
+- Least privilege and data minimization in logs:
+  - Audit logs must include reason code, normalized redirect URI, remote IP, forwarded proto, correlation id/trace id, and HTTP status, but must not include credentials or authorization codes.
+  - No secrets in logs. Truncate oversize URIs (>2KB) before logging.
+- i18n-ready responses:
+  - Error responses must include a stable error code and a message key suitable for localization. English message is acceptable as fallback; avoid embedding environment-specific details in Message.
+- Observability:
+  - Use structured logging with clear event IDs for security controls (e.g., RedirectUriNotWhitelisted, InsecureCallbackRejected).
+  - Include correlation id via HttpContext.TraceIdentifier in logs and responses when available.
+- Configuration and operability:
+  - Whitelist values are configured server-side in appsettings (and overridable via environment variables). No client override permitted.
+  - Changes to configuration should be reloadable without code changes (IOptionsMonitor acceptable), but a static IOptions snapshot is acceptable for this scope.
+- Backward compatibility and safety:
+  - Existing endpoints remain functional. New validation is only applied to SSO authorization construction and callback handling paths.
+  - Fail secure: on parsing/normalization errors, reject the request.
+- Performance and reliability:
+  - O(1) lookups using HashSet of normalized URIs.
+  - Deterministic behavior across environments. Explicit guidance for reverse proxy headers needed in production.
 
-Coding standards (applicable to this repo when code changes are introduced)
-- Language: C# 12, .NET 8, nullable reference types enabled, async/await with CancellationToken where applicable.
-- Authentication/Authorization: JWT via Microsoft.AspNetCore.Authentication.JwtBearer; granular authorization policies; no hard-coded secrets.
-- Configuration: IOptions pattern; configuration via appsettings.* with environment overrides; feature flags for new capabilities (e.g., Payments.Enabled).
-- Logging: Serilog; structured logging with requestId/correlationId; no sensitive data in logs; log levels: Information default, Warning for recoverable issues, Error for failures.
-- Testing: xUnit; targeted unit tests per controller/service; add contract tests for payment provider adapters; use Moq/Fakes; keep tests deterministic and non-flaky.
-- Error handling: consistent ErrorResponse payloads; map external provider errors to internal error taxonomy; never leak provider raw messages to clients.
-- API standards: RESTful, JSON; OpenAPI documented; use idempotency keys for write operations.
+Non-functional requirements
+- Availability: No single point of failure introduced by the validator service; it must be lightweight and in-process.
+- Latency: Validation must add <1ms overhead per request on average.
+- Testability: Unit tests for validator and controller paths (positive/negative), including forwarded header scenarios.
+- Documentation: Configuration keys, examples, and operational logging guidance must be documented in the spec/plan.
 
-Architecture guardrails
-- Clean architecture: domain/application layers decoupled from infrastructure; adapters for payment providers (Stripe/Adyen/etc.).
-- Messaging: event-driven for post-authorization workflows (capture, notify, reconcile); use outbox/inbox patterns for reliability.
-- Data: no storage of PAN/CVV; only store tokens and provider references; encryption at rest for any sensitive references.
-- Secrets: use secret stores; never commit secrets; rotate keys regularly.
-- Compliance: PCI-DSS and PSD2/SCA considered; do not scope API Gateway into PCI zone if avoidable.
-- Deployment: blue/green or canary for payment services; feature flags for safe rollout.
-- Observability: tracing across gateway → orchestrator → provider; define SLIs/SLOs before launch.
+Code style and standards
+- .NET 8, async where applicable, guard clauses for validation.
+- Use dependency injection for validator service.
+- Use options pattern for configuration (RedirectUriWhitelistOptions).
+- Keep controllers thin; extract normalization/validation logic to services.
 
-Non-functional requirements (for future payments delivery; informative now)
-- Security: PCI-DSS readiness; OWASP ASVS compliance; regular dependency scanning.
-- Availability: target ≥ 99.9% for payment orchestration service.
-- Latency: P95 auth ≤ 500 ms excluding provider latency; overall P95 end-to-end ≤ 1.5 s.
-- Throughput: design for burst traffic; rate limiting and circuit breakers to providers.
-- Resilience: retries with backoff; provider failover strategy; compensating transactions for partial failures.
-- Auditability: immutable audit trail for all state transitions; reconciliation against provider reports.
-- Privacy: GDPR adherence; data minimization and retention limits.
-
-Out-of-scope enforcement (for this MVP story)
-- No controllers, routes, or public APIs for payments in API Gateway.
-- Only inert configuration and documentation may be added.
-- Any references to payments must be disabled by feature flag (Payments.Enabled = false).
-
-Documentation and decision records
-- Maintain specs under specs/create-deferred-payments-epic/.
-- Record key decisions (e.g., orchestration vs. direct provider calls) in the plan file and reference in future ADRs.
-- Keep README up to date with epic status and deferral.
+Review standards and stakeholder expectations
+- Security review: Validate acceptance criteria with security lead; ensure no open redirect or HTTP callback acceptance possible.
+- Product/Platform review: Confirm message keys and HTTP status codes.
+- DevOps review: Confirm forwarded headers configuration in production ingress (X-Forwarded-Proto) and environment variable mapping for whitelist.

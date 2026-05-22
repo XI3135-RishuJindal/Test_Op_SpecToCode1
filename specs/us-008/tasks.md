@@ -1,5 +1,8 @@
-## Tasks
+## Tasks (auto-derived from plan — review and refine)
 
-- [ ] Implement the feature described in spec.md
-- [ ] Write unit tests for the new functionality
-- [ ] Update documentation as needed
+- [ ] Implementation Plan (auto-derived — review and expand)
+- [ ] Review spec.md for complete requirements and acceptance criteria
+- [ ] Design implementation approach based on the code context
+- [ ] Implement changes in the affected components
+- [ ] Write unit and integration tests
+- [ ] Update documentation
