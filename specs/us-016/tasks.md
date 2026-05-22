@@ -1,0 +1,25 @@
+## Tasks (auto-derived from plan — review and refine)
+
+- [ ] Idempotency key: Use the authenticated principal’s sub claim exclusively. No client-provided idempotency headers accepted.
+- [ ] Single-flight coordinator: Introduce IIdempotencyCoordinator to provide per-sub coordination using an in-memory ConcurrentDictionary<string, InflightOperation> with TaskCompletionSource to coalesce concurrent requests; configurable timeout. This can be swapped with a distributed implementation later.
+- [ ] Repository pattern: Introduce IAccountRepository with GetBySubAsync and CreateAsync. Ship InMemoryAccountRepository with a ConcurrentDictionary and uniqueness enforcement.
+- [ ] Service layer: IJitProvisioningService encapsulates business rules: check existing, coordinate in-flight, create-once, return consistent result.
+- [ ] API: ProvisioningController exposes POST /api/provisioning/jit and GET /api/provisioning/accounts/{sub}.
+- [ ] POST /api/provisioning/jit
+- [ ] Auth: Bearer. Requires sub claim.
+- [ ] Body: ProvisioningRequest { displayName?: string, email?: string, attributes?: Dictionary<string,string> }
+- [ ] 200: ProvisioningResponse { account: AccountDTO, created: bool }
+- [ ] 202: ErrorResponse with Error="ProvisioningInFlight"; headers Location, Retry-After
+- [ ] 400/401/409/500 as per spec
+- [ ] GET /api/provisioning/accounts/{sub}
+- [ ] 200: AccountDTO
+- [ ] 404: ErrorResponse if not provisioned
+- [ ] 401/500 as appropriate
+- [ ] Models/AccountDTO.cs: { Id: string, Sub: string, Username: string, Email?: string, CreatedAt: DateTime }
+- [ ] Models/ProvisioningRequest.cs: optional friendly attributes
+- [ ] Models/ProvisioningResponse.cs: { Account: AccountDTO, Created: bool }
+- [ ] appsettings.json:
+- [ ] "Provisioning": { "Idempotency": { "WaitTimeoutSeconds": 5 } }
+- [ ] Options/ProvisioningOptions.cs with nested IdempotencyOptions.
+- [ ] Re-checks repo for existence (double-check).
+- [ ] Creates account object and repo.CreateAsync with uniqueness check
