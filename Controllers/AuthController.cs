@@ -1,9 +1,8 @@
+using System.Net.Http;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using ApiGateway.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace ApiGateway.Controllers
 {
@@ -13,86 +12,64 @@ namespace ApiGateway.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
+        private readonly HttpClient _httpClient;
 
-        public AuthController(IConfiguration configuration, ILogger<AuthController> logger)
+        public AuthController(IConfiguration configuration, ILogger<AuthController> logger, HttpClient httpClient)
         {
             _configuration = configuration;
             _logger = logger;
+            _httpClient = httpClient;
         }
 
         /// <summary>
-        /// Generate JWT token for testing purposes
+        /// Method to exchange authorization code for tokens at the IdP token endpoint
         /// </summary>
-        /// <param name="request">Login request</param>
-        /// <returns>JWT token</returns>
-        [HttpPost("token")]
-        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public IActionResult GenerateToken([FromBody] LoginRequest request)
+        /// <param name="authorizationCode">Authorization code received from the IdP</param>
+        /// <returns>A result indicating success or failure of the token exchange</returns>
+        [HttpPost("exchange-token")]
+        public async Task<IActionResult> ExchangeToken([FromBody] string authorizationCode)
         {
-            _logger.LogInformation("Token generation requested for user: {Username}", request.Username);
+            if (string.IsNullOrWhiteSpace(authorizationCode))
+            {
+                return BadRequest("Invalid authorization code.");
+            }
 
             try
             {
-                // Simple validation for demo purposes
-                if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-                {
-                    return BadRequest(new ErrorResponse
-                    {
-                        Error = "InvalidCredentials",
-                        Message = "Username and password are required",
-                        StatusCode = 400
-                    });
-                }
+                var clientId = _configuration["IdentityProvider:ClientId"];
+                var clientSecret = _configuration["IdentityProvider:ClientSecret"];
+                var tokenEndpoint = _configuration["IdentityProvider:TokenEndpoint"];
+                var redirectUri = _configuration["IdentityProvider:RedirectUri"];
 
-                // For demo purposes, accept any non-empty credentials
-                // In production, this would validate against a user store
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default-secret-key-for-development");
-                
-                var tokenDescriptor = new SecurityTokenDescriptor
+                var requestData = new Dictionary<string, string>
                 {
-                    Subject = new ClaimsIdentity(new[]
-                    {
-                        new Claim(ClaimTypes.Name, request.Username),
-                        new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-                        new Claim("username", request.Username)
-                    }),
-                    Expires = DateTime.UtcNow.AddHours(1),
-                    Issuer = _configuration["Jwt:Issuer"],
-                    Audience = _configuration["Jwt:Audience"],
-                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                    { "grant_type", "authorization_code" },
+                    { "code", authorizationCode },
+                    { "redirect_uri", redirectUri },
+                    { "client_id", clientId },
+                    { "client_secret", clientSecret }
                 };
 
-                var token = tokenHandler.CreateToken(tokenDescriptor);
-                var tokenString = tokenHandler.WriteToken(token);
+                var requestContent = new FormUrlEncodedContent(requestData);
+                var response = await _httpClient.PostAsync(tokenEndpoint, requestContent);
 
-                _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
-
-                return Ok(new
+                if (response.IsSuccessStatusCode)
                 {
-                    Token = tokenString,
-                    Expires = tokenDescriptor.Expires,
-                    TokenType = "Bearer"
-                });
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    // TODO: Parse responseContent to extract tokens
+
+                    return Ok("Tokens exchanged successfully.");
+                }
+                else
+                {
+                    return StatusCode((int)response.StatusCode, "Token exchange failed.");
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
-                
-                return StatusCode(500, new ErrorResponse
-                {
-                    Error = "TokenGenerationError",
-                    Message = "An error occurred while generating the token",
-                    StatusCode = 500
-                });
+                _logger.LogError(ex, "Error during token exchange");
+                return StatusCode(500, "Internal server error during token exchange.");
             }
         }
-    }
-
-    public class LoginRequest
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
     }
 }
