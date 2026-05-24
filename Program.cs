@@ -1,3 +1,4 @@
+```csharp
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -68,3 +69,4 @@ finally
 {
     Log.CloseAndFlush();
 }
+```
