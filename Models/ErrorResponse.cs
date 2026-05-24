@@ -10,5 +10,8 @@ namespace ApiGateway.Models
         public int StatusCode { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
         public string? Details { get; set; }
+
+        // New field for Claims validation errors
+        public IDictionary<string, string>? ClaimsValidationErrors { get; set; }
     }
 }

@@ -1,3 +1,4 @@
+```csharp
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -68,31 +69,37 @@ namespace ApiGateway.Controllers
                 var tokenString = tokenHandler.WriteToken(token);
 
                 _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
-
-                return Ok(new
-                {
-                    Token = tokenString,
-                    Expires = tokenDescriptor.Expires,
-                    TokenType = "Bearer"
-                });
+                return Ok(new { token = tokenString });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
-                
+                _logger.LogError(ex, "Unexpected error during token generation for user: {Username}", request.Username);
                 return StatusCode(500, new ErrorResponse
                 {
                     Error = "TokenGenerationError",
-                    Message = "An error occurred while generating the token",
+                    Message = "An unexpected error occurred",
                     StatusCode = 500
                 });
             }
         }
-    }
 
-    public class LoginRequest
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
+        /// <summary>
+        /// Validate the claims of a JWT token
+        /// </summary>
+        /// <param name="claimsPrincipal">ClaimsPrincipal to validate</param>
+        /// <returns>True if valid, otherwise false</returns>
+        private bool ValidateClaims(ClaimsPrincipal claimsPrincipal)
+        {
+            var requiredClaims = new[] { "sub", "email", "name", "roles" };
+            var missingClaims = requiredClaims.Where(claim => !claimsPrincipal.HasClaim(c => c.Type == claim)).ToList();
+
+            if (missingClaims.Any())
+            {
+                _logger.LogWarning("Missing or invalid claims: {Claims}", string.Join(", ", missingClaims));
+                return false;
+            }
+            return true;
+        }
     }
 }
+```
