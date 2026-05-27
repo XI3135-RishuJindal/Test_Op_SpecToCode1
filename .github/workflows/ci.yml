@@ -1,0 +1,167 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint dependabot config (if present)
+        run: |
+          if [ -f ".github/dependabot.yml" ]; then
+            echo "dependabot.yml found — validating basic structure"
+            grep -q "version: 2" .github/dependabot.yml && echo "version key OK" || (echo "ERROR: missing 'version: 2'" && exit 1)
+            grep -q "updates:" .github/dependabot.yml && echo "updates key OK" || (echo "ERROR: missing 'updates:' block" && exit 1)
+          else
+            echo "No dependabot.yml found — skipping"
+          fi
+
+      - name: Lint renovate config (if present)
+        run: |
+          if [ -f "renovate.json" ] || [ -f "renovate.json5" ]; then
+            echo "Renovate config found — validating JSON syntax"
+            for f in renovate.json renovate.json5; do
+              if [ -f "$f" ]; then
+                python3 -m json.tool "$f" > /dev/null && echo "$f syntax OK" || (echo "ERROR: $f has invalid JSON" && exit 1)
+              fi
+            done
+          else
+            echo "No renovate config found — skipping"
+          fi
+
+  validate-dependency-config:
+    name: Validate Dependency Update Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check that at least one dependency update config exists
+        run: |
+          FOUND=0
+          [ -f ".github/dependabot.yml" ] && FOUND=1 && echo "Found: .github/dependabot.yml"
+          [ -f "renovate.json" ]          && FOUND=1 && echo "Found: renovate.json"
+          [ -f "renovate.json5" ]         && FOUND=1 && echo "Found: renovate.json5"
+          if [ "$FOUND" -eq 0 ]; then
+            echo "WARNING: No Dependabot or Renovate configuration file detected."
+            echo "Please add .github/dependabot.yml or renovate.json as described in the upgrade spec."
+            exit 1
+          fi
+
+      - name: Validate dependabot.yml schema (if present)
+        if: hashFiles('.github/dependabot.yml') != ''
+        run: |
+          python3 - <<'EOF'
+          import sys
+          try:
+              import yaml
+          except ImportError:
+              import subprocess
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "--quiet", "pyyaml"])
+              import yaml
+
+          with open(".github/dependabot.yml") as f:
+              config = yaml.safe_load(f)
+
+          errors = []
+
+          if config.get("version") != 2:
+              errors.append("'version' must be 2")
+
+          updates = config.get("updates", [])
+          if not isinstance(updates, list) or len(updates) == 0:
+              errors.append("'updates' must be a non-empty list")
+
+          for i, entry in enumerate(updates):
+              prefix = f"updates[{i}]"
+              if "package-ecosystem" not in entry:
+                  errors.append(f"{prefix}: missing 'package-ecosystem'")
+              if "directory" not in entry:
+                  errors.append(f"{prefix}: missing 'directory'")
+              if "schedule" not in entry or "interval" not in entry.get("schedule", {}):
+                  errors.append(f"{prefix}: missing 'schedule.interval'")
+
+          if errors:
+              print("dependabot.yml validation FAILED:")
+              for e in errors:
+                  print(f"  - {e}")
+              sys.exit(1)
+          else:
+              print(f"dependabot.yml validation PASSED ({len(updates)} ecosystem(s) configured)")
+          EOF
+
+      - name: Validate renovate.json schema (if present)
+        if: hashFiles('renovate.json') != ''
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+
+          with open("renovate.json") as f:
+              config = json.load(f)
+
+          errors = []
+          warnings = []
+
+          extends = config.get("$schema", "") or config.get("extends", [])
+          if isinstance(extends, list) and not any("config:base" in e or "config:recommended" in e for e in extends):
+              warnings.append("Consider extending 'config:base' or 'config:recommended' for sensible defaults")
+
+          if "prConcurrentLimit" not in config:
+              warnings.append("'prConcurrentLimit' not set — consider adding it to limit open PRs")
+
+          if "schedule" not in config:
+              warnings.append("'schedule' not set — Renovate will run on its default schedule")
+
+          if warnings:
+              print("renovate.json warnings:")
+              for w in warnings:
+                  print(f"  - {w}")
+
+          if errors:
+              print("renovate.json validation FAILED:")
+              for e in errors:
+                  print(f"  - {e}")
+              sys.exit(1)
+          else:
+              print("renovate.json validation PASSED")
+          EOF
+
+  security-scan:
+    name: SAST Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy config scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "0"
+          severity: CRITICAL,HIGH,MEDIUM
+
+      - name: Upload Trivy SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
