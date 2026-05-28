@@ -6,39 +6,41 @@
 ## Project Identity
 
 **Name:** Dependency Management Modernization
-**Purpose:** Migrate the project's Python dependency management from legacy `requirements.txt` files to the standardized `pyproject.toml` format (PEP 517/518/621).
-**High-Level Goal:** Establish a single, authoritative source of truth for project metadata and dependencies, replacing fragmented `requirements.txt` files with a standards-compliant `pyproject.toml` configuration.
+**Purpose:** Migrate Python dependency management from legacy `requirements.txt` files to the standardized `pyproject.toml` format (PEP 517/518/621).
+**High-Level Goal:** Establish a single, standards-compliant source of truth for project metadata and dependencies, eliminating the fragmentation and tooling limitations associated with `requirements.txt`.
 
 ---
 
 ## Guiding Principles
 
-1. **Prefer `pyproject.toml` over `requirements.txt` for all dependency declarations** because `requirements.txt` is a non-standard, tooling-specific format that lacks metadata, version constraints expressiveness, and build system integration.
-2. **Prefer a single `pyproject.toml` over multiple requirements files** because fragmented files (e.g., `requirements-dev.txt`, `requirements-test.txt`) create drift and ambiguity about the canonical dependency set.
-3. **Prefer explicit dependency groups (e.g., `[project.optional-dependencies]`) over flat lists** because separating runtime, dev, and test dependencies reduces production surface area and clarifies intent.
-4. **Prefer preserving existing pinned versions during migration over re-resolving them** because uncontrolled version changes are out of scope and introduce regression risk beyond this task's mandate.
-5. **Prefer a build backend already compatible with `pyproject.toml`** (e.g., `setuptools`, `hatch`, `flit`) over introducing a new toolchain, because minimizing toolchain churn is consistent with a moderate-effort migration.
+1. **Prefer `pyproject.toml` as the sole dependency manifest over maintaining any `requirements.txt` files** because split manifests create drift and ambiguity about which file is authoritative.
+2. **Prefer a single migration pass over an incremental dual-file period** because maintaining both formats simultaneously doubles maintenance burden and defeats the purpose of the migration.
+3. **Prefer explicit dependency version constraints in `pyproject.toml` over unpinned or loosely specified dependencies** because the migration is an opportunity to codify known-good version bounds and reduce future breakage.
+4. **Prefer preserving existing dependency versions and constraints over upgrading them during this migration** because conflating dependency upgrades with format migration increases risk and obscures the source of any regressions.
+5. **Prefer a compatible build backend (e.g., `setuptools`, `hatchling`, or `flit-core`) that is already in use or minimally invasive** because introducing an unfamiliar build system expands scope beyond the stated task.
 
 ---
 
 ## Constraints
 
-- **Effort ceiling:** Moderate option — migration must remain a bounded, low-risk task. No architectural changes, no dependency upgrades, and no runtime changes are in scope.
-- **Scope freeze:** Only dependency declaration and metadata are in scope. Refactoring application code, upgrading dependency versions, or changing CI/CD pipelines beyond what is necessary to consume `pyproject.toml` is explicitly out of scope.
-- **Technology mandate:** The output artifact must be a valid `pyproject.toml` conforming to PEP 621. The chosen build backend must support PEP 517.
-- **Backward compatibility:** All dependencies present in the existing `requirements.txt` file(s) must be represented in `pyproject.toml` with no silent omissions.
-- **TODO:** Runtime version and build tool are unknown — the specific `[build-system]` backend selection must be confirmed before implementation begins.
-- **TODO:** Whether a lock file tool (e.g., `pip-tools`, `poetry`, `uv`) is required alongside `pyproject.toml` is not specified and must be decided.
+- **Scope freeze:** This migration is strictly limited to dependency management format changes. No dependency version upgrades, no refactoring of application code, and no changes to CI/CD pipelines beyond what is required to consume `pyproject.toml`.
+- **Timeline/Effort:** Moderate effort ceiling (specific person-days TODO — not provided in upgrade option). All work must fit within the "moderate" option envelope.
+- **Technology mandates:**
+  - Output must be a valid `pyproject.toml` conforming to PEP 621 (standardized project metadata).
+  - The chosen build backend must support PEP 517/518.
+  - TODO: Confirm minimum Python version to set in `requires-python` field.
+  - TODO: Confirm whether a lock file tool (e.g., `pip-tools`, `poetry`, `uv`) is required or in scope.
+- **No runtime changes:** Runtime version is currently unknown; `pyproject.toml` must not introduce runtime version constraints that did not previously exist.
 
 ---
 
 ## Quality Standards
 
-- **Completeness check:** A diff between all packages listed in the original `requirements.txt` file(s) and the resolved dependencies from `pyproject.toml` must show zero omissions before the migration is considered done.
-- **Validation gate:** `pyproject.toml` must pass schema validation (e.g., `validate-pyproject` or equivalent) with zero errors before merge.
-- **Install verification:** A clean virtual environment install using only `pyproject.toml` (e.g., `pip install .` and `pip install .[dev]`) must succeed with no errors as a mandatory CI gate.
-- **Review requirement:** At least one peer review is required on the final `pyproject.toml` to verify dependency group correctness and no version drift.
-- **Documentation:** The project README or a `CONTRIBUTING.md` must be updated to replace any `requirements.txt`-based setup instructions with `pyproject.toml`-based equivalents before the task is closed.
+- **Parity check:** Every dependency present in the original `requirements.txt`(s) must appear in `pyproject.toml` with an equivalent or stricter constraint. Verified by automated diff/audit script before merge.
+- **Installation validation:** `pip install .` (or equivalent build-backend command) must succeed in a clean virtual environment with zero errors as a mandatory CI gate.
+- **No orphaned files:** All `requirements.txt` files must be removed or explicitly replaced (e.g., a generated `requirements.txt` from `pip-tools` is acceptable only if documented as derived, not authoritative).
+- **Code review:** Migration PR requires at least one reviewer to confirm dependency parity and `pyproject.toml` schema validity.
+- **Documentation:** `README` or `CONTRIBUTING` must be updated to reflect the new install instructions before the PR is merged.
 
 ---
 
@@ -46,7 +48,7 @@
 
 | ID | Decision | Rationale | Status |
 |----|----------|-----------|--------|
-| ADR-001 | Adopt `pyproject.toml` as the sole dependency manifest | PEP 621 standardization; eliminates `requirements.txt` fragmentation | Accepted |
-| ADR-002 | Preserve existing dependency versions during migration | Prevents unintended regressions; version upgrades are out of scope for this task | Accepted |
-| ADR-003 | Build backend selection deferred pending runtime confirmation | Runtime and build tool are listed as unknown in tech analysis | Proposed |
-| ADR-004 | Lock file strategy to be determined separately | Not specified in upgrade option; must not block migration but should be decided before rollout | Proposed |
+| ADR-001 | Adopt `pyproject.toml` as the single dependency manifest | PEP 621 is the current Python packaging standard; `requirements.txt` is not a packaging specification and lacks metadata support | Accepted |
+| ADR-002 | Preserve existing dependency versions during migration | Decouples format risk from version-upgrade risk; keeps the changeset reviewable and rollback straightforward | Accepted |
+| ADR-003 | Build backend selection | TODO — must be decided based on existing project structure (setuptools vs. hatchling vs. flit-core) | Proposed |
+| ADR-004 | Lock file strategy (e.g., `pip-tools` compile, `uv lock`) | TODO — depends on team workflow and whether reproducible installs are currently enforced | Proposed |
