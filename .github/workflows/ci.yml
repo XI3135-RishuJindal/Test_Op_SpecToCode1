@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run lint
+        run: |
+          echo "TODO: Replace this step with the actual lint command for your project."
+          echo "Examples:"
+          echo "  Node.js:  npm run lint"
+          echo "  Python:   flake8 . or ruff check ."
+          echo "  Go:       golangci-lint run"
+          echo "  Java:     ./mvnw checkstyle:check or ./gradlew checkstyleMain"
+          echo "  Ruby:     bundle exec rubocop"
+          exit 0
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run tests
+        run: |
+          echo "TODO: Replace this step with the actual test command for your project."
+          echo "Examples:"
+          echo "  Node.js:  npm test"
+          echo "  Python:   pytest"
+          echo "  Go:       go test ./..."
+          echo "  Java:     ./mvnw test or ./gradlew test"
+          echo "  Ruby:     bundle exec rspec"
+          exit 0
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run build
+        run: |
+          echo "TODO: Replace this step with the actual build command for your project."
+          echo "Examples:"
+          echo "  Node.js:  npm run build"
+          echo "  Python:   python -m build"
+          echo "  Go:       go build ./..."
+          echo "  Java:     ./mvnw package or ./gradlew assemble"
+          exit 0
+
+  sast:
+    name: SAST Security Scan (CodeQL)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          # TODO: Set the language(s) for your repository.
+          # Supported values: cpp, csharp, go, java, javascript, python, ruby, swift
+          # Example for a Node.js project: languages: javascript
+          # Example for a Python project: languages: python
+          languages: javascript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
