@@ -1,0 +1,7 @@
+- [ ] Configure Identity Provider client registration (Okta, Auth0, Azure AD, or Google Identity).
+- [ ] Implement OAuth 2.0 Authorization Code Flow with PKCE or SAML SSO in Controllers/AuthController.cs.
+- [ ] Update Program.cs to ensure SSL/TLS enforcement for all communications.
+- [ ] Implement state/nonce validation for the authorization process.
+- [ ] Write unit tests in Tests/Controllers/AuthControllerTests.cs for endpoint validation and claim extraction.
+- [ ] Review the security configuration with the security team.
+- [ ] Update API Gateway project dependencies to include any required OAuth2/SAML libraries.
