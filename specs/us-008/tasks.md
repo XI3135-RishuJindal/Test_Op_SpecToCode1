@@ -1,0 +1,9 @@
+- [ ] Update Program.cs: configure JWT to include role claims extraction.
+- [ ] Modify AuthController.cs: enhance the token generation endpoint to include role claims.
+- [ ] Add a new service: implement RoleMappingService to handle role claim extraction and platform role mapping.
+- [ ] Update appsettings.json: add configurations needed for role claims definitions.
+- [ ] Develop integration tests for RBAC: validate correct role extraction and enforcement in the AuthControllerTests.cs.
+- [ ] Create custom authorization policies: implement role-based policies and handlers using `AuthorizationHandler` in the Startup configuration.
+- [ ] Conduct code review and security audits: ensure proper RBAC enforcement and security compliance.
+- [ ] Update README.md: describe the new RBAC implementation specifics and usage instructions.
+- [ ] QA Testing: Verify the correct enforcement of role access controls across endpoints.

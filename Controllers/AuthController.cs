@@ -1,3 +1,4 @@
+```csharp
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -49,15 +50,24 @@ namespace ApiGateway.Controllers
                 // In production, this would validate against a user store
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default-secret-key-for-development");
-                
+
+                // Example role assignment - this would typically be retrieved from a database
+                var roles = new List<string> { "Customer" }; // Default role
+                if (request.Username == "admin")
+                {
+                    roles.Add("Administrator");
+                }
+
+                var claims = new[] {
+                    new Claim(ClaimTypes.Name, request.Username),
+                    new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+                    new Claim("username", request.Username),
+                }
+                .Union(roles.Select(role => new Claim("roles", role)));
+
                 var tokenDescriptor = new SecurityTokenDescriptor
                 {
-                    Subject = new ClaimsIdentity(new[]
-                    {
-                        new Claim(ClaimTypes.Name, request.Username),
-                        new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-                        new Claim("username", request.Username)
-                    }),
+                    Subject = new ClaimsIdentity(claims),
                     Expires = DateTime.UtcNow.AddHours(1),
                     Issuer = _configuration["Jwt:Issuer"],
                     Audience = _configuration["Jwt:Audience"],
@@ -67,32 +77,20 @@ namespace ApiGateway.Controllers
                 var token = tokenHandler.CreateToken(tokenDescriptor);
                 var tokenString = tokenHandler.WriteToken(token);
 
-                _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
-
-                return Ok(new
-                {
-                    Token = tokenString,
-                    Expires = tokenDescriptor.Expires,
-                    TokenType = "Bearer"
-                });
+                _logger.LogInformation("Token generated successfully");
+                return Ok(new { Token = tokenString });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
-                
+                _logger.LogError(ex, "Error generating token");
                 return StatusCode(500, new ErrorResponse
                 {
-                    Error = "TokenGenerationError",
+                    Error = "TokenGenerationFailed",
                     Message = "An error occurred while generating the token",
                     StatusCode = 500
                 });
             }
         }
     }
-
-    public class LoginRequest
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-    }
 }
+```
