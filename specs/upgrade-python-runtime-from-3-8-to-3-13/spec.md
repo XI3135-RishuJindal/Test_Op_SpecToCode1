@@ -8,27 +8,27 @@ This spec covers the upgrade of the Python runtime from version 3.8 to version 3
 
 ## Motivation
 
-- **End-of-Life status:** Python 3.8 reached end-of-life on **October 2024**. No further security patches or bug fixes are being issued by the CPython core team for this version.
+- **End-of-Life status:** Python 3.8 reached end-of-life on **2024-10-07**. No further security patches or bug fixes are being issued by the CPython core team for this version.
 - **Security exposure:** Running an EOL runtime means any CVEs discovered after the EOL date will remain unpatched at the interpreter level, creating compliance and operational risk.
 - **Upgrade urgency:** Rated **medium** — the codebase is not yet in an acute incident state, but continued operation on an EOL runtime increases risk over time and may conflict with security audit requirements.
-- **Language improvements:** Python 3.9–3.13 introduce performance improvements (notably the specializing adaptive interpreter in 3.11+), improved error messages, `match`/`case` structural pattern matching (3.10+), and standard-library additions that reduce third-party dependencies.
-- **Ecosystem pressure:** Many actively maintained libraries are dropping Python 3.8 support in their current releases, which will increasingly constrain dependency upgrades if the runtime is not updated.
+- **Python 3.13 support window:** Python 3.13 (released October 2024) is actively maintained and will receive full support through approximately 2029, providing a multi-year stable target.
+- **Language improvements:** Versions 3.9–3.13 include performance improvements (notably the 3.11 and 3.12 interpreter speedups), improved error messages, `match`/`case` structural pattern matching (3.10+), and standard-library additions that reduce third-party dependency surface.
 
 ---
 
 ## Current State
 
-> **Note:** The provided context does not include repository-level details (specific class names, config keys, schema elements, or framework versions). All items below reflect the known baseline from the task description. Details that require codebase inspection are marked **TODO**.
-
-- **Current runtime version:** Python 3.8 (exact patch version TODO)
-- **Build/packaging tool:** TODO — not specified in the provided context
-- **Runtime declaration locations:** TODO (e.g., `.python-version`, `pyproject.toml`, `setup.cfg`, `Pipfile`, `tox.ini`, `Dockerfile`, CI workflow files)
-- **Frameworks in use:** TODO — none confirmed in the provided context
-- **Key behaviours affected:**
-  - Any code relying on `typing` constructs that changed between 3.8 and 3.13 (e.g., `typing.List` vs built-in `list` generics introduced in 3.9)
-  - Any use of APIs removed or deprecated across the 3.8→3.13 span (see Compatibility section)
-  - Any C-extension or native dependencies pinned to CPython 3.8 ABI
-- **Dependency pins:** TODO — full `requirements.txt` / `pyproject.toml` dependency list not provided
+- **Runtime version in use:** Python 3.8 (EOL as of 2024-10-07).
+- **Specific classes, config keys, schema elements, and interfaces:** TODO — no codebase context was provided. A full audit of the following is required before implementation:
+  - Use of `typing` constructs that changed between 3.8 and 3.13 (e.g., `typing.List`, `typing.Dict` vs. built-in generics available from 3.9+).
+  - Use of `asyncio` APIs that were deprecated or removed.
+  - Use of `distutils` (removed in 3.12).
+  - Use of `imp` module (removed in 3.12).
+  - Use of `collections` aliases (e.g., `collections.Mapping`) removed in 3.10.
+  - Any `__future__` annotations usage.
+  - Third-party dependency pins that constrain the Python version.
+- **Build tooling:** TODO — build tool is not specified; runtime version pinning location (e.g., `.python-version`, `pyproject.toml`, `Dockerfile`, CI matrix) is unknown.
+- **Frameworks in use:** TODO — no frameworks were identified in the provided analysis.
 
 ---
 
@@ -36,56 +36,52 @@ This spec covers the upgrade of the Python runtime from version 3.8 to version 3
 
 | Component | Before | After | Breaking? |
 |---|---|---|---|
-| Python runtime version | 3.8.x | 3.13.x | Y |
-| Runtime version declaration (`.python-version` or equivalent) | `3.8` | `3.13` | Y |
-| CI pipeline Python version matrix | `3.8` | `3.13` | Y |
-| Container base image (if applicable) | TODO (`python:3.8-*`) | TODO (`python:3.13-*`) | Y |
-| `pyproject.toml` / `setup.cfg` `python_requires` | `>=3.8` | `>=3.13` | Y |
-| Third-party dependencies pinned to 3.8-compatible versions | TODO | Updated to 3.13-compatible versions | TODO |
-| Any usage of removed stdlib modules (see Compatibility) | Removed APIs | Replacement APIs | Y |
-| Type annotation syntax (if using legacy `typing` aliases) | `typing.List`, `typing.Dict`, etc. | Built-in generics (`list`, `dict`, etc.) or retained aliases | N (aliases still present in 3.13 but deprecated) |
+| Python interpreter version | 3.8 | 3.13 | Y |
+| Runtime version pin (config/tooling) | 3.8 | 3.13 | Y |
+| `distutils` usage (if any) | stdlib `distutils` | `setuptools`-provided or removed | Y |
+| `imp` module usage (if any) | `imp` | `importlib` | Y |
+| `collections` bare aliases (if any) | e.g., `collections.Mapping` | `collections.abc.Mapping` | Y |
+| `typing` generic aliases (if any) | `typing.List`, `typing.Dict`, etc. | Built-in `list`, `dict`, etc. (3.9+) | N (backwards-compatible change) |
+| Third-party dependencies | Pinned to 3.8-compatible versions | Updated to 3.13-compatible versions | Y (version bumps) |
+| CI pipeline Python version matrix | 3.8 | 3.13 | Y |
 
 ---
 
 ## Compatibility & Breaking Changes
 
-The following are known breaking changes introduced across the Python 3.9–3.13 release series that must be assessed against the codebase.
-
-| Breaking Change | Introduced | Migration Path |
+| Breaking Change | Description | Migration Path |
 |---|---|---|
-| `collections.abc` types no longer accessible via `collections` directly (e.g., `collections.Callable`) | 3.10 (removed) | Replace with `collections.abc.Callable` etc. |
-| `distutils` module removed | 3.12 | Replace with `setuptools` or `packaging` equivalents |
-| `imp` module removed | 3.12 | Replace with `importlib` |
-| `asynchat`, `asyncore`, `smtpd` modules removed | 3.12 | Replace with `asyncio`-based alternatives |
-| `cgi` and `cgitb` modules removed | 3.13 | Replace with framework-specific request handling or `html` module |
-| `aifc`, `audioop`, `chunk`, `crypt`, `imghdr`, `mailcap`, `msilib`, `nis`, `nntplib`, `ossaudiodev`, `pipes`, `sndhdr`, `spwd`, `sunau`, `telnetlib`, `uu`, `xdrlib` modules removed | 3.13 | TODO — assess usage and identify replacements per module |
-| `typing.io` and `typing.re` sub-modules removed | 3.12 | Use `typing.IO`, `typing.Pattern` directly |
-| `unittest.TestCase.assertEquals` and other deprecated aliases removed | 3.12 | Use canonical method names (e.g., `assertEqual`) |
-| `locale.resetlocale()` removed | 3.13 | Use `locale.setlocale(locale.LC_ALL, "")` |
-| Changes to `int` string conversion length limit (default 4300 digits) | 3.11 | Configure or refactor code converting very large integers to strings |
-| `ssl` module: deprecated protocols and options removed | 3.10–3.12 | Ensure TLS 1.2+ is used; remove `ssl.PROTOCOL_TLSv1` etc. |
-| Third-party packages not yet publishing 3.13 wheels | N/A | TODO — audit all pinned dependencies for 3.13 compatibility |
-| C-extension packages requiring recompilation for 3.13 ABI | N/A | TODO — identify and update or replace affected packages |
+| Python 3.8 EOL / interpreter change | All code must be interpreted by CPython 3.13 | Re-test entire suite under 3.13; fix any syntax or runtime errors surfaced. |
+| `distutils` removed (3.12) | `distutils` was deprecated in 3.10 and removed in 3.12 | Replace all `distutils` imports with `setuptools` equivalents or standard `packaging` library. |
+| `imp` module removed (3.12) | `imp` was deprecated since 3.4 and removed in 3.12 | Replace with `importlib` APIs. |
+| `collections` aliases removed (3.10) | Direct use of `collections.Callable`, `collections.Mapping`, etc. raises `AttributeError` | Migrate all usages to `collections.abc.*` equivalents. |
+| `asyncio` deprecated APIs | Several `asyncio` loop methods deprecated in 3.8–3.10 were removed by 3.12 | TODO — audit specific `asyncio` usage in codebase; migrate to current event-loop API. |
+| `ssl` / `hashlib` weak cipher removal | Python 3.10+ removed support for certain legacy TLS/hash configurations | TODO — audit TLS configuration and cipher suite usage. |
+| Third-party dependency compatibility | Packages pinned to old versions may not support 3.13 | Audit all dependencies; upgrade to versions declaring `python_requires >= 3.13` or compatible. |
+| Type annotation syntax changes | `typing` generics replaced by built-in generics; `Union[X, Y]` can become `X \| Y` | Optional modernization; old `typing` forms still work in 3.13 but should be migrated for clarity. |
+| Removed `__init__` implicit namespace behaviour changes | TODO | TODO |
 
 ---
 
 ## Acceptance Criteria
 
-1. **Given** the repository is checked out on the target branch, **when** the Python interpreter version is queried in the CI environment, **then** it reports Python 3.13.x (where x is the latest stable patch release at time of upgrade).
+1. **Given** the repository is checked out on a clean environment, **when** the Python 3.13 interpreter is invoked to run the full test suite, **then** all tests pass with zero failures and zero errors.
 
-2. **Given** the full test suite is executed on Python 3.13, **when** all tests run to completion, **then** zero tests fail and zero tests are skipped due to version incompatibility.
+2. **Given** the runtime version pin configuration (wherever it is defined), **when** it is inspected, **then** it specifies Python 3.13 and no reference to Python 3.8 remains in any version-pinning file.
 
-3. **Given** the dependency installation step runs on Python 3.13, **when** all declared dependencies are resolved and installed, **then** the installation completes without errors and no dependency requires a Python version less than 3.13.
+3. **Given** the codebase is scanned for use of the `distutils` module, **when** the scan completes, **then** zero imports of `distutils` are found.
 
-4. **Given** a static analysis or automated compatibility scan is run against the codebase, **when** it checks for usage of modules removed in Python 3.9–3.13, **then** zero violations are reported.
+4. **Given** the codebase is scanned for use of the `imp` module, **when** the scan completes, **then** zero imports of `imp` are found.
 
-5. **Given** the CI pipeline configuration is inspected, **when** the Python version matrix is reviewed, **then** Python 3.8 is no longer present and Python 3.13 is the minimum (and at minimum one) configured version.
+5. **Given** the codebase is scanned for bare `collections` aliases (e.g., `collections.Mapping`, `collections.Callable`), **when** the scan completes, **then** zero such usages are found; all references use `collections.abc.*`.
 
-6. **Given** the runtime version declaration file(s) (e.g., `pyproject.toml`, `.python-version`, `Dockerfile`), **when** each file is inspected, **then** all references to Python 3.8 have been replaced with Python 3.13.
+6. **Given** all third-party dependencies are installed under Python 3.13, **when** the dependency resolver runs, **then** it completes without version-conflict errors and no dependency requires a Python version less than 3.13.
 
-7. **Given** the application is started on Python 3.13, **when** the startup sequence completes, **then** no `DeprecationWarning` or `PendingDeprecationWarning` related to removed-in-3.13 APIs is emitted.
+7. **Given** the CI pipeline is triggered on a new commit, **when** the pipeline executes, **then** it runs exclusively on Python 3.13 and the build status is green.
 
-8. **Given** the `python_requires` field in the package metadata, **when** it is inspected, **then** it specifies `>=3.13` (or a compatible constraint), and no longer permits Python 3.8.
+8. **Given** the application is started under Python 3.13, **when** it initialises, **then** no `DeprecationWarning` or `SyntaxWarning` messages related to removed or deprecated 3.8-era constructs are emitted at startup.
+
+9. **Given** a static analysis tool (e.g., a linter or type checker configured for Python 3.13 target), **when** it is run against the codebase, **then** it reports zero errors attributable to Python-version incompatibility.
 
 ---
 
@@ -93,12 +89,12 @@ The following are known breaking changes introduced across the Python 3.9–3.13
 
 | # | Question | Owner | Due Date |
 |---|---|---|---|
-| 1 | What is the exact current patch version of Python 3.8 in use (runtime and CI)? | TODO | TODO |
-| 2 | What build/packaging tool is in use (`pip`, `poetry`, `hatch`, `pdm`, etc.)? | TODO | TODO |
-| 3 | Are there any C-extension or native dependencies that require recompilation or replacement for Python 3.13 ABI compatibility? | TODO | TODO |
-| 4 | Is a container/Docker image used, and if so what is the current base image tag? | TODO | TODO |
-| 5 | Are there any dependencies that do not yet publish Python 3.13-compatible wheels or have not declared 3.13 support? | TODO | TODO |
-| 6 | Are any of the stdlib modules removed in 3.12–3.13 (see Compatibility table) actively used in the codebase? | TODO | TODO |
-| 7 | Is there a staging or pre-production environment where the 3.13 runtime can be validated before production rollout? | TODO | TODO |
-| 8 | Are there any compliance or audit requirements that mandate a specific timeline for moving off EOL runtimes? | TODO | TODO |
-| 9 | Should Python 3.13 free-threaded mode (PEP 703, experimental in 3.13) be evaluated, or is the standard GIL build sufficient? | TODO | TODO |
+| 1 | What is the build tool / packaging system in use (e.g., pip + requirements.txt, Poetry, PDM, Hatch)? This determines where the runtime version pin lives. | TODO | TODO |
+| 2 | Where is the Python version currently pinned (e.g., `.python-version`, `pyproject.toml`, `Dockerfile`, CI YAML)? All pinning locations must be updated. | TODO | TODO |
+| 3 | Are there any compiled C-extension dependencies that require binary wheels for Python 3.13? Have those wheels been confirmed available? | TODO | TODO |
+| 4 | Does the deployment/production environment (e.g., container base image, cloud runtime, serverless platform) support Python 3.13? | TODO | TODO |
+| 5 | Are there any internal or vendored packages that have their own `python_requires` constraint pinned to 3.8? | TODO | TODO |
+| 6 | Is there an existing test suite with sufficient coverage to validate the upgrade, or does coverage need to be assessed first? | TODO | TODO |
+| 7 | Are there any `asyncio` patterns in use that relied on deprecated loop-management APIs removed between 3.8 and 3.13? | TODO | TODO |
+| 8 | Does the project use `typing.get_type_hints()` or runtime annotation evaluation in ways affected by the `from __future__ import annotations` PEP 563/649 changes? | TODO | TODO |
+| 9 | What is the rollback strategy if a blocking incompatibility is discovered post-deployment? | TODO | TODO |
