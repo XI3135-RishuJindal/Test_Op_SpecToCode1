@@ -1,91 +1,69 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Moq;
-using Xunit;
-using ApiGateway.Controllers;
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using ApiGateway;
+using NUnit.Framework;
 
 namespace ApiGateway.Tests.Controllers
 {
+    [TestFixture]
     public class AuthControllerTests
     {
-        private readonly Mock<IConfiguration> _mockConfiguration;
-        private readonly Mock<ILogger<AuthController>> _mockLogger;
-        private readonly AuthController _controller;
+        private HttpClient _client;
 
-        public AuthControllerTests()
+        [SetUp]
+        public void Setup()
         {
-            _mockConfiguration = new Mock<IConfiguration>();
-            _mockLogger = new Mock<ILogger<AuthController>>();
-            
-            // Setup configuration
-            _mockConfiguration.Setup(x => x["Jwt:Key"]).Returns("test-secret-key-for-unit-tests-256-bits");
-            _mockConfiguration.Setup(x => x["Jwt:Issuer"]).Returns("TestIssuer");
-            _mockConfiguration.Setup(x => x["Jwt:Audience"]).Returns("TestAudience");
-            
-            _controller = new AuthController(_mockConfiguration.Object, _mockLogger.Object);
+            var factory = new WebApplicationFactory<Program>()
+                .WithWebHostBuilder(builder =>
+                {
+                    builder.ConfigureServices(services =>
+                    {
+                        // If any services need to be mocked, it can be done here
+                    });
+                });
+
+            _client = factory.CreateClient();
         }
 
-        [Fact]
-        public void GenerateToken_ValidCredentials_ReturnsToken()
+        [Test]
+        public async Task GenerateToken_ReturnsJwtToken_WhenCredentialsAreValid()
         {
             // Arrange
-            var request = new LoginRequest
+            var loginRequest = new
             {
-                Username = "testuser",
-                Password = "testpassword"
+                Username = "validUser",
+                Password = "validPassword"
             };
 
             // Act
-            var result = _controller.GenerateToken(request);
+            var response = await _client.PostAsJsonAsync("api/auth/token", loginRequest);
 
             // Assert
-            var okResult = Assert.IsType<OkObjectResult>(result);
-            var tokenResponse = okResult.Value;
-            Assert.NotNull(tokenResponse);
-            
-            // Use reflection to check the anonymous object properties
-            var tokenProperty = tokenResponse.GetType().GetProperty("Token");
-            Assert.NotNull(tokenProperty);
-            var token = tokenProperty.GetValue(tokenResponse) as string;
-            Assert.NotNull(token);
-            Assert.NotEmpty(token);
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            var tokenResponse = await response.Content.ReadAsStringAsync();
+            Assert.IsNotEmpty(tokenResponse);
+            Assert.IsTrue(tokenResponse.Contains(".", StringComparison.Ordinal)); // Ensure JWT format
         }
 
-        [Fact]
-        public void GenerateToken_EmptyUsername_ReturnsBadRequest()
+        [Test]
+        public async Task GenerateToken_ReturnsBadRequest_WhenCredentialsAreInvalid()
         {
             // Arrange
-            var request = new LoginRequest
+            var loginRequest = new
             {
                 Username = "",
-                Password = "testpassword"
-            };
-
-            // Act
-            var result = _controller.GenerateToken(request);
-
-            // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
-        }
-
-        [Fact]
-        public void GenerateToken_EmptyPassword_ReturnsBadRequest()
-        {
-            // Arrange
-            var request = new LoginRequest
-            {
-                Username = "testuser",
                 Password = ""
             };
 
             // Act
-            var result = _controller.GenerateToken(request);
+            var response = await _client.PostAsJsonAsync("api/auth/token", loginRequest);
 
             // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
     }
 }

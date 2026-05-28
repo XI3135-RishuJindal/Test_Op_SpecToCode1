@@ -1,7 +1,1 @@
-## Implementation Plan (auto-derived — review and expand)
-
-- Review spec.md for complete requirements and acceptance criteria
-- Design implementation approach based on the code context
-- Implement changes in the affected components
-- Write unit and integration tests
-- Update documentation
+To implement the RBAC following SSO authentication, we need to augment the existing JWT handling process to include role extraction and mapping. Architecture decisions include enhancing the current authentication middleware to intercept and decode tokens for role claims and implementing custom authorization handlers that enforce role-specific access control. The main files involved in these modifications will be `Program.cs` for configuration updates, `AuthController.cs` for handling token generation and validation, and potentially the addition of a new service class that manages role mapping and checks. We need to ensure seamless integration with `Microsoft.AspNetCore.Authentication` libraries, utilizing appropriate interfaces for token and role management. This story's delivery will involve updating configuration files for new role claims settings as necessary.

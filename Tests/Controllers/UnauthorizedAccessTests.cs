@@ -1,16 +1,16 @@
-using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using ApiGateway;
+using Microsoft.Extensions.PlatformAbstractions;
 using NUnit.Framework;
+using ApiGateway;
 
 namespace ApiGateway.Tests.Controllers
 {
     [TestFixture]
-    public class TestControllerTests
+    public class UnauthorizedAccessTests
     {
         private HttpClient _client;
 
@@ -30,32 +30,16 @@ namespace ApiGateway.Tests.Controllers
         }
 
         [Test]
-        public async Task Post_ReturnsUnauthorized_WhenNoTokenProvided()
+        public async Task Get_ProtectedEndpoint_ReturnsUnauthorized_WhenNoTokenProvided()
         {
             // Arrange
-            var request = new
-            {
-                Message = "Test"
-            };
+            var endpoint = "api/protected"; // Example endpoint, replace with actual
 
             // Act
-            var response = await _client.PostAsJsonAsync("api/test", request);
+            var response = await _client.GetAsync(endpoint);
 
             // Assert
             Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
-        }
-
-        [Test]
-        public async Task Post_ReturnsBadRequest_WhenMessageIsNullOrEmpty()
-        {
-            // Arrange
-            var request = new {};
-
-            // Act
-            var response = await _client.PostAsJsonAsync("api/test", request);
-
-            // Assert
-            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
     }
 }

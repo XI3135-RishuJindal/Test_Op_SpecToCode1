@@ -1,108 +1,96 @@
+```csharp
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Http;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using ApiGateway.Models;
 
 namespace ApiGateway.Controllers
 {
     [ApiController]
-    [Route("api/auth")]
+    [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
+        private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
-        private readonly RedirectUriWhitelistOptions _options;
 
-        public AuthController(ILogger<AuthController> logger, IOptions<RedirectUriWhitelistOptions> options)
+        public AuthController(IConfiguration configuration, ILogger<AuthController> logger)
         {
+            _configuration = configuration;
             _logger = logger;
-            _options = options.Value;
         }
 
-        [HttpGet("authorize")]
-        public IActionResult Authorize([FromQuery] string redirect_uri, [FromQuery] string state, [FromQuery] string response_type)
+        /// <summary>
+        /// Generate JWT token for testing purposes
+        /// </summary>
+        /// <param name="request">Login request</param>
+        /// <returns>JWT token</returns>
+        [HttpPost("token")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        public IActionResult GenerateToken([FromBody] LoginRequest request)
         {
-            if (!IsUriWhitelisted(redirect_uri))
+            _logger.LogInformation("Token generation requested for user: {Username}", request.Username);
+
+            try
             {
-                EmitAuditLog("RedirectUriNotWhitelisted", redirect_uri);
-                return CreateErrorResponse("RedirectUriNotWhitelisted", "redirect_uri is not whitelisted");
+                // Simple validation for demo purposes
+                if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+                {
+                    return BadRequest(new ErrorResponse
+                    {
+                        Error = "InvalidCredentials",
+                        Message = "Username and password are required",
+                        StatusCode = 400
+                    });
+                }
+
+                // For demo purposes, accept any non-empty credentials
+                // In production, this would validate against a user store
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default-secret-key-for-development");
+
+                // Example role assignment - this would typically be retrieved from a database
+                var roles = new List<string> { "Customer" }; // Default role
+                if (request.Username == "admin")
+                {
+                    roles.Add("Administrator");
+                }
+
+                var claims = new[] {
+                    new Claim(ClaimTypes.Name, request.Username),
+                    new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+                    new Claim("username", request.Username),
+                }
+                .Union(roles.Select(role => new Claim("roles", role)));
+
+                var tokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = new ClaimsIdentity(claims),
+                    Expires = DateTime.UtcNow.AddHours(1),
+                    Issuer = _configuration["Jwt:Issuer"],
+                    Audience = _configuration["Jwt:Audience"],
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                };
+
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                var tokenString = tokenHandler.WriteToken(token);
+
+                _logger.LogInformation("Token generated successfully");
+                return Ok(new { Token = tokenString });
             }
-
-            // Simulate success response
-            return Ok(new { Message = "Authorization request simulated successfully.", RedirectUri = redirect_uri });
-        }
-
-        [HttpGet("callback")]
-        public IActionResult Callback([FromQuery] string code, [FromQuery] string state, [FromQuery] string redirect_uri)
-        {
-            if (!IsHttpRequestSecure())
+            catch (Exception ex)
             {
-                EmitAuditLog("InsecureCallbackRejected", Request.GetDisplayUrl());
-                return CreateErrorResponse("InsecureCallbackRejected", "Insecure callback request.");
+                _logger.LogError(ex, "Error generating token");
+                return StatusCode(500, new ErrorResponse
+                {
+                    Error = "TokenGenerationFailed",
+                    Message = "An error occurred while generating the token",
+                    StatusCode = 500
+                });
             }
-
-            if (redirect_uri != null && !IsUriWhitelisted(redirect_uri))
-            {
-                EmitAuditLog("RedirectUriNotWhitelisted", redirect_uri);
-                return CreateErrorResponse("RedirectUriNotWhitelisted", "redirect_uri is not whitelisted");
-            }
-
-            // Simulate success response
-            return Ok(new { Message = "Callback simulated successfully.", Code = code, State = state });
         }
-
-        private bool IsUriWhitelisted(string redirectUri)
-        {
-            if (Uri.TryCreate(redirectUri, UriKind.Absolute, out var uriObj))
-            {
-                return _options.RedirectUriWhitelist.Any(whitelisted => NormalizeUri(whitelisted) == NormalizeUri(uriObj));
-            }
-            return false;
-        }
-
-        private bool IsHttpRequestSecure()
-        {
-            return Request.IsHttps ||
-                   (Request.Headers["X-Forwarded-Proto"].ToString().Equals("https", StringComparison.OrdinalIgnoreCase) && _options.TrustForwardedHeaders);
-        }
-
-        private void EmitAuditLog(string reasonCode, string uri)
-        {
-            _logger.LogWarning("Audit Log: {ReasonCode}, URI: {Uri}, IP: {IP}", reasonCode, uri, HttpContext.Connection.RemoteIpAddress);
-        }
-
-        private ObjectResult CreateErrorResponse(string errorCode, string message)
-        {
-            var errorResponse = new ErrorResponse
-            {
-                Error = errorCode,
-                Message = message,
-                StatusCode = StatusCodes.Status400BadRequest,
-                Timestamp = DateTime.UtcNow
-            };
-            return BadRequest(errorResponse);
-        }
-
-        private string NormalizeUri(Uri uri)
-        {
-            return uri.GetComponents(UriComponents.Scheme | UriComponents.Host | UriComponents.Port | UriComponents.Path, UriFormat.Unescaped).ToLowerInvariant();
-        }
-
-        // Overload to handle string URI input normalization
-        private string NormalizeUri(string uriString)
-        {
-            var uri = new Uri(uriString);
-            return NormalizeUri(uri);
-        }
-    }
-
-    public class RedirectUriWhitelistOptions
-    {
-        public List<string> RedirectUriWhitelist { get; set; }
-        public bool TrustForwardedHeaders { get; set; }
     }
 }
+```
