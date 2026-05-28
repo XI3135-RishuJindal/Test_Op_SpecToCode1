@@ -2,16 +2,13 @@
 
 ## Overview
 
-**Migration Strategy: Big-Bang**
+**Migration Strategy: Big-Bang (with preparatory validation gate)**
 
-This migration replaces `requirements.txt`-based dependency management with a `pyproject.toml`-based approach in a single, coordinated changeset. A big-bang strategy is appropriate here because:
+The migration from `requirements.txt` to `pyproject.toml` is a self-contained tooling change with no runtime behavior impact. Because the change affects only how dependencies are declared and resolved — not application logic — a big-bang replacement is appropriate and lower-risk than a strangler-fig approach, which would require maintaining two parallel dependency systems simultaneously.
 
-- The change is scoped entirely to build/packaging metadata — no runtime application logic is altered.
-- The risk surface is low: the migration is reversible by restoring the original `requirements.txt` and removing `pyproject.toml`.
-- A strangler-fig or parallel-run approach would add unnecessary complexity for what is fundamentally a file-level configuration change.
-- The upgrade urgency is rated **medium**, and the effort is modest, making a clean cutover preferable to a prolonged dual-maintenance period.
+The upgrade urgency is rated **medium**, and the effort is modest (see Phases). The primary risk is environment reproducibility: if pinned versions in `requirements.txt` are not faithfully carried over, downstream installs may resolve different transitive dependency versions. This is mitigated by a lock-file validation gate before the old files are removed.
 
-The migration adopts `pyproject.toml` as the single source of truth for project metadata and dependencies, conforming to [PEP 517](https://peps.python.org/pep-0517/) and [PEP 621](https://peps.python.org/pep-0621/). A build backend (`setuptools`, `hatch`, or `flit`) will be selected based on existing project structure (see TODO in [Infrastructure Changes](#infrastructure-changes)).
+No architectural unknowns block this migration. The scope is strictly the dependency manifest layer.
 
 ---
 
@@ -19,144 +16,118 @@ The migration adopts `pyproject.toml` as the single source of truth for project 
 
 | Phase | Description | Dependencies | Estimated Effort |
 |-------|-------------|--------------|-----------------|
-| 1 | Audit & inventory all `requirements*.txt` files; document all direct and pinned transitive dependencies | None | 0.5 person-days |
-| 2 | Author `pyproject.toml` with `[project]` metadata, `[project.dependencies]`, and optional dependency groups; select and configure build backend | Phase 1 complete | 0.5 person-days |
-| 3 | Validate installation from `pyproject.toml` in a clean virtual environment; resolve any version conflicts | Phase 2 complete | 0.5 person-days |
-| 4 | Update CI/CD pipeline install steps to use `pip install .` or `pip install .[dev]` instead of `pip install -r requirements.txt` | Phase 3 complete | 0.25 person-days |
-| 5 | Remove `requirements.txt` files (or retain as generated lock artifacts if needed); update project documentation and README | Phase 4 complete | 0.25 person-days |
+| 1 | Audit & inventory existing `requirements.txt` file(s) — identify all direct deps, pinned versions, extras, and any `-r` includes or environment markers | None | 0.5 person-days |
+| 2 | Author `pyproject.toml` with `[project]` and `[project.optional-dependencies]` tables; configure chosen build backend (e.g., `hatchling`, `setuptools`, or `flit`) | Phase 1 complete | 0.5 person-days |
+| 3 | Validate environment parity — install from `pyproject.toml` in a clean virtualenv and diff resolved packages against the `requirements.txt` baseline | Phase 2 complete | 0.5 person-days |
+| 4 | Update CI/CD pipeline references from `pip install -r requirements.txt` to `pip install .` (or `pip install .[dev]`) | Phase 3 passing | 0.25 person-days |
+| 5 | Remove legacy `requirements.txt` file(s) and update project documentation/README | Phase 4 passing | 0.25 person-days |
 
-**Total Estimated Effort: ~2 person-days**
+**Total estimated effort: ~2 person-days**
 
 ---
 
 ## Component Changes
 
+> **Note:** Specific file names, class names, and config keys are not derivable from the provided code context. The entries below describe the canonical file-level changes for this migration pattern. Update paths to match the actual repository layout.
+
 ### `requirements.txt` → `pyproject.toml`
 
-**Files affected:**
-- `requirements.txt` — to be superseded (deleted or demoted to a generated lock file)
-- `requirements-dev.txt` / `requirements-test.txt` — if present, to be mapped to optional dependency groups (e.g., `[project.optional-dependencies]` with keys `dev`, `test`)
-- `setup.py` / `setup.cfg` — if present, metadata to be consolidated into `pyproject.toml` and these files removed or minimized
-- `pyproject.toml` — to be created (or extended if already partially present)
+- **Files affected:**
+  - `requirements.txt` *(to be removed in Phase 5)*
+  - `requirements-dev.txt` / `requirements/dev.txt` *(if present — to be removed in Phase 5)*
+  - `pyproject.toml` *(to be created in Phase 2)*
+  - `setup.py` / `setup.cfg` *(if present — consolidate into `pyproject.toml` or deprecate)*
 
-**Structural changes:**
+- **Structural change:**
+  - Direct runtime dependencies move to the `[project] dependencies` list in `pyproject.toml`.
+  - Development/test-only dependencies move to `[project.optional-dependencies]` under a key such as `dev` or `test`.
+  - Environment markers (e.g., `; python_version < "3.11"`) are preserved inline per PEP 508 syntax.
+  - Pinned versions (`==x.y.z`) are carried over as-is for reproducibility; consider relaxing to compatible-release (`~=`) bounds as a follow-on task.
 
-1. **Create `pyproject.toml`** with the following sections:
-   - `[build-system]` — declares the build backend (e.g., `setuptools>=68`, `hatchling`, or `flit_core`; TODO: confirm based on existing project structure)
-   - `[project]` — name, version, description, `requires-python`, `dependencies` (direct runtime deps from `requirements.txt`)
-   - `[project.optional-dependencies]` — groups such as `dev`, `test`, `lint` sourced from any supplementary requirements files
-   - `[tool.*]` — migrate any tool configuration currently in `setup.cfg`, `tox.ini`, or standalone config files (e.g., `[tool.pytest.ini_options]`, `[tool.mypy]`, `[tool.ruff]`) into `pyproject.toml`
+- **API / interface changes:** None — this change is invisible to application code.
 
-2. **Dependency version constraints:**
-   - Pinned versions in `requirements.txt` (e.g., `requests==2.31.0`) should be converted to minimum-compatible constraints (e.g., `requests>=2.31.0`) in `[project.dependencies]`, unless the project requires strict reproducibility.
-   - If strict reproducibility is required, generate a `requirements.lock` or use a lock-file tool (e.g., `pip-compile`, `uv lock`) as a separate artifact — `pyproject.toml` holds the logical constraints, the lock file holds the pins.
+### CI/CD Pipeline Configuration
 
-3. **No application source code changes are required.**
+- **Files affected:** TODO — pipeline config file name(s) not provided in context (e.g., `.github/workflows/*.yml`, `Jenkinsfile`, `.gitlab-ci.yml`, `tox.ini`, `Makefile`).
+- **Change:** Replace all invocations of `pip install -r requirements.txt` with `pip install .` for runtime deps and `pip install .[dev]` (or equivalent extras key) for development deps.
 
-> **TODO:** Identify all `requirements*.txt` files present in the repository root and subdirectories. Confirm whether `setup.py` or `setup.cfg` exists and must be consolidated.
+### `README` / Developer Documentation
+
+- **Files affected:** TODO — documentation file name(s) not provided in context.
+- **Change:** Update "Getting Started" / "Installation" instructions to reflect `pip install .` workflow.
 
 ---
 
 ## Dependency Upgrade Plan
 
-> **Note:** The tech analysis did not provide specific dependency names or version numbers. The table below describes the *process* for each dependency category. Populate with actual package names and versions discovered during Phase 1 audit.
+> **Note:** No specific dependency names or version numbers were provided in the tech analysis. The table below documents the **tooling** dependencies introduced by this migration. Application dependency versions must be sourced directly from the existing `requirements.txt` during Phase 1 — do not infer from training data.
 
 | Dependency | Current Version | Target Version | Breaking Changes | Migration Notes |
 |------------|----------------|----------------|-----------------|-----------------|
-| *(runtime deps from `requirements.txt`)* | TODO — from audit | TODO — retain or relax pins | None expected | Move to `[project.dependencies]` in `pyproject.toml` |
-| *(dev/test deps from `requirements-dev.txt`)* | TODO — from audit | TODO — retain or relax pins | None expected | Move to `[project.optional-dependencies.dev]` |
-| Build backend (e.g., `setuptools`) | TODO | TODO | None expected | Add to `[build-system.requires]`; version per project needs |
-| `pip` | TODO | `>=21.3` recommended | None | Required for `pyproject.toml`-native installs without `setup.py` |
-
-> **TODO:** Re-populate this table with exact version strings after completing the Phase 1 dependency audit.
+| `pip` | TODO (check `pip --version`) | ≥ 21.3 required | None for this task | PEP 660 editable installs require pip ≥ 21.3; upgrade if below this floor |
+| Build backend (e.g., `hatchling`, `setuptools`, `flit_core`) | N/A — not currently declared | TODO — select one | N/A | Add to `[build-system] requires` in `pyproject.toml`; `setuptools>=61` supports full `pyproject.toml` without `setup.cfg` |
+| Application runtime deps | TODO — from `requirements.txt` | Unchanged (carry over as-is) | None | Preserve exact pins from `requirements.txt` in Phase 2; version relaxation is out of scope |
+| Application dev/test deps | TODO — from `requirements-dev.txt` | Unchanged (carry over as-is) | None | Map to `[project.optional-dependencies].dev` or `.test` |
 
 ---
 
 ## Infrastructure Changes
 
-### CI/CD Pipeline
+TODO — No CI/CD pipeline configuration, Docker base image definitions, Kubernetes manifests, or IaC files were provided in the context. Once those files are identified, apply the following targeted changes:
 
-The install step in CI must be updated to install from `pyproject.toml` rather than `requirements.txt`.
-
-**Before:**
-```bash
-pip install -r requirements.txt
-pip install -r requirements-dev.txt  # if present
-```
-
-**After:**
-```bash
-pip install ".[dev]"
-# or, if using uv:
-uv sync --extra dev
-```
-
-- Update the relevant CI configuration file (e.g., `.github/workflows/*.yml`, `Jenkinsfile`, `.gitlab-ci.yml`, `tox.ini` — TODO: confirm CI platform from repository context).
-- If `tox.ini` is present, update `deps` entries or migrate `tox` configuration into `[tool.tox]` inside `pyproject.toml`.
-
-### Docker
-
-> **TODO:** No Dockerfile was provided in context. If a `Dockerfile` exists that references `COPY requirements.txt` and `RUN pip install -r requirements.txt`, update those lines to:
-> ```dockerfile
-> COPY pyproject.toml .
-> # Copy source tree or stub as needed for editable/non-editable install
-> RUN pip install .
-> ```
-
-### IaC / Other
-
-> **TODO:** Not derivable from provided context. Review any infrastructure scripts that reference `requirements.txt` by filename.
+- **Docker:** If a `Dockerfile` contains `COPY requirements.txt .` + `RUN pip install -r requirements.txt`, replace with `COPY pyproject.toml .` + `RUN pip install .` (ensure `COPY` also includes any `src/` layout or `__init__` needed for the install to resolve).
+- **CI/CD:** Replace `pip install -r requirements.txt` commands with `pip install .[dev]` (or split `pip install .` for runtime-only jobs). Update any cache keys that hash `requirements.txt` to hash `pyproject.toml` instead.
+- **IaC / environment provisioning:** TODO — not derivable from context.
 
 ---
 
 ## Rollback Strategy
 
-Each phase is independently reversible:
+Each phase is independently reversible because `requirements.txt` is not deleted until Phase 5.
 
 | Phase | Rollback Action |
 |-------|----------------|
-| Phase 1 (Audit) | No changes made; nothing to roll back. |
-| Phase 2 (Author `pyproject.toml`) | Delete the newly created `pyproject.toml` (or revert the commit). `requirements.txt` remains untouched. |
-| Phase 3 (Validation) | Discard the test virtual environment. No production changes have been made. |
-| Phase 4 (CI/CD update) | Revert the CI configuration file change to restore `pip install -r requirements.txt` install steps. |
-| Phase 5 (Remove `requirements.txt`) | Restore `requirements.txt` from version control (`git checkout HEAD~1 -- requirements.txt`). Remove or revert `pyproject.toml` if necessary. |
+| Phase 1 (audit) | No changes made to tracked files; nothing to revert. |
+| Phase 2 (author `pyproject.toml`) | Delete `pyproject.toml` (and any `pyproject.toml`-related `setup.cfg` edits). The existing `requirements.txt` remains untouched and fully functional. |
+| Phase 3 (validation) | If parity check fails, do not proceed to Phase 4. Correct `pyproject.toml` and re-run validation. No rollback needed — `requirements.txt` is still the active manifest. |
+| Phase 4 (CI/CD update) | Revert the pipeline config commit (e.g., `git revert <sha>`). CI will resume using `pip install -r requirements.txt`. |
+| Phase 5 (remove legacy files) | Restore `requirements.txt` from version control (`git checkout <sha> -- requirements.txt`). Re-add the `pip install -r requirements.txt` step to CI if Phase 4 was also reverted. |
 
-**Full rollback:** `git revert` the merge commit that introduced `pyproject.toml` and removed `requirements.txt`. The project returns to its prior state with zero impact on runtime behavior.
+**Key safeguard:** Do not merge the Phase 5 deletion PR until at least one full CI pipeline run has passed using only `pyproject.toml` as the dependency source.
 
 ---
 
 ## Testing Strategy
 
-Because this migration touches only packaging metadata and not application logic, the test strategy is focused on **installation correctness** rather than functional regression.
-
 ### Test Pyramid
 
-| Layer | What to Test | Tools | CI Gate |
-|-------|-------------|-------|---------|
-| **Unit** | `pyproject.toml` is valid TOML and passes schema validation | `validate-pyproject` (CLI tool) | Fail CI on parse/schema error |
-| **Integration** | Clean `pip install .` succeeds in a fresh virtual environment; all declared entry points are importable | `pip`, `python -c "import <pkg>"`, `tox` | Fail CI if install exits non-zero |
-| **Integration** | Optional dependency groups install cleanly: `pip install ".[dev]"`, `pip install ".[test]"` | `pip`, `tox` | Fail CI if install exits non-zero |
-| **Regression** | Existing test suite passes after installing from `pyproject.toml` (no missing dependencies) | TODO — confirm test framework (e.g., `pytest`) | Fail CI if any previously passing test fails |
-| **Performance** | N/A — dependency metadata change has no runtime performance impact | N/A | N/A |
+| Layer | What to Verify | Tool / Method | CI Gate |
+|-------|---------------|---------------|---------|
+| **Unit** | Application unit tests pass unchanged after install from `pyproject.toml` | TODO — existing test runner (pytest, unittest) | Must pass; no new tests required for this task |
+| **Integration** | All imports resolve; no `ModuleNotFoundError` at startup | `python -c "import <entrypoint_module>"` smoke test in CI | Must pass before Phase 4 merge |
+| **Regression (env parity)** | Resolved package set from `pyproject.toml` install matches `requirements.txt` install | `pip freeze` diff in a clean virtualenv (Phase 3 gate) | Diff must be empty (or explicitly approved) before Phase 4 |
+| **Performance** | N/A — no runtime behavior change | N/A | N/A |
 
-### Recommended CI Validation Steps
+### Concrete Validation Steps (Phase 3)
 
-```yaml
-# Example (adapt to actual CI platform — TODO: confirm)
-- name: Validate pyproject.toml schema
-  run: pip install validate-pyproject && validate-pyproject pyproject.toml
+```bash
+# Baseline: capture resolved env from requirements.txt
+python -m venv .venv-baseline
+.venv-baseline/bin/pip install -r requirements.txt
+.venv-baseline/bin/pip freeze > baseline.txt
 
-- name: Install from pyproject.toml (runtime)
-  run: pip install .
+# Candidate: capture resolved env from pyproject.toml
+python -m venv .venv-candidate
+.venv-candidate/bin/pip install .
+.venv-candidate/bin/pip freeze > candidate.txt
 
-- name: Install from pyproject.toml (dev extras)
-  run: pip install ".[dev]"
-
-- name: Run existing test suite
-  run: pytest  # TODO: replace with actual test command
+# Diff — output must be empty or reviewed
+diff baseline.txt candidate.txt
 ```
 
-**Coverage target:** No new coverage target is introduced by this task. The goal is zero regression — all tests that passed before the migration must pass after.
+### Coverage Target
+
+No coverage target change is introduced by this task. Maintain whatever coverage threshold the project currently enforces.
 
 ---
 
@@ -164,11 +135,10 @@ Because this migration touches only packaging metadata and not application logic
 
 | Milestone | Phase | Estimated Completion | Owner |
 |-----------|-------|---------------------|-------|
-| Dependency audit complete; all `requirements*.txt` files inventoried | Phase 1 | Day 1 (0.5 pd) | TODO |
-| `pyproject.toml` authored and peer-reviewed | Phase 2 | Day 1–2 (1.0 pd) | TODO |
-| Clean-environment install validated; conflicts resolved | Phase 3 | Day 2 (1.5 pd) | TODO |
-| CI/CD pipeline updated and green | Phase 4 | Day 2 (1.75 pd) | TODO |
-| `requirements.txt` removed; docs updated; PR merged | Phase 5 | Day 2 (2.0 pd) | TODO |
+| Dependency inventory complete | Phase 1 | Day 1 (end of day) | TODO |
+| `pyproject.toml` authored and peer-reviewed | Phase 2 | Day 2 (midday) | TODO |
+| Environment parity validated (diff clean) | Phase 3 | Day 2 (end of day) | TODO |
+| CI/CD pipeline updated and green | Phase 4 | Day 3 (midday) | TODO |
+| Legacy `requirements.txt` removed; docs updated | Phase 5 | Day 3 (end of day) | TODO |
 
-**Total calendar time:** ~2 days (sequential) or ~1 day (with parallel review).
-**Total person-days:** ~2 (derived from moderate upgrade option estimate).
+**Total calendar time: ~3 days** (assuming single-engineer execution with normal review cycles; parallelism or review delays may shift Phase 4–5 by 1 day).
