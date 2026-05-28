@@ -1,3 +1,4 @@
+```csharp
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -41,26 +42,12 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
-// Conditional feature endpoint for US-006 based on environment variable FEATURES__US006__ENABLED
-// When enabled, exposes GET /us-006 which returns 501 Not Implemented
-if (app.Configuration.GetValue<bool>("Features:US006:Enabled"))
-{
-    app.MapGet("/us-006", () => Results.StatusCode(501));
-}
 
 try
 {
@@ -75,3 +62,4 @@ finally
 {
     Log.CloseAndFlush();
 }
+```

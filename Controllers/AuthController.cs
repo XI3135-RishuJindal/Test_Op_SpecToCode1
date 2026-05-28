@@ -1,9 +1,11 @@
+```csharp
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using ApiGateway.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace ApiGateway.Controllers
 {
@@ -20,79 +22,32 @@ namespace ApiGateway.Controllers
             _logger = logger;
         }
 
-        /// <summary>
-        /// Generate JWT token for testing purposes
-        /// </summary>
-        /// <param name="request">Login request</param>
-        /// <returns>JWT token</returns>
-        [HttpPost("token")]
-        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public IActionResult GenerateToken([FromBody] LoginRequest request)
+        [HttpGet("oauth")]
+        public IActionResult OAuthLogin()
         {
-            _logger.LogInformation("Token generation requested for user: {Username}", request.Username);
+            var clientId = _configuration["OAuth:ClientId"];
+            var redirectUri = _configuration["OAuth:RedirectUri"];
+            var authority = _configuration["OAuth:Authority"];
+            var responseType = _configuration["OAuth:ResponseType"];
+            var state = "random-state-value"; // Generate securely
+            var nonce = "random-nonce-value"; // Generate securely
 
-            try
-            {
-                // Simple validation for demo purposes
-                if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-                {
-                    return BadRequest(new ErrorResponse
-                    {
-                        Error = "InvalidCredentials",
-                        Message = "Username and password are required",
-                        StatusCode = 400
-                    });
-                }
+            var authorizationEndpoint = $"{authority}/authorize?client_id={clientId}&response_type={responseType}&redirect_uri={Uri.EscapeDataString(redirectUri)}&state={state}&nonce={nonce}";
 
-                // For demo purposes, accept any non-empty credentials
-                // In production, this would validate against a user store
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default-secret-key-for-development");
-                
-                var tokenDescriptor = new SecurityTokenDescriptor
-                {
-                    Subject = new ClaimsIdentity(new[]
-                    {
-                        new Claim(ClaimTypes.Name, request.Username),
-                        new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-                        new Claim("username", request.Username)
-                    }),
-                    Expires = DateTime.UtcNow.AddHours(1),
-                    Issuer = _configuration["Jwt:Issuer"],
-                    Audience = _configuration["Jwt:Audience"],
-                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-                };
+            return Redirect(authorizationEndpoint);
+        }
 
-                var token = tokenHandler.CreateToken(tokenDescriptor);
-                var tokenString = tokenHandler.WriteToken(token);
+        [HttpGet("callback")]
+        public IActionResult Callback(string code, string state, string nonce)
+        {
+            // Validate state and nonce for security
 
-                _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
+            // Exchange code for tokens from Identity Provider
 
-                return Ok(new
-                {
-                    Token = tokenString,
-                    Expires = tokenDescriptor.Expires,
-                    TokenType = "Bearer"
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
-                
-                return StatusCode(500, new ErrorResponse
-                {
-                    Error = "TokenGenerationError",
-                    Message = "An error occurred while generating the token",
-                    StatusCode = 500
-                });
-            }
+            // Logic to handle token response
+
+            return Ok();
         }
     }
-
-    public class LoginRequest
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-    }
 }
+```
