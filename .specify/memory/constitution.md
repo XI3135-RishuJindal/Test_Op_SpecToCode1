@@ -12,28 +12,28 @@
 
 1. **Prefer a dedicated `/health` route over repurposing existing endpoints** because a purpose-built endpoint avoids coupling readiness logic to business logic.
 2. **Prefer returning structured JSON responses over plain-text** because machine-readable payloads allow downstream consumers (orchestrators, dashboards) to parse status without brittle string matching.
-3. **Prefer explicit readiness checks (e.g., dependency reachability) over a trivial 200 OK** because a superficial response risks masking a degraded-but-running service, which is the core problem a readiness probe must solve.
-4. **Prefer non-breaking additive changes over modifying existing routes** because the upgrade urgency is medium and the risk of regression must be kept low.
-5. **Prefer unauthenticated access to `/health` over requiring credentials** because probes from orchestration layers (Kubernetes, ECS, etc.) typically cannot carry auth tokens; access control must not block legitimate health checks.
+3. **Prefer explicit readiness checks (e.g., dependency reachability) over a trivial 200 OK stub** because a stub that always returns healthy provides no real signal and defeats the purpose of a readiness probe.
+4. **Prefer non-breaking additions over modifications to existing routes** because the upgrade urgency is medium and the risk of regression must be kept low.
+5. **Prefer unauthenticated access to `/health` over requiring credentials** because probes from orchestration platforms typically cannot carry auth tokens; access control must not block legitimate health checks.
 
 ---
 
 ## Constraints
 
-- **Timeline / Effort:** Effort ceiling follows the "moderate" upgrade option. No large-scale refactoring is in scope; implementation must be achievable as a focused, self-contained change.
-- **Scope Freeze:** Only the `/health` endpoint is in scope. No changes to authentication, routing infrastructure, or existing endpoints are permitted unless strictly required to mount the new route.
-- **Technology Mandates:** TODO — runtime, framework, and language are unspecified. Technology choices for implementation must be confirmed before coding begins and recorded in the Decision Log.
-- **Response Contract:** The endpoint MUST return HTTP `200` when ready and a non-`2xx` status (e.g., `503`) when not ready. Response body MUST include at minimum a `status` field.
+- **Timeline / Effort:** Effort ceiling follows the "moderate" upgrade option. No large-scale refactoring is in scope; implementation must be achievable as a focused, self-contained addition.
+- **Scope Freeze:** Only the `/health` endpoint is in scope. No other routes, middleware, or infrastructure changes are permitted unless directly required to support the endpoint.
+- **Technology Mandates:** TODO — specific runtime, framework, and language are unknown at this time. Technology choices for implementation must be confirmed against the existing stack before work begins.
+- **Response Contract:** The endpoint MUST return HTTP `200` when ready and HTTP `503` (or equivalent non-2xx) when not ready. Response body MUST include at minimum a `status` field.
+- **No Downtime:** The addition must be deployable without restarting or interrupting the running service where the platform supports hot-reload or rolling deployment.
 
 ---
 
 ## Quality Standards
 
-- **Test Coverage:** The `/health` route must have at least one automated integration/smoke test asserting both the happy path (`200`) and, if dependency checks are implemented, the degraded path (`503`).
-- **Code Review:** All changes require at least one peer review approval before merge. No self-merges.
-- **Documentation:** The endpoint's request/response contract (HTTP method, path, status codes, response schema) must be documented in the project README or equivalent API reference before the change is considered complete.
-- **Deployment Gate:** The endpoint must be verified reachable in a staging or equivalent pre-production environment before promotion to production.
-- **No Secrets in Response:** The health response body must never expose internal hostnames, credentials, stack traces, or version strings that could aid an attacker.
+- **Test Coverage:** The `/health` endpoint must have ≥ 1 automated integration or contract test covering both the healthy (`200`) and unhealthy (`503`) response paths before merge.
+- **Code Review:** All changes require at least one peer review approval; no self-merge.
+- **Documentation:** The endpoint's URL, expected HTTP status codes, and response schema must be documented in the project README or API reference before the feature is considered complete.
+- **Deployment Gate:** CI pipeline must pass (build + tests) before the branch is eligible to merge. A manual smoke-test against a staging or preview environment confirming the endpoint responds correctly is required.
 
 ---
 
@@ -41,8 +41,7 @@
 
 | ID | Decision | Rationale | Status |
 |----|----------|-----------|--------|
-| ADR-001 | Endpoint path is `/health` | Matches the explicit task requirement and is the de-facto standard path for readiness probes | Accepted |
-| ADR-002 | HTTP `200` for ready, `503` for not ready | Industry-standard semantics understood by Kubernetes, ECS, and common load balancers | Accepted |
-| ADR-003 | Response body is JSON with a `status` field | Structured format enables programmatic consumption without custom parsing | Accepted |
-| ADR-004 | Runtime / framework selection | TODO — must be decided once language and runtime are confirmed | Proposed |
-| ADR-005 | Scope of dependency checks included in readiness | TODO — which dependencies (DB, cache, etc.) constitute "ready" must be defined by the team | Proposed |
+| ADR-001 | Endpoint path is `/health` | Aligns with the explicit task requirement and is the de-facto standard path recognised by Kubernetes, Docker, and most load balancers. | Accepted |
+| ADR-002 | HTTP `200` for ready, `503` for not-ready | Industry-standard status codes for readiness probes; unambiguous to automated consumers. | Accepted |
+| ADR-003 | Implementation language/framework TBD | Runtime and build tool are unknown per tech analysis. Must be resolved in the first spec/planning session. | Proposed |
+| ADR-004 | Endpoint is unauthenticated | Readiness probes from orchestration layers cannot carry credentials; blocking them would make the endpoint non-functional. | Accepted |
