@@ -2,11 +2,13 @@
 
 ## Overview
 
-**Migration Strategy: Big-Bang (Single-Phase Delivery)**
+**Migration Strategy: Feature-Flag Gated / Big-Bang (Single Increment)**
 
-Adding a `/health` readiness endpoint is a net-new, additive change with no modification to existing functionality. It carries low risk of regression and requires no data migration or breaking API changes. A big-bang approach — delivering the endpoint in a single focused phase — is appropriate given the bounded scope and medium urgency rating.
+Adding a `/health` readiness endpoint is a net-new, additive change with no modification to existing functionality. The risk score is low — no existing code paths are altered, and the endpoint can be introduced in a single, self-contained increment.
 
-> **Note:** The tech analysis does not specify a language, runtime, framework, or build tool. Sections below are written at a pattern level. File names, class names, and tooling references are marked **TODO** where they cannot be derived from context.
+A **big-bang delivery within one phase** is appropriate here: the endpoint is either present or absent, there is no legacy behavior to strangle, and no parallel-run infrastructure is needed. If the deployment platform supports it, the route can be placed behind a feature flag during initial rollout to allow safe validation in production before wiring it into load-balancer or orchestrator health checks.
+
+> **Note:** The tech analysis did not supply language, runtime, framework, or build-tool details. All component-level specifics below are marked TODO and must be filled in once the codebase is identified.
 
 ---
 
@@ -14,137 +16,141 @@ Adding a `/health` readiness endpoint is a net-new, additive change with no modi
 
 | Phase | Description | Dependencies | Estimated Effort |
 |-------|-------------|--------------|-----------------|
-| 1 | Design & contract definition — agree on response schema, HTTP status codes, and readiness criteria | None | TODO (derive from option person-days — option detail not provided) |
-| 2 | Implementation — add route handler, readiness logic, and response serialization | Phase 1 complete | TODO |
-| 3 | Testing — unit, integration, and CI gate wiring | Phase 2 complete | TODO |
-| 4 | Infrastructure wiring — register endpoint in load balancer / orchestrator health checks | Phase 3 complete | TODO |
+| 1 — Discovery & Design | Identify existing routing layer, agree on response schema, define readiness criteria (e.g., DB reachable, dependencies up) | Access to codebase and deployment manifests | TODO (derive from "moderate" option person-days once provided) |
+| 2 — Implementation | Add `/health` route handler returning structured JSON; implement readiness checks | Phase 1 complete | TODO |
+| 3 — Testing | Unit, integration, and contract tests for the endpoint | Phase 2 complete | TODO |
+| 4 — Infrastructure Wiring | Update orchestrator/load-balancer health-check config to point to `/health` | Phase 3 passing in CI | TODO |
+| 5 — Release & Validation | Deploy, monitor, confirm probes are green | Phase 4 complete | TODO |
 
-> **TODO:** Effort in person-days cannot be populated — the upgrade option was provided as `moderate` without a numeric estimate. Assign estimates during sprint planning once runtime stack is confirmed.
+> **TODO:** Populate effort columns (person-days) once the "moderate" upgrade option detail document is provided.
 
 ---
 
 ## Component Changes
 
 ### Route / Controller Layer
-
-- **What changes:** A new route `GET /health` is registered in the application's router or controller layer.
-- **Files affected:** TODO — router/controller file(s) unknown without codebase context.
+- **What changes:** A new route handler is registered for `GET /health`.
+- **Files affected:** TODO — identify the primary router/controller file (e.g., `routes/index.*`, `app.*`, `server.*`, `controllers/health.*`).
 - **API added:**
   - `GET /health`
-  - **Success response (HTTP 200):**
+  - Success response `200 OK`:
     ```json
     {
       "status": "ok",
-      "timestamp": "<ISO-8601>",
-      "checks": {}
+      "checks": {
+        "database": "ok",
+        "dependencies": "ok"
+      },
+      "timestamp": "<ISO-8601>"
     }
     ```
-  - **Not-ready response (HTTP 503):**
+  - Failure response `503 Service Unavailable`:
     ```json
     {
       "status": "unavailable",
-      "timestamp": "<ISO-8601>",
-      "checks": {}
+      "checks": {
+        "database": "error"
+      },
+      "timestamp": "<ISO-8601>"
     }
     ```
 
-### Health Check Logic
-
-- **What changes:** A dedicated health/readiness module is introduced to encapsulate individual readiness checks (e.g., database reachability, downstream dependency ping).
-- **Files affected:** TODO — suggest creating `health_check.{ext}` or `HealthCheckService.{ext}` in a `health/` or `diagnostics/` module directory.
-- **Key methods to implement:**
-  - `checkReadiness() → { status, checks }` — aggregates all sub-checks.
-  - Individual sub-checks (e.g., `checkDatabase()`, `checkCache()`) — TODO, depends on application dependencies.
+### Readiness Check Module
+- **What changes:** A new module/class encapsulates individual readiness probes (e.g., database ping, downstream service reachability).
+- **Files affected:** TODO — e.g., `health/readiness.*, src/checks/health.*`.
+- **Classes/methods:** TODO — e.g., `HealthChecker.check()`, `DatabaseProbe.ping()`.
 
 ### Application Entry Point
+- **What changes:** The new route is registered before the application starts accepting traffic.
+- **Files affected:** TODO — e.g., `main.*`, `app.*`, `server.*`.
 
-- **What changes:** The new route must be registered before the application starts accepting traffic.
-- **Files affected:** TODO — main application bootstrap file.
+### Configuration
+- **What changes:** Any timeout or threshold values for readiness probes should be externalized.
+- **Config keys to add:**
+  - `HEALTH_CHECK_TIMEOUT_MS` (default: `3000`)
+  - `HEALTH_CHECK_DB_ENABLED` (default: `true`)
 
 ---
 
 ## Dependency Upgrade Plan
 
-N/A — not applicable to this task. No dependency upgrades are required to add a `/health` endpoint. Any health-check helper library selection is TODO pending runtime stack confirmation.
+N/A — not applicable to this task.
+
+> The `/health` endpoint is expected to be implemented using the existing framework already present in the codebase. No new third-party dependencies are required. If a dedicated health-check library is desired, TODO: evaluate options once the runtime/framework is confirmed.
 
 ---
 
 ## Infrastructure Changes
 
 ### Kubernetes (if applicable)
-
-If the application runs on Kubernetes, add a `readinessProbe` to the relevant container spec:
-
-```yaml
-readinessProbe:
-  httpGet:
-    path: /health
-    port: <app-port>   # TODO: confirm port
-  initialDelaySeconds: 5
-  periodSeconds: 10
-  failureThreshold: 3
-```
-
-> **TODO:** Confirm whether Kubernetes manifests exist and their location in the repository.
-
-### Load Balancer / Reverse Proxy
-
-- **TODO:** If a load balancer (e.g., NGINX, ALB, HAProxy) is in use, configure it to use `GET /health` as the backend health check target.
-
-### CI/CD Pipeline
-
-- Add a smoke-test step post-deploy that asserts `GET /health` returns HTTP 200 before marking the deployment successful.
-- **TODO:** CI/CD platform and pipeline file location unknown — apply to existing pipeline configuration file.
+- **TODO:** Confirm whether the service runs on Kubernetes.
+- If yes, add or update the `readinessProbe` stanza in the relevant `Deployment` manifest:
+  ```yaml
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: <TODO: app port>
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
+  ```
 
 ### Docker
-
-- **TODO:** No base image changes are required for this task. If a `HEALTHCHECK` instruction is desired in the Dockerfile, add:
+- **TODO:** Confirm base image and whether a `HEALTHCHECK` instruction should be added to the `Dockerfile`:
   ```dockerfile
   HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:<port>/health || exit 1
+    CMD curl -f http://localhost:<TODO:port>/health || exit 1
   ```
+
+### Load Balancer / Reverse Proxy
+- **TODO:** Update health-check path in load-balancer config (e.g., AWS Target Group, NGINX upstream, HAProxy backend) from any existing path to `/health`.
+
+### CI/CD Pipeline
+- **TODO:** Identify CI platform (GitHub Actions, Jenkins, GitLab CI, etc.).
+- Add a smoke-test step post-deploy that calls `GET /health` and asserts `200 OK` before marking the deployment successful.
 
 ---
 
 ## Rollback Strategy
 
+Each phase is independently reversible because the change is purely additive.
+
 | Phase | Rollback Action |
 |-------|----------------|
-| Phase 1 | Discard contract document; no code changes to revert. |
-| Phase 2 | Revert the route registration commit; the endpoint will return 404, restoring prior behavior. No existing routes are affected. |
-| Phase 3 | Remove or skip the new test suite; does not affect application behavior. |
-| Phase 4 | Remove the `readinessProbe` block from the Kubernetes manifest and re-apply (`kubectl apply`). Remove the Dockerfile `HEALTHCHECK` instruction and rebuild the image. Revert load balancer health check target to its previous value. |
-
-Each phase is independently reversible via a single commit revert or config change. No database migrations or destructive operations are involved.
+| 1 — Discovery & Design | No code changes; discard design artifacts. No action needed. |
+| 2 — Implementation | Revert the commit(s) adding the route handler and readiness module. The application continues to function without the endpoint. |
+| 3 — Testing | Revert test files alongside implementation commits. No production impact. |
+| 4 — Infrastructure Wiring | **Before cutover:** restore previous health-check path in orchestrator/load-balancer config. **After cutover:** re-point probes to the previous path (or remove the `readinessProbe` stanza if none existed) and redeploy manifests. |
+| 5 — Release & Validation | If probes fail in production: (a) remove `readinessProbe` from the Kubernetes manifest and redeploy to stop failed readiness checks from taking pods out of rotation; (b) revert application deployment to the previous image tag. |
 
 ---
 
 ## Testing Strategy
 
 ### Unit Tests
-- **Target:** `checkReadiness()` and each sub-check function in the health module.
-- **Coverage target:** 100% of the health module (it is new code with no legacy debt).
-- **Tool:** TODO — depends on runtime stack.
-- **Cases:** all checks pass → HTTP 200; one check fails → HTTP 503; check throws unexpectedly → HTTP 503 (fail-safe).
+- **Scope:** Route handler logic; each individual readiness probe (database, downstream services).
+- **Approach:** Mock all I/O dependencies. Assert correct HTTP status codes (`200` / `503`) and response body schema.
+- **Tools:** TODO — confirm test framework once runtime is known (e.g., Jest, JUnit, pytest, Go testing).
+- **Coverage target:** 100% of the new health module; no reduction in overall project coverage floor.
 
 ### Integration Tests
-- **Target:** `GET /health` via the running application (in-process test server or test container).
-- **Tool:** TODO — depends on runtime stack.
-- **Cases:** happy path with real dependencies available; degraded path with a dependency stubbed as unavailable.
+- **Scope:** Full request/response cycle against a locally running application instance with real (or containerized) dependencies.
+- **Approach:** Spin up the app and a test database via Docker Compose; call `GET /health` and assert `200 OK`. Simulate a dependency failure (e.g., stop the DB container) and assert `503`.
+- **Tools:** TODO — e.g., Supertest, RestAssured, httpx, `net/http/httptest`.
 
 ### Regression Tests
-- Verify no existing routes return unexpected status changes after the new route is registered.
-- **Tool:** TODO — existing regression suite, if present.
+- **Scope:** Confirm no existing routes or behaviors are affected by the addition of the new route.
+- **Approach:** Run the full existing test suite unchanged; zero new failures is the gate.
 
-### Performance Tests
-- The `/health` endpoint must respond within **200 ms** at p99 under normal load (it will be polled frequently by orchestrators).
-- **Tool:** TODO — depends on stack (e.g., k6, wrk, Locust).
-- **CI gate:** Block merge if p99 latency exceeds 200 ms or error rate exceeds 0%.
+### Performance / Probe Overhead
+- **Scope:** Ensure the `/health` endpoint responds within the configured `HEALTH_CHECK_TIMEOUT_MS` (default 3 000 ms) under normal load.
+- **Approach:** TODO — run a brief load test (e.g., k6, wrk, Locust) targeting `/health` concurrently with normal traffic.
+- **Gate:** p99 latency < 500 ms; no errors under expected probe frequency.
 
-### CI Gate Summary
-1. Unit tests must pass with 100% coverage of the health module.
-2. Integration test for `GET /health → 200` must pass.
-3. Post-deploy smoke test (`curl /health`) must return 200 before traffic is shifted.
+### CI Gates
+- All unit and integration tests must pass before merge to main.
+- The post-deploy smoke test (`GET /health` → `200 OK`) must pass before the pipeline marks the release successful.
+- TODO: Add a required status check in the branch protection rules for the health-check test suite.
 
 ---
 
@@ -152,9 +158,10 @@ Each phase is independently reversible via a single commit revert or config chan
 
 | Milestone | Phase | Estimated Completion | Owner |
 |-----------|-------|---------------------|-------|
-| Response schema & readiness criteria agreed | Phase 1 | TODO | TODO |
-| `/health` route and health module implemented | Phase 2 | TODO | TODO |
-| Unit & integration tests passing in CI | Phase 3 | TODO | TODO |
-| Infrastructure probes configured and verified | Phase 4 | TODO | TODO |
+| Design agreed, response schema signed off | 1 — Discovery & Design | TODO | TODO |
+| `/health` route and readiness module implemented | 2 — Implementation | TODO | TODO |
+| All tests written and passing in CI | 3 — Testing | TODO | TODO |
+| Kubernetes/Docker/LB config updated | 4 — Infrastructure Wiring | TODO | TODO |
+| Deployed to production, probes green | 5 — Release & Validation | TODO | TODO |
 
-> **TODO:** Dates and owners cannot be assigned without team capacity data and a confirmed sprint start date. Populate during sprint planning. Effort baseline is `moderate` — recommend treating this as a 1–3 day task once the runtime stack is confirmed.
+> **TODO:** Populate all estimated completion dates once the "moderate" upgrade option person-days breakdown is provided and team capacity is known.
