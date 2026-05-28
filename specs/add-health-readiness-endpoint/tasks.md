@@ -2,42 +2,45 @@
 
 ## Prerequisites
 
-- [ ] [XS] Confirm the web framework and routing mechanism in use by inspecting the project's entry point and dependency manifest (e.g., `package.json`, `requirements.txt`, `pom.xml`, `go.mod`, or equivalent)
-- [ ] [XS] Confirm the existing server port and base path configuration in the application config file (e.g., `config.yaml`, `.env`, `application.properties`, or equivalent)
-- [ ] [XS] Verify that no existing `/health` or `/readyz` route conflicts exist by searching the codebase for registered route definitions
+- [ ] [XS] Confirm target port and base path for the health endpoint with the team and record the decision in a shared notes doc or ticket comment
+- [ ] [XS] Confirm expected HTTP response contract (status code, response body shape, e.g. `{"status":"ok"}`) and document in the ticket before implementation begins
+- [ ] [XS] Verify that the service's existing router/framework supports adding new GET routes without additional dependencies
 
 ---
 
 ## Phase 1 — Preparation
 
-- [ ] [XS] Create a dedicated feature branch (e.g., `feature/health-readiness-endpoint`) from the main branch
-- [ ] [XS] Record the current set of registered routes and their response contracts as a baseline reference document (`docs/route-baseline.md` or equivalent) before any changes are made
+- [ ] [XS] Create a feature branch (e.g. `feature/health-readiness-endpoint`) from the main branch
+- [ ] [XS] Identify and document the existing routing entry point file where the new `/health` route will be registered
+- [ ] [XS] Capture the current test suite baseline (pass/fail count, coverage %) so regression comparison is possible after changes
 
 ---
 
 ## Phase 2 — Core Upgrade
 
-- [ ] [S] Implement the `GET /health` route handler that returns HTTP `200 OK` with a JSON body `{"status":"ok"}` when the service is ready, in the application's primary router or controller file
-- [ ] [XS] Implement a readiness check function that validates any critical dependencies (e.g., database connectivity, required env vars) and returns a degraded status (`{"status":"degraded"}`) with HTTP `503` when checks fail, co-located with the route handler
-- [ ] [XS] Register the `/health` route in the application's main router configuration file, ensuring it is reachable without authentication middleware
+- [ ] [S] Implement the `GET /health` handler function that returns HTTP 200 with a JSON body `{"status":"ok"}` in the appropriate controller or handler module
+- [ ] [XS] Register the `GET /health` route in the application's main router or routing configuration file
+- [ ] [XS] Ensure the `/health` endpoint is excluded from any authentication or authorization middleware that would block unauthenticated readiness checks
 
 ---
 
 ## Phase 3 — Testing & Validation
 
-- [ ] [S] Write a unit test for the `/health` handler covering: (1) healthy path returns `200` + `{"status":"ok"}`, and (2) degraded path returns `503` + `{"status":"degraded"}`, in the project's existing test directory
-- [ ] [XS] Perform a manual smoke test by running the service locally and issuing `curl -i http://localhost:<PORT>/health` to confirm the response code and body match the contract
+- [ ] [S] Write a unit test for the `/health` handler asserting HTTP 200 and correct response body in the project's test directory
+- [ ] [S] Write an integration/route test that boots the application and performs an HTTP GET to `/health`, asserting the full response contract
+- [ ] [XS] Run the full test suite and confirm no regressions against the baseline captured in Phase 1
 
 ---
 
 ## Phase 4 — CI/CD & Infrastructure
 
-- [ ] [XS] Add a health check directive to the `Dockerfile` (if present) using `HEALTHCHECK CMD curl --fail http://localhost:<PORT>/health || exit 1`
-- [ ] [XS] Add or update the liveness/readiness probe in the deployment manifest (e.g., `kubernetes/deployment.yaml` or `docker-compose.yml`) to point to `GET /health`
+- [ ] [XS] Add a health check probe pointing to `GET /health` in the service's container or process manager configuration (e.g. Docker `HEALTHCHECK`, Kubernetes `readinessProbe`), if applicable
+- [ ] [XS] Confirm CI pipeline executes the new tests added in Phase 3 and gates the build on their passing
 
 ---
 
 ## Phase 5 — Documentation & Rollout
 
-- [ ] [XS] Add an entry to `CHANGELOG.md` documenting the addition of the `GET /health` readiness endpoint, its response contract, and the HTTP status codes it returns
-- [ ] [XS] Update the API reference or `README.md` with the `/health` endpoint specification (method, path, response schema, and status codes)
+- [ ] [XS] Add an entry to `CHANGELOG.md` (or equivalent) describing the new `GET /health` readiness endpoint
+- [ ] [XS] Update the service's API documentation or README to document the `/health` endpoint, its expected response, and its intended use for readiness checks
+- [ ] [XS] Deploy to a staging environment and manually verify `GET /health` returns HTTP 200 with the correct body before promoting to production
