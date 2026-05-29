@@ -1,0 +1,8 @@
+# requirements.txt
+
+pytest==7.4.0
+pytest-mock==3.11.1
+pytest-cov==4.5.2
+
+# Leave all other existing dependencies unchanged if present in the original file.
+# If starting from scratch, add only those needed for the described upgrade.

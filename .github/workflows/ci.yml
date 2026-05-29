@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 'latest'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest
+          pip install pytest-mock
+          pip install pytest-cov
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Run lint
+        run: |
+          # Add linting command here (e.g., flake8, pylint, etc.)
+
+  test:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 'latest'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest
+          pip install pytest-mock
+          pip install pytest-cov
+
+      - name: Run tests
+        run: |
+          pytest tests/ --cov=.
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 'latest'
+
+      - name: Build project
+        run: |
+          # Add build commands here
+
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Run SAST
+        run: |
+          # Add SAST tool command here (optional)
