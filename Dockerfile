@@ -1,22 +1,35 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+# Use a generic lightweight image as a base, considering the absence of specific runtime details.
+FROM alpine:latest AS builder
+
+# Install necessary build tools and dependencies
+RUN apk add --no-cache \
+    build-base \
+    curl
+
+# Set working directory
 WORKDIR /app
-EXPOSE 80
-EXPOSE 443
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
-COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
+# Copy project files and dependencies
+# If you know your project's dependencies or build configuration,
+# replace 'project_files/' and 'requirements.txt' accordingly.
+COPY project_files/ .
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+# If using a specific language or framework, install dependencies here.
+# For example, Python environment setup can be added if you identify Python is used.
+# RUN pip install -r requirements.txt
 
-FROM base AS final
+# Produce the final image
+FROM alpine:latest AS final
+
+# Set the working directory
 WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+
+# Copy binary files from the builder stage
+COPY --from=builder /app /app
+
+# If your application exposes a port, specify it here
+# EXPOSE 80
+
+# Run the application
+# Replace with your application's start command
+CMD ["sh"]
