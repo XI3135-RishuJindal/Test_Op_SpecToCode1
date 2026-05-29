@@ -1,22 +1,34 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+# Start from the latest stable Python image with slim variant for smaller size
+FROM python:3.12-slim as base
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
+# Set environment variables for Python
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# Create app directory
+WORKDIR /app
+
+# Install system dependencies and cleanup
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the source code
 COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+# Set up entry point
+CMD ["python", "app.py"]
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+# Multi-stage build for Bandit SAST and detect-secrets
+FROM base as dev
+
+# Install Bandit and detect-secrets for security analysis
+RUN pip install --no-cache-dir bandit detect-secrets
+
+# Execute Bandit and detect-secrets as part of the CI/CD pipeline
+CMD ["bandit", "-r", "/app"]
