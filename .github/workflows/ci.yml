@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  docs-ci:
+    name: Documentation CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (for link checking tooling)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Install markdown-link-check
+        run: npm install -g markdown-link-check
+
+      - name: Run broken-link check on /docs
+        run: |
+          find docs -name "*.md" -print0 \
+            | xargs -0 -I {} markdown-link-check {} --config .markdown-link-check.json \
+            || find . -maxdepth 1 -name "*.md" -print0 \
+            | xargs -0 -I {} markdown-link-check {}
+        continue-on-error: false
+
+      - name: Run broken-link check on root Markdown files
+        run: |
+          find . -maxdepth 1 -name "*.md" -print0 \
+            | xargs -0 -I {} markdown-link-check {} || true
+
+  lint-docs:
+    name: Lint Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli
+
+      - name: Lint Markdown files
+        run: |
+          markdownlint "**/*.md" --ignore node_modules || true
+
+  sast-security-scan:
+    name: SAST Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
