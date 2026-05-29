@@ -1,0 +1,9 @@
+```json
+{
+  "ConcurrentUsers": 10000,
+  "MaxDurationSeconds": 3,
+  "Endpoints": {
+    "Login": "/api/auth/token"
+  }
+}
+```

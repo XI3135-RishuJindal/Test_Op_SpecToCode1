@@ -1,3 +1,4 @@
+```csharp
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -37,6 +38,7 @@ namespace ApiGateway.Controllers
                 // Simple validation for demo purposes
                 if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 {
+                    _logger.LogWarning("Invalid login attempt with missing credentials for user: {Username}", request.Username);
                     return BadRequest(new ErrorResponse
                     {
                         Error = "InvalidCredentials",
@@ -45,8 +47,6 @@ namespace ApiGateway.Controllers
                     });
                 }
 
-                // For demo purposes, accept any non-empty credentials
-                // In production, this would validate against a user store
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default-secret-key-for-development");
                 
@@ -68,31 +68,20 @@ namespace ApiGateway.Controllers
                 var tokenString = tokenHandler.WriteToken(token);
 
                 _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
-
-                return Ok(new
-                {
-                    Token = tokenString,
-                    Expires = tokenDescriptor.Expires,
-                    TokenType = "Bearer"
-                });
+                return Ok(new { Token = tokenString });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
-                
+                _logger.LogError(ex, "An error occurred while generating token");
                 return StatusCode(500, new ErrorResponse
                 {
-                    Error = "TokenGenerationError",
-                    Message = "An error occurred while generating the token",
-                    StatusCode = 500
+                    Error = "InternalError",
+                    Message = "An error occurred while generating token",
+                    StatusCode = 500,
+                    Details = ex.Message
                 });
             }
         }
     }
-
-    public class LoginRequest
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-    }
 }
+```

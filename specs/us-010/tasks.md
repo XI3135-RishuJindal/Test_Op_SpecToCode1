@@ -1,0 +1,8 @@
+- [ ] Enhance `Controllers/AuthController.cs`: implement detailed audit logging for login attempts.
+- [ ] Update `Controllers/AuthController.cs`: add error logging for token refresh failures.
+- [ ] Modify `Controllers/TestController.cs`: include logging for user-initiated test operations.
+- [ ] Configure `appsettings.json` to support structured logging with Serilog for audit purposes.
+- [ ] Update `Tests/Controllers/AuthControllerTests.cs`: add test cases to validate correctness of audit logging.
+- [ ] Conduct performance testing to ensure logging does not impact response time negatively.
+- [ ] Document log format and usage procedures in `README.md`.
+- [ ] Review logging implementation with security team to assure compliance with data protection standards.
