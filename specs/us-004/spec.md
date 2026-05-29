@@ -1,25 +1,21 @@
-## Functional Specification
+## Functional Specification: User Profile Management
 
-**User Story: US-004**
-
-### Title
-Auth Code Exchange at IdP Token Endpoint
-
-### Description
-This feature implements the server-side authorisation code exchange flow. After receiving a valid callback with an authorization code and state (as ensured by user story US-003), the backend system must securely POST this code to the Identity Provider's (IdP) token endpoint. The request shall include the authorization code, client credentials obtained from configuration, the redirect URI used in the initial authorization request, and the PKCE `code_verifier`. A successful response will return access, ID, and optionally refresh tokens, which then undergo validation as part of US-005.
+### Story Narrative
+This feature facilitates account linking for first-time SSO users whose IdP email matches an existing account email in the platform. Users will be prompted to link their accounts rather than creating duplicates. The flow verifies account ownership via OTP or password confirmation, thereafter linking the IdP identity to the existing account and authenticating the user.
 
 ### Acceptance Criteria
-- The backend exchanges the authorization code for tokens using the IdP token endpoint.
-- Tokens are delivered securely and not logged or exposed in the URL.
-- The flow uses HTTPS for all exchanges.
-- Integration testing validates the entire exchange flow and error handling.
-- Code changes do not degrade system performance or increase latency beyond predefined thresholds.
+1. Detect existing accounts based on matching IdP email for first-time SSO users.
+2. Prompt users with account linking options if a match is found.
+3. Verify user account ownership via OTP or password confirmation.
+4. Successfully link the IdP identity to the confirmed account.
+5. Redirect authenticated users to their intended destination post-linking.
+6. Ensure secure handling of personal data throughout the process.
 
 ### Out of Scope
-- Front-end handling of authorization flow prior to receipt of the authorization code.
-- UI changes related to displaying received tokens.
-- Alternative flows for non-compliant client requests.
+- Changes to user profile data post-linking.
+- Multi-factor authentication enhancements.
+- Integration with external IdP’s other than those currently supported.
 
-### Dependencies
-- This implementation depends on the integration setup created in user story US-003 for obtaining the authorization code.
-- Validation processes detailed in US-005 depend on this implementation for input tokens.
+### Cross-Service Dependencies
+- Integration with user authentication services and OTP services.
+- Dependency on existing JWT security implementations.

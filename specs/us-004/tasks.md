@@ -1,5 +1,10 @@
-## Tasks (auto-derived — review and expand)
-
-- [ ] Review plan.md and implement the described changes
-- [ ] Write unit and integration tests
-- [ ] Update documentation and API contracts as needed
+- [ ] Enhance `AuthController.cs`: Add logic to detect existing account by email.
+- [ ] Implement business logic in `AuthController.cs` for account linking prompt and verification.
+- [ ] Develop OTP generation and verification methods, potentially using existing services.
+- [ ] Update JWT handling in `AuthController.cs` to support post-linking authentication flows.
+- [ ] Update `AuthControllerTests.cs`: Write tests to ensure flow handles account linking properly.
+- [ ] Coordinate with UI/UX teams for user prompt design and integration.
+- [ ] Conduct peer reviews focusing on security and data integrity.
+- [ ] Deploy changes to a staging environment for integration testing.
+- [ ] Perform end-to-end testing with SSO accounts to validate functionality.
+- [ ] Document changes and update relevant sections in `openspec/changes/api-gateway/specs/spec.md`.
