@@ -1,6 +1,9 @@
-Repository: XI3135-RishuJindal/Test_Op_SpecToCode1
-
-Workstream: Guardrails and Documentation
-- [ ] add Tests/Policies/NoPaymentUiElementsTests.cs: implement a test that scans Controllers/ for disallowed keywords (payment, payments, billing, checkout, pay) in file names, class names, and route attributes; fail with a clear message listing offending files/lines.
-- [ ] update README.md: add a statement under Overview clarifying that the MVP ships with no payment UI and that a policy test enforces this constraint.
-- [ ] commit specs/remove-payment-ui-elements/spec.md, specs/remove-payment-ui-elements/
+- [ ] update Controllers/AuthController.cs: add methods for handling SSO redirects and responses
+- [ ] create src/Services/TokenService.cs: implement logic for parsing IdP tokens and extracting user claims
+- [ ] modify Program.cs: setup and configure middleware for supported IdPs
+- [ ] add appsettings.json: include configuration sections for multiple IdPs
+- [ ] update Tests/Controllers/AuthControllerTests.cs: write unit tests for SSO redirect and token handling methods
+- [ ] develop integration tests for verifying complete SSO flow with mock IdPs
+- [ ] ensure all API routes are documented in Swagger
+- [ ] update README.md: include setup instructions for SSO registration
+- [ ] perform code review and obtain stakeholder approval

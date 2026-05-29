@@ -1,9 +1,15 @@
+```csharp
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using ApiGateway.Models;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.Extensions.Options;
 
 namespace ApiGateway.Controllers
 {
@@ -21,78 +27,62 @@ namespace ApiGateway.Controllers
         }
 
         /// <summary>
-        /// Generate JWT token for testing purposes
+        /// Initiates the SSO login process with a selected Identity Provider (IdP).
         /// </summary>
-        /// <param name="request">Login request</param>
-        /// <returns>JWT token</returns>
-        [HttpPost("token")]
-        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public IActionResult GenerateToken([FromBody] LoginRequest request)
+        [HttpGet("sso-login")]
+        public IActionResult InitiateSsoLogin([FromQuery] string provider)
         {
-            _logger.LogInformation("Token generation requested for user: {Username}", request.Username);
+            var redirectUrl = Url.Action(nameof(SsoCallback), "Auth", null, Request.Scheme);
+            var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
+            return Challenge(properties, provider);
+        }
 
-            try
+        /// <summary>
+        /// Callback endpoint for the Identity Provider to return authentication results.
+        /// </summary>
+        [HttpGet("sso-callback")]
+        public async Task<IActionResult> SsoCallback()
+        {
+            var result = await HttpContext.AuthenticateAsync(OpenIdConnectDefaults.AuthenticationScheme);
+            if (!result.Succeeded)
             {
-                // Simple validation for demo purposes
-                if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+                _logger.LogWarning("SSO login failed.");
+                return BadRequest(new ErrorResponse
                 {
-                    return BadRequest(new ErrorResponse
-                    {
-                        Error = "InvalidCredentials",
-                        Message = "Username and password are required",
-                        StatusCode = 400
-                    });
-                }
-
-                // For demo purposes, accept any non-empty credentials
-                // In production, this would validate against a user store
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default-secret-key-for-development");
-                
-                var tokenDescriptor = new SecurityTokenDescriptor
-                {
-                    Subject = new ClaimsIdentity(new[]
-                    {
-                        new Claim(ClaimTypes.Name, request.Username),
-                        new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-                        new Claim("username", request.Username)
-                    }),
-                    Expires = DateTime.UtcNow.AddHours(1),
-                    Issuer = _configuration["Jwt:Issuer"],
-                    Audience = _configuration["Jwt:Audience"],
-                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-                };
-
-                var token = tokenHandler.CreateToken(tokenDescriptor);
-                var tokenString = tokenHandler.WriteToken(token);
-
-                _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
-
-                return Ok(new
-                {
-                    Token = tokenString,
-                    Expires = tokenDescriptor.Expires,
-                    TokenType = "Bearer"
+                    Error = "SSOFailed",
+                    Message = "Single Sign-On login process failed. Please try again.",
+                    StatusCode = 400
                 });
             }
-            catch (Exception ex)
+
+            var token = result.Properties.GetTokenValue("id_token");
+            var userClaims = ParseIdToken(token);
+
+            // Assuming user profile extraction and account linking logic here
+
+            return Redirect("/products");
+        }
+
+        private ClaimsPrincipal ParseIdToken(string idToken)
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]);
+
+            var tokenValidationParameters = new TokenValidationParameters
             {
-                _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
-                
-                return StatusCode(500, new ErrorResponse
-                {
-                    Error = "TokenGenerationError",
-                    Message = "An error occurred while generating the token",
-                    StatusCode = 500
-                });
-            }
+                // Token parameters
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidIssuer = _configuration["Jwt:Issuer"],
+                ValidAudience = _configuration["Jwt:Audience"],
+                ValidateLifetime = true,
+            };
+
+            var principal = tokenHandler.ValidateToken(idToken, tokenValidationParameters, out _);
+            return principal;
         }
     }
-
-    public class LoginRequest
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-    }
 }
+```

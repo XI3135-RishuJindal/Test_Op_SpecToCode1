@@ -1,91 +1,67 @@
+```csharp
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using Moq;
-using Xunit;
+using System.Threading.Tasks;
 using ApiGateway.Controllers;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using System.Collections.Generic;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 
 namespace ApiGateway.Tests.Controllers
 {
+    [TestClass]
     public class AuthControllerTests
     {
-        private readonly Mock<IConfiguration> _mockConfiguration;
-        private readonly Mock<ILogger<AuthController>> _mockLogger;
-        private readonly AuthController _controller;
+        private Mock<IConfiguration> _configMock;
+        private Mock<ILogger<AuthController>> _loggerMock;
+        private Mock<IHttpContextAccessor> _contextAccessorMock;
 
-        public AuthControllerTests()
+        [TestInitialize]
+        public void Setup()
         {
-            _mockConfiguration = new Mock<IConfiguration>();
-            _mockLogger = new Mock<ILogger<AuthController>>();
-            
-            // Setup configuration
-            _mockConfiguration.Setup(x => x["Jwt:Key"]).Returns("test-secret-key-for-unit-tests-256-bits");
-            _mockConfiguration.Setup(x => x["Jwt:Issuer"]).Returns("TestIssuer");
-            _mockConfiguration.Setup(x => x["Jwt:Audience"]).Returns("TestAudience");
-            
-            _controller = new AuthController(_mockConfiguration.Object, _mockLogger.Object);
+            _configMock = new Mock<IConfiguration>();
+            _loggerMock = new Mock<ILogger<AuthController>>();
+            _contextAccessorMock = new Mock<IHttpContextAccessor>();
+
+            _configMock.Setup(config => config["Jwt:Key"]).Returns("development-secret-key-for-testing-only-256-bits");
+            _configMock.Setup(config => config["Jwt:Issuer"]).Returns("TestIssuer");
+            _configMock.Setup(config => config["Jwt:Audience"]).Returns("TestAudience");
         }
 
-        [Fact]
-        public void GenerateToken_ValidCredentials_ReturnsToken()
+        [TestMethod]
+        public async Task SsoCallback_Returns_Redirect_On_Success()
         {
-            // Arrange
-            var request = new LoginRequest
+            _contextAccessorMock.Setup(_ => _.HttpContext.AuthenticateAsync(OpenIdConnectDefaults.AuthenticationScheme))
+                .ReturnsAsync(AuthenticateResult.Success(new AuthenticationTicket(
+                    new ClaimsPrincipal(new ClaimsIdentity(new List<Claim>
+                    {
+                        new Claim(ClaimTypes.Name, "TestUser")
+                    }, "mock")),
+                    new AuthenticationProperties(),
+                    OpenIdConnectDefaults.AuthenticationScheme)));
+
+            var controller = new AuthController(_configMock.Object, _loggerMock.Object)
             {
-                Username = "testuser",
-                Password = "testpassword"
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext
+                    {
+                        RequestServices = _contextAccessorMock.Object.HttpContext.RequestServices
+                    }
+                }
             };
 
-            // Act
-            var result = _controller.GenerateToken(request);
+            var result = await controller.SsoCallback() as RedirectResult;
 
-            // Assert
-            var okResult = Assert.IsType<OkObjectResult>(result);
-            var tokenResponse = okResult.Value;
-            Assert.NotNull(tokenResponse);
-            
-            // Use reflection to check the anonymous object properties
-            var tokenProperty = tokenResponse.GetType().GetProperty("Token");
-            Assert.NotNull(tokenProperty);
-            var token = tokenProperty.GetValue(tokenResponse) as string;
-            Assert.NotNull(token);
-            Assert.NotEmpty(token);
-        }
-
-        [Fact]
-        public void GenerateToken_EmptyUsername_ReturnsBadRequest()
-        {
-            // Arrange
-            var request = new LoginRequest
-            {
-                Username = "",
-                Password = "testpassword"
-            };
-
-            // Act
-            var result = _controller.GenerateToken(request);
-
-            // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
-        }
-
-        [Fact]
-        public void GenerateToken_EmptyPassword_ReturnsBadRequest()
-        {
-            // Arrange
-            var request = new LoginRequest
-            {
-                Username = "testuser",
-                Password = ""
-            };
-
-            // Act
-            var result = _controller.GenerateToken(request);
-
-            // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
+            Assert.IsNotNull(result);
+            Assert.AreEqual("/products", result.Url);
         }
     }
 }
+```
