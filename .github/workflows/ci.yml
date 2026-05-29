@@ -1,0 +1,152 @@
+name: CI — Monolith Decomposition Evaluation
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  lint-and-validate:
+    name: Lint & Validate Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint Markdown files
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: "docs/**/*.md"
+        continue-on-error: true
+
+      - name: Check for required decomposition docs
+        run: |
+          REQUIRED_DOCS=(
+            "docs/decomposition/module-inventory.md"
+            "docs/decomposition/dependency-map.md"
+            "docs/decomposition/data-model-analysis.md"
+            "docs/decomposition/runtime-coupling.md"
+            "docs/decomposition/external-integrations.md"
+            "docs/decomposition/scoring-rubric.md"
+            "docs/decomposition/candidate-scores.md"
+          )
+          MISSING=0
+          for doc in "${REQUIRED_DOCS[@]}"; do
+            if [ ! -f "$doc" ]; then
+              echo "::warning file=$doc::Expected decomposition artifact not found: $doc"
+              MISSING=$((MISSING + 1))
+            else
+              echo "::notice file=$doc::Found: $doc"
+            fi
+          done
+          echo "Missing artifacts: $MISSING"
+
+      - name: Validate internal Markdown links
+        run: |
+          find docs/ -name "*.md" | while read -r file; do
+            grep -oP '\[.*?\]\(\K[^)]+' "$file" | grep -v '^http' | while read -r link; do
+              dir=$(dirname "$file")
+              resolved="$dir/$link"
+              if [ ! -f "$resolved" ]; then
+                echo "::warning file=$file::Broken internal link '$link' in $file"
+              fi
+            done
+          done
+        continue-on-error: true
+
+  structure-check:
+    name: Repository Structure Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify docs/decomposition directory exists
+        run: |
+          if [ ! -d "docs/decomposition" ]; then
+            echo "::warning::docs/decomposition directory does not exist yet. Create it as part of Phase 1."
+          else
+            echo "docs/decomposition directory found."
+            echo "Contents:"
+            ls -1 docs/decomposition/ || true
+          fi
+
+      - name: Count completed checklist items
+        run: |
+          TOTAL=0
+          CHECKED=0
+          find docs/ -name "*.md" | while read -r file; do
+            t=$(grep -c '^\- \[' "$file" 2>/dev/null || true)
+            c=$(grep -c '^\- \[x\]' "$file" 2>/dev/null || true)
+            TOTAL=$((TOTAL + t))
+            CHECKED=$((CHECKED + c))
+            echo "$file: $c/$t tasks completed"
+          done
+        continue-on-error: true
+
+  sast-security-scan:
+    name: SAST Security Scan (Docs & Config)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+        continue-on-error: true
+
+      - name: Upload Trivy SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+        if: always()
+        continue-on-error: true
+
+  summary:
+    name: Evaluation Progress Summary
+    runs-on: ubuntu-latest
+    needs: [lint-and-validate, structure-check]
+    if: always()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate artifact summary
+        run: |
+          echo "## Monolith Decomposition Evaluation — CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Expected Artifacts Status" >> $GITHUB_STEP_SUMMARY
+          echo "| Artifact | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          ARTIFACTS=(
+            "docs/decomposition/module-inventory.md"
+            "docs/decomposition/dependency-map.md"
+            "docs/decomposition/data-model-analysis.md"
+            "docs/decomposition/runtime-coupling.md"
+            "docs/decomposition/external-integrations.md"
+            "docs/decomposition/scoring-rubric.md"
+            "docs/decomposition/candidate-scores.md"
+            "docs/decomposition/bounded-contexts.md"
+            "docs/decomposition/decomposition-proposal.md"
+            "docs/decomposition/risk-register.md"
+            "docs/decomposition/migration-roadmap.md"
+          )
+          for artifact in "${ARTIFACTS[@]}"; do
+            if [ -f "$artifact" ]; then
+              echo "| \`$artifact\` | ✅ Present |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| \`$artifact\` | ⏳ Pending |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Run this workflow after each phase to track documentation progress._" >> $GITHUB_STEP_SUMMARY
