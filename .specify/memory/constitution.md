@@ -15,35 +15,36 @@
 
 ## Guiding Principles
 
-1. **Prefer evidence-based boundary identification over speculative decomposition** because the tech stack (language, runtime, frameworks) is currently unknown — decomposition candidates must be derived from observable code structure, data ownership, and team/domain boundaries, not assumptions.
+1. **Prefer evidence-based boundary identification over speculative decomposition** because the tech stack (language, runtime, frameworks) is currently unknown — decomposition candidates must be derived from observable coupling, data ownership, and change-frequency analysis, not assumptions.
 
-2. **Prefer documenting options over prescribing solutions** because upgrade urgency is rated medium and no implementation commitment is in scope; the output must preserve optionality for decision-makers.
+2. **Prefer documenting options over prescribing a single path** because upgrade urgency is rated medium, meaning no immediate crisis forces a premature architectural commitment.
 
-3. **Prefer conservative service boundary proposals over fine-grained splitting** because tech debt level is unquantified — overly granular decomposition in the presence of unknown debt increases integration risk.
+3. **Prefer bounded-context alignment over technical-layer splitting** because decomposing along domain lines (not technical tiers) reduces distributed-system complexity and avoids creating chatty, tightly-coupled pseudo-services.
 
-4. **Prefer explicit unknowns over invented constraints** because runtime, build tooling, and framework details are not yet established — all technology-specific recommendations must be gated on discovery findings and marked TODO where data is absent.
+4. **Prefer incremental strangler-fig patterns over big-bang rewrites** because the tech debt level is unquantified — a phased approach limits risk exposure when the full scope of internal dependencies is not yet known.
 
-5. **Prefer reuse of existing decomposition frameworks (e.g., Domain-Driven Design bounded contexts, Strangler Fig pattern)** over ad-hoc approaches because they provide repeatable, reviewable criteria that can be validated independently of the unknown stack.
+5. **Prefer explicit documentation of unknowns over silent assumptions** because language, runtime, and build tooling are all unresolved — every decomposition recommendation must state its assumptions and flag gaps for validation.
 
 ---
 
 ## Constraints
 
-- **Timeline & Effort:** Effort ceiling is governed by the "moderate" upgrade option. Exact person-days are not specified — TODO: confirm effort ceiling with project sponsor before work begins.
-- **Scope Freeze:** This task is evaluation and documentation only. No implementation, refactoring, or service extraction is in scope.
-- **Technology Mandates:** None currently established. Runtime, cloud provider, and compliance requirements are unknown — TODO: capture during discovery phase.
-- **Budget:** Not specified — TODO: confirm budget ceiling with stakeholders.
-- **Output Mandate:** All decomposition opportunities must be documented in a structured, reviewable artifact (e.g., decomposition map, candidate service registry) before this task is considered complete.
+- **Effort ceiling:** Moderate option selected; effort must remain within a moderate person-days envelope. No large-scale implementation work is in scope — this task is evaluation and documentation only.
+- **Scope freeze:** Implementation, migration execution, and infrastructure provisioning are explicitly out of scope. Deliverables are limited to analysis artifacts and decomposition documentation.
+- **Technology mandates:** None can be specified until runtime, language, and build tooling are identified. TODO: Capture technology constraints once stack discovery is complete.
+- **Budget:** TODO: Confirm budget ceiling with project sponsor before decomposition recommendations reference specific tooling or platform costs.
+- **No production changes:** This task produces no changes to the running system. All outputs are read-only analytical artifacts.
 
 ---
 
 ## Quality Standards
 
-- **Discovery Coverage:** At least 100% of top-level application modules/domains must be assessed and recorded — no area may be skipped without a documented reason.
-- **Decomposition Candidates:** Each candidate service boundary must include: name, rationale, data ownership assessment, dependency surface, and a risk rating (Low / Medium / High).
-- **Review Requirement:** The decomposition document must be reviewed and signed off by at least one domain expert and one technical lead before being marked final.
-- **Documentation Gate:** No decomposition opportunity is considered documented until it includes a clear "recommended next step" (e.g., further spike, defer, proceed to spec).
-- **Traceability:** Every identified boundary must reference the source evidence (e.g., module name, data store, team ownership) — unsupported assertions are not acceptable.
+- **Coverage of codebase analysis:** 100% of top-level modules/packages must be inventoried before any decomposition boundary is proposed.
+- **Decomposition candidates:** Each candidate service boundary must include: (a) proposed boundary name, (b) rationale tied to domain or data ownership, (c) identified dependencies and coupling risks, (d) estimated decomposition complexity (low/medium/high).
+- **Documentation review:** All decomposition documents must be reviewed by at least one domain stakeholder and one technical reviewer before being marked final.
+- **Assumption tracking:** Every section of the decomposition report that relies on an unverified assumption must include an explicit `TODO` or `ASSUMPTION:` callout.
+- **Deployment gate:** N/A — not applicable to this task (no deployment occurs).
+- **Test coverage floor:** N/A — not applicable to this task (no code is written or modified).
 
 ---
 
@@ -51,6 +52,11 @@
 
 | ID | Decision | Rationale | Status |
 |----|----------|-----------|--------|
-| ADR-001 | Scope limited to evaluation and documentation only | Task definition explicitly excludes implementation; moderate effort option does not support full decomposition execution | Accepted |
-| ADR-002 | Decomposition framework to be selected during discovery | Tech stack is unknown; framework choice (DDD, strangler fig, etc.) must fit observed architecture | Proposed |
-| ADR-003 | All technology-specific constraints marked TODO until stack is confirmed | Language, runtime, and build tool are listed as unknown in tech analysis | Accepted |
+| ADR-001 | Scope is limited to evaluation and documentation only | Upgrade option is "moderate" with no implementation details provided; committing to migration execution would exceed defined scope | Accepted |
+| ADR-002 | Decomposition approach defaults to strangler-fig pattern recommendation | Safest incremental pattern when tech debt level and internal coupling are unquantified | Proposed |
+| ADR-003 | Technology-specific tooling recommendations deferred | Language, runtime, and build tool are all unknown at constitution authoring time | Accepted |
+| ADR-004 | Bounded-context analysis chosen as primary decomposition lens | Domain-driven boundaries produce more stable service contracts than technical-layer splits | Proposed |
+
+---
+
+*All TODOs in this document must be resolved before any downstream spec, plan, or task document is finalized.*
