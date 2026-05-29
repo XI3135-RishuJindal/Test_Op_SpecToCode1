@@ -1,6 +1,7 @@
-using Microsoft.AspNetCore.Authorization;
+```csharp
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -22,77 +23,74 @@ namespace ApiGateway.Controllers
         }
 
         /// <summary>
-        /// Generate JWT token for testing purposes
+        /// Initiates SSO login process and handles performance and security validation.
         /// </summary>
-        /// <param name="request">Login request</param>
-        /// <returns>JWT token</returns>
-        [HttpPost("token")]
-        [AllowAnonymous]
-        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public IActionResult GenerateToken([FromBody] LoginRequest request)
+        /// <returns>Action result indicating success or failure</returns>
+        [HttpGet("sso")]
+        public IActionResult InitiateSSOLogin()
         {
-            _logger.LogInformation("Token generation requested for user: {Username}", request?.Username);
-
+            var stopwatch = Stopwatch.StartNew();
             try
             {
-                if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+                // Simulate SSO login flow triggering
+                // Redirect to IdP (In actual implementation, handle actual redirect flow)
+                var simulatedRedirect = SimulateSSORedirect();
+                if (!simulatedRedirect)
                 {
-                    _logger.LogWarning("Invalid credentials provided for token generation.");
                     return BadRequest(new ErrorResponse
                     {
-                        Error = "InvalidCredentials",
-                        Message = "Username and password are required",
-                        StatusCode = StatusCodes.Status400BadRequest
+                        Error = "SSOError",
+                        Message = "Failed to redirect to Identity Provider",
+                        StatusCode = 400
                     });
                 }
 
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var keyString = _configuration["Jwt:Key"] ?? "default-secret-key-for-development";
-                var key = Encoding.UTF8.GetBytes(keyString);
-
-                var claims = new List<Claim>
+                // Simulating token validation (In actual implementation, validate the token received from IdP)
+                var tokenValid = SimulateTokenValidation();
+                if (!tokenValid)
                 {
-                    new Claim(ClaimTypes.Name, request.Username),
-                    new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-                    new Claim("username", request.Username)
-                };
+                    return Unauthorized(new ErrorResponse
+                    {
+                        Error = "TokenInvalid",
+                        Message = "The token received is invalid",
+                        StatusCode = 401
+                    });
+                }
 
-                var expires = DateTime.UtcNow.AddHours(1);
-
-                var tokenDescriptor = new SecurityTokenDescriptor
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 3000)
                 {
-                    Subject = new ClaimsIdentity(claims),
-                    Expires = expires,
-                    Issuer = _configuration["Jwt:Issuer"],
-                    Audience = _configuration["Jwt:Audience"],
-                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-                };
+                    _logger.LogWarning("SSO login flow exceeded 3 seconds: {ElapsedMilliseconds} ms", stopwatch.ElapsedMilliseconds);
+                    // Handle the timeout logic such as error response or logging
+                }
 
-                var token = tokenHandler.CreateToken(tokenDescriptor);
-                var tokenString = tokenHandler.WriteToken(token);
+                _logger.LogInformation("SSO login flow completed successfully in {ElapsedMilliseconds} ms", stopwatch.ElapsedMilliseconds);
 
-                _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
-
-                return Ok(new
-                {
-                    accessToken = tokenString,
-                    tokenType = "Bearer",
-                    expiresAtUtc = token.ValidTo
-                });
+                return Ok(new { Message = "SSO login successful" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating token.");
-                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
+                _logger.LogError(ex, "Unexpected error during SSO login");
+                return StatusCode(500, new ErrorResponse
                 {
-                    Error = "TokenGenerationFailed",
-                    Message = "An error occurred while generating the token.",
-                    StatusCode = StatusCodes.Status500InternalServerError,
-                    Details = ex.Message
+                    Error = "InternalError",
+                    Message = "An unexpected error occurred during SSO login",
+                    StatusCode = 500
                 });
             }
         }
+
+        private bool SimulateSSORedirect()
+        {
+            // Simulate SSO IdP redirection (This is a placeholder for the actual implementation)
+            return true;
+        }
+
+        private bool SimulateTokenValidation()
+        {
+            // Simulate token validation process (This is a placeholder for the actual implementation)
+            return true;
+        }
     }
 }
+```

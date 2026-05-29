@@ -1,8 +1,5 @@
-## Tasks (auto-derived from plan — review and refine)
-
-- [ ] Implementation Plan (auto-derived — review and expand)
-- [ ] Review spec.md for complete requirements and acceptance criteria
-- [ ] Design implementation approach based on the code context
-- [ ] Implement changes in the affected components
-- [ ] Write unit and integration tests
-- [ ] Update documentation
+- [ ] Modify `Controllers/AuthController.cs`: Implement SSO login flow using OAuth 2.0/OIDC or SAML 2.0.
+- [ ] Update `Program.cs`: Configure routing and token validation logic to handle SSO redirects securely.
+- [ ] Enhance `Tests/Controllers/AuthControllerTests.cs`: Add unit tests covering SSO login scenarios and token validation checks.
+- [ ] Validate application performance: Ensure login flow is completed within the stipulated 3 seconds.
+- [ ] Conduct security review: Verify all token exchanges happen over SSL/TLS.

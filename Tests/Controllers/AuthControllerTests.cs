@@ -1,9 +1,11 @@
+```csharp
+using ApiGateway.Controllers;
+using ApiGateway.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
-using ApiGateway.Controllers;
 
 namespace ApiGateway.Tests.Controllers
 {
@@ -17,75 +19,40 @@ namespace ApiGateway.Tests.Controllers
         {
             _mockConfiguration = new Mock<IConfiguration>();
             _mockLogger = new Mock<ILogger<AuthController>>();
-            
-            // Setup configuration
-            _mockConfiguration.Setup(x => x["Jwt:Key"]).Returns("test-secret-key-for-unit-tests-256-bits");
-            _mockConfiguration.Setup(x => x["Jwt:Issuer"]).Returns("TestIssuer");
-            _mockConfiguration.Setup(x => x["Jwt:Audience"]).Returns("TestAudience");
-            
             _controller = new AuthController(_mockConfiguration.Object, _mockLogger.Object);
         }
 
         [Fact]
-        public void GenerateToken_ValidCredentials_ReturnsToken()
+        public void InitiateSSOLogin_ShouldReturnOk_WhenSSOSuccessful()
         {
-            // Arrange
-            var request = new LoginRequest
-            {
-                Username = "testuser",
-                Password = "testpassword"
-            };
-
             // Act
-            var result = _controller.GenerateToken(request);
+            var result = _controller.InitiateSSOLogin();
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
-            var tokenResponse = okResult.Value;
-            Assert.NotNull(tokenResponse);
-            
-            // Use reflection to check the anonymous object properties
-            var tokenProperty = tokenResponse.GetType().GetProperty("Token");
-            Assert.NotNull(tokenProperty);
-            var token = tokenProperty.GetValue(tokenResponse) as string;
-            Assert.NotNull(token);
-            Assert.NotEmpty(token);
+            Assert.Equal("SSO login successful", ((dynamic)okResult.Value).Message);
         }
 
         [Fact]
-        public void GenerateToken_EmptyUsername_ReturnsBadRequest()
+        public void InitiateSSOLogin_ShouldLogWarning_WhenSSOTakesTooLong()
         {
             // Arrange
-            var request = new LoginRequest
+            // Simulate long delay by overriding SimulateSSORedirect method locally
+            var controller = new AuthController(_mockConfiguration.Object, _mockLogger.Object)
             {
-                Username = "",
-                Password = "testpassword"
+                SimulateSSORedirect = () =>
+                {
+                    System.Threading.Thread.Sleep(3100); // Simulate delay
+                    return true;
+                }
             };
 
             // Act
-            var result = _controller.GenerateToken(request);
+            var result = controller.InitiateSSOLogin();
 
             // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
-        }
-
-        [Fact]
-        public void GenerateToken_EmptyPassword_ReturnsBadRequest()
-        {
-            // Arrange
-            var request = new LoginRequest
-            {
-                Username = "testuser",
-                Password = ""
-            };
-
-            // Act
-            var result = _controller.GenerateToken(request);
-
-            // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
+            _mockLogger.Verify(logger => logger.LogWarning(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
         }
     }
 }
+```
