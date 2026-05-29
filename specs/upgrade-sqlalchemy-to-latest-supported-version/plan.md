@@ -1,48 +1,69 @@
-# PLAN: Upgrade SQLAlchemy to Latest Supported Version
+# Plan Document for SQLAlchemy Upgrade
 
 ## Overview
-The migration strategy for upgrading SQLAlchemy to the latest supported version will follow a **feature-flag gated** approach. This strategy is selected based on a medium risk score and the need for careful incremental upgrades to manage potential breaking changes and compatibility issues. By toggling the new SQLAlchemy version behind a feature flag, it allows for a safe transition and easier rollback if needed.
+
+The recommended high-level migration strategy for upgrading SQLAlchemy to its latest supported version is the **feature-flag gated** approach. Given the medium upgrade urgency and considering potential impacts on the database handling logic, this approach allows incremental adoption and rollback flexibility, minimizing risk to the system's operations during migration.
 
 ## Phases
 
-| Phase | Description | Dependencies | Estimated Effort |
-|-------|-------------|--------------|------------------|
-| 1     | Initial codebase review and creation of feature flags | N/A | 5 person-days |
-| 2     | Incremental upgrade of SQLAlchemy and code adaptation | Phase 1 | 10 person-days |
-| 3     | Testing and validation under new version | Phase 2 | 7 person-days |
-| 4     | Full deployment and monitoring | Phase 3 | 5 person-days |
+| Phase  | Description                                      | Dependencies | Estimated Effort |
+|--------|--------------------------------------------------|--------------|------------------|
+| 1      | Introduce Feature Flags for SQLAlchemy Usage     | None         | 5 person-days    |
+| 2      | Upgrade SQLAlchemy to the latest supported version | Phase 1     | 10 person-days   |
+| 3      | Validate functionality under new SQLAlchemy version | Phase 2    | 15 person-days   |
+| 4      | Remove feature flags and deprecated code          | Phase 3     | 5 person-days    |
 
 ## Component Changes
-- **Models**: Any model classes defined using SQLAlchemy will need structural changes if there are API modifications between versions. Specific classes to be checked need identification from the code context.
-- **Files**: Inspect all files importing SQLAlchemy for necessary migration, focusing on engine configurations and ORM models.
-- **APIs Modified**: Review changes to session management and query APIs for updated usage patterns. The exact methods affected need identification from the code context.
+
+- **Affected Components**:
+  - All files using SQLAlchemy for ORM operations. Likely located in data access layers and any services directly interacting with the database.
+- **Structural Changes**:
+  - Refactor imports in all relevant files to ensure compatibility with the new version of SQLAlchemy.
+- **APIs Impacted**:
+  - Review and adjust any SQLAlchemy-specific methods like `session.query()` and ORM mappings that may be affected by the upgrade.
 
 ## Dependency Upgrade Plan
 
 | Dependency | Current Version | Target Version | Breaking Changes | Migration Notes |
 |------------|-----------------|----------------|------------------|-----------------|
-| SQLAlchemy | Unknown         | Latest         | Potential model, query changes | Review release notes for breaking changes related to session and ORM |
+| SQLAlchemy | Unknown         | Latest         | Yes              | Review changelogs for deprecated features and necessary refactorings. |
 
 ## Infrastructure Changes
+
 N/A — not applicable to this task
 
 ## Rollback Strategy
-1. **Phase 1**: Revert feature flag changes in the configuration files.
-2. **Phase 2**: Restore previous SQLAlchemy version by reverting dependency configuration.
-3. **Phase 3**: Roll back to previous database schema state if database migrations were performed.
-4. **Phase 4**: Monitor for undiscovered issues after rollback and revert logs.
+
+- **Phase 1**: 
+  - Disable feature flags to revert to pre-migration SQLAlchemy functionality.
+- **Phase 2**: 
+  - Rollback SQLAlchemy to the previous version in the requirements file.
+  - Re-deploy the previous Docker image version if applicable.
+- **Phase 3**: 
+  - Re-enable pre-upgrade behavior via feature flags.
+  - Re-run all database tests under the old configuration.
+- **Phase 4**:
+  - Reintroduce any removed feature flags as necessary.
 
 ## Testing Strategy
-- **Unit Tests**: Ensure at least 80% coverage, focusing on validation of model behavior and session handling.
-- **Integration Tests**: Validate SQL query execution and ORM interactions against a test database.
-- **Regression Tests**: Run the full suite to identify unexpected behavior introduced by the upgrade.
-- **Performance Tests**: Conduct comparative tests pre- and post-upgrade to ensure performance is not degraded.
+
+- **Unit Tests**: 
+  - Ensure coverage of all ORM operations using pytest (or an equivalent framework).
+  - Target: 85% coverage.
+- **Integration Tests**:
+  - Use available CI gates to run integration tests with focus on database interactions.
+- **Regression Tests**:
+  - Validate application behavior remains consistent with pre-upgrade standards.
+- **Performance Tests**:
+  - Conduct benchmarking to ensure that ORM operations under the new SQLAlchemy version meet required performance criteria.
 
 ## Timeline
 
-| Milestone            | Phase       | Estimated Completion | Owner |
-|----------------------|-------------|----------------------|-------|
-| Code Review Completed | Phase 1     | 1 week from start    | TODO  |
-| SQLAlchemy Updated   | Phase 2     | 3 weeks from start   | TODO  |
-| Testing Completed    | Phase 3     | 4 weeks from start   | TODO  |
-| Deployment Finalized | Phase 4     | 5 weeks from start   | TODO  |
+| Milestone         | Phase | Estimated Completion | Owner (or TODO)     |
+|-------------------|-------|----------------------|---------------------|
+| Feature Flags Implemented | Phase 1 | T+5 days           | TODO                |
+| SQLAlchemy Upgraded       | Phase 2 | T+15 days          | TODO                |
+| Functionality Validated   | Phase 3 | T+30 days          | TODO                |
+| Code Cleanup Completed    | Phase 4 | T+35 days          | TODO                | 
+
+The dates are estimates based on effort calculations and should be reviewed by the project management team for resource allocation.
