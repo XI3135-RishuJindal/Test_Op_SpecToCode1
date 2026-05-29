@@ -1,63 +1,66 @@
 # TASKS: Monolith Decomposition Opportunity Evaluation
 
-> **Goal:** Evaluate and document decomposition opportunities from the existing monolith into microservices.
-> **Upgrade Option:** Moderate
-> **Note:** Technology stack details were not provided in the tech analysis. Tasks below are scoped strictly to discovery, evaluation, and documentation activities. No code migration tasks are included, as no specific components, frameworks, or files were identified.
+> **Goal:** Evaluate and document decomposition opportunities from a monolithic architecture into microservices.
+> **Upgrade Option:** Moderate decomposition approach
+> **Note:** Technology stack details were not provided in the tech analysis. Tasks below are scoped strictly to the evaluation and documentation effort. Specific file/module names should be updated once the codebase is inspected in Phase 1.
 
 ---
 
 ## Prerequisites
 
-- [ ] [XS] Confirm access to the monolith's source repository and ensure read permissions are granted to all evaluators involved in the decomposition analysis
-- [ ] [XS] Confirm access to any existing architecture diagrams, API contracts, database schemas, and runbooks relevant to the monolith
-- [ ] [XS] Identify and schedule availability of domain experts, team leads, and stakeholders who have working knowledge of the monolith's bounded contexts
-- [ ] [XS] Establish a shared documentation workspace (e.g., Confluence space, GitHub Wiki, or equivalent) where all decomposition findings will be recorded
+- [ ] [XS] Confirm read access to the monolith source repository and any existing architecture diagrams for all team members involved in the evaluation
+- [ ] [XS] Confirm access to production and staging runtime metrics (APM, logs, tracing) to support dependency and load analysis
+- [ ] [XS] Identify and schedule availability of domain experts and service owners for structured interviews during the evaluation phase
+- [ ] [XS] Set up a shared documentation workspace (e.g., Confluence space, GitHub Wiki, or equivalent) to capture all evaluation artifacts
 
 ---
 
 ## Phase 1 — Preparation
 
-- [ ] [M] Inventory all top-level modules, packages, and logical groupings within the monolith codebase and record findings in a `decomposition/01-module-inventory.md` document
-- [ ] [M] Map all inbound and outbound integration points (APIs, message queues, scheduled jobs, shared databases, file I/O) and record in `decomposition/02-integration-map.md`
-- [ ] [S] Identify and document all shared libraries, utilities, and cross-cutting concerns (e.g., logging, auth, config) that are consumed across multiple modules in `decomposition/03-shared-concerns.md`
-- [ ] [S] Capture the current deployment topology (single deployable unit, database layout, infrastructure dependencies) in `decomposition/04-deployment-topology.md`
-- [ ] [S] Document the existing test coverage posture (unit, integration, end-to-end) as a baseline reference in `decomposition/05-test-coverage-baseline.md`
+- [ ] [M] Inventory all top-level modules, packages, and logical groupings in the monolith codebase and record findings in `docs/decomposition/module-inventory.md`
+- [ ] [M] Map all intra-monolith dependencies (module-to-module calls, shared data models, shared utilities) and record in `docs/decomposition/dependency-map.md`
+- [ ] [S] Identify and document all shared database schemas, tables, and cross-domain data relationships in `docs/decomposition/data-model-analysis.md`
+- [ ] [S] Collect and document runtime coupling signals (shared transactions, synchronous call chains, shared caches) from APM/log data in `docs/decomposition/runtime-coupling.md`
+- [ ] [S] Identify and document all external integration points (third-party APIs, messaging systems, file I/O) in `docs/decomposition/external-integrations.md`
+- [ ] [XS] Establish a consistent scoring rubric for decomposition candidates (e.g., autonomy, change frequency, team ownership, data isolation) in `docs/decomposition/scoring-rubric.md`
 
 ---
 
 ## Phase 2 — Core Upgrade
 
-> **Note:** This phase covers the core analytical work — identifying and evaluating decomposition candidates. No code changes are in scope for this task.
+> *This phase covers the core analytical work: identifying, evaluating, and prioritizing decomposition candidates.*
 
-- [ ] [L] Conduct domain-driven design (DDD) event-storming or context-mapping sessions with domain experts to identify candidate bounded contexts and record outputs in `decomposition/06-bounded-contexts.md`
-- [ ] [M] Analyze inter-module coupling and dependency frequency across identified modules; document high-coupling hotspots and low-coupling natural seams in `decomposition/07-coupling-analysis.md`
-- [ ] [M] Evaluate each candidate bounded context against decomposition criteria (team ownership, independent deployability, data isolation feasibility, change frequency) and score in `decomposition/08-candidate-scoring.md`
-- [ ] [M] Identify data ownership boundaries and shared-database anti-patterns; document which modules share tables or schemas and the effort required to separate them in `decomposition/09-data-boundary-analysis.md`
-- [ ] [S] Assess operational complexity trade-offs (network latency, distributed transactions, observability overhead) for the top-ranked decomposition candidates in `decomposition/10-operational-tradeoffs.md`
-- [ ] [M] Produce a prioritized decomposition roadmap listing candidates in recommended extraction order, with rationale, in `decomposition/11-decomposition-roadmap.md`
+- [ ] [L] Apply the scoring rubric from `docs/decomposition/scoring-rubric.md` to each module identified in `docs/decomposition/module-inventory.md` and record scores in `docs/decomposition/candidate-scores.md`
+- [ ] [M] Identify bounded contexts within the monolith using Domain-Driven Design principles and document context boundaries in `docs/decomposition/bounded-contexts.md`
+- [ ] [M] Evaluate data ownership and isolation feasibility for each high-scoring candidate and document findings in `docs/decomposition/data-isolation-feasibility.md`
+- [ ] [M] Assess inter-service communication patterns required for each candidate (synchronous REST/gRPC vs. asynchronous messaging) and document in `docs/decomposition/communication-patterns.md`
+- [ ] [S] Identify shared libraries or utilities that would need to be extracted or duplicated across services and document in `docs/decomposition/shared-library-analysis.md`
+- [ ] [M] Produce a prioritized shortlist of decomposition candidates with rationale, risk, and estimated effort in `docs/decomposition/prioritized-candidates.md`
+- [ ] [M] Draft a proposed decomposition roadmap with sequencing rationale (e.g., strangler fig pattern ordering) in `docs/decomposition/decomposition-roadmap.md`
 
 ---
 
 ## Phase 3 — Testing & Validation
 
-- [ ] [S] Review the test coverage baseline (`decomposition/05-test-coverage-baseline.md`) against each candidate service boundary to identify gaps that would need to be closed before any future extraction begins; record findings in `decomposition/12-test-gap-analysis.md`
-- [ ] [S] Validate the bounded context map (`decomposition/06-bounded-contexts.md`) and candidate scoring (`decomposition/08-candidate-scoring.md`) in a structured review session with domain experts and record sign-off or revision notes
+- [ ] [M] Review existing test coverage for each prioritized decomposition candidate and document gaps that would increase decomposition risk in `docs/decomposition/test-coverage-gaps.md`
+- [ ] [S] Validate bounded context boundaries with domain experts via structured review sessions and record sign-off or revisions in `docs/decomposition/bounded-contexts.md`
+- [ ] [S] Peer-review `docs/decomposition/prioritized-candidates.md` and `docs/decomposition/decomposition-roadmap.md` with engineering leads and record feedback and resolutions in a review log
 
 ---
 
 ## Phase 4 — CI/CD & Infrastructure
 
-N/A — not applicable to this task. No code changes, pipeline modifications, or infrastructure updates are in scope for an evaluation and documentation effort.
+N/A — not applicable to this task. This task is an evaluation and documentation effort; no CI/CD or infrastructure changes are being implemented.
 
 ---
 
 ## Phase 5 — Documentation & Rollout
 
-- [ ] [M] Consolidate all decomposition artifacts into a single executive summary document (`decomposition/00-executive-summary.md`) covering findings, recommended candidates, risks, and proposed next steps
-- [ ] [S] Conduct a stakeholder review walkthrough of `decomposition/00-executive-summary.md` and `decomposition/11-decomposition-roadmap.md`; capture feedback and open questions in a tracked issues list
-- [ ] [S] Incorporate stakeholder feedback and publish the final decomposition documentation set to the shared workspace, marking the evaluation milestone as complete
-- [ ] [XS] Create follow-on GitHub Issues or backlog items for each top-priority decomposition candidate identified in `decomposition/11-decomposition-roadmap.md` to seed the next phase of work
+- [ ] [M] Consolidate all evaluation artifacts into a single executive summary document at `docs/decomposition/executive-summary.md`, including goals, methodology, findings, and recommended next steps
+- [ ] [S] Present findings and roadmap to engineering leadership and stakeholders; capture decisions and action items in `docs/decomposition/stakeholder-review-notes.md`
+- [ ] [S] Define success metrics and observability criteria for future decomposition execution phases and document in `docs/decomposition/success-metrics.md`
+- [ ] [XS] Archive all working documents and link them from the project README or central documentation index so findings are discoverable for future implementation teams
 
 ---
 
-> **Scope boundary:** All tasks above are limited to evaluation and documentation. Actual service extraction, refactoring, infrastructure provisioning, and CI/CD changes are out of scope until a follow-on modernization task is initiated with a concrete tech stack analysis.
+> **Next Steps:** Once this evaluation is complete and `docs/decomposition/prioritized-candidates.md` is approved, a separate TASKS document should be created for the first implementation phase, grounded in the specific technology stack and candidate service identified in the roadmap.
