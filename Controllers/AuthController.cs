@@ -1,4 +1,3 @@
-```csharp
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -31,14 +30,13 @@ namespace ApiGateway.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         public IActionResult GenerateToken([FromBody] LoginRequest request)
         {
-            _logger.LogInformation("Token generation requested for user: {Username}", request.Username);
+            _logger.LogInformation("Token generation requested for user: {Username}", request.Username.Substring(0, 2) + "***");
 
             try
             {
                 // Simple validation for demo purposes
                 if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 {
-                    _logger.LogWarning("Invalid login attempt with missing credentials for user: {Username}", request.Username);
                     return BadRequest(new ErrorResponse
                     {
                         Error = "InvalidCredentials",
@@ -47,6 +45,8 @@ namespace ApiGateway.Controllers
                     });
                 }
 
+                // For demo purposes, accept any non-empty credentials
+                // In production, this would validate against a user store
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default-secret-key-for-development");
                 
@@ -67,21 +67,22 @@ namespace ApiGateway.Controllers
                 var token = tokenHandler.CreateToken(tokenDescriptor);
                 var tokenString = tokenHandler.WriteToken(token);
 
-                _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
-                return Ok(new { Token = tokenString });
+                _logger.LogInformation("Token generated successfully for user: {UserId}", tokenDescriptor.Subject.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+                return Ok(new { token = tokenString });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while generating token");
+                _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
                 return StatusCode(500, new ErrorResponse
                 {
-                    Error = "InternalError",
-                    Message = "An error occurred while generating token",
-                    StatusCode = 500,
-                    Details = ex.Message
+                    Error = "TokenGenerationFailed",
+                    Message = "An error occurred while generating the token",
+                    StatusCode = 500
                 });
             }
         }
     }
 }
 ```
+
+```plaintext

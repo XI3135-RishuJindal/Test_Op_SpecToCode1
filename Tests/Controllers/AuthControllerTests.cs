@@ -1,59 +1,60 @@
-```csharp
 using Xunit;
-using Moq;
+using ApiGateway.Controllers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using ApiGateway.Controllers;
-using ApiGateway.Models;
+using Moq;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
+using ApiGateway.Models;
 
 namespace ApiGateway.Tests.Controllers
 {
     public class AuthControllerTests
     {
-        private readonly Mock<ILogger<AuthController>> _mockLogger;
         private readonly Mock<IConfiguration> _mockConfiguration;
-        private readonly AuthController _controller;
+        private readonly Mock<ILogger<AuthController>> _mockLogger;
+        private readonly AuthController _authController;
 
         public AuthControllerTests()
         {
-            _mockLogger = new Mock<ILogger<AuthController>>();
             _mockConfiguration = new Mock<IConfiguration>();
-            _mockConfiguration.Setup(config => config["Jwt:Key"]).Returns("development-secret-key-for-testing-only-256-bits");
-            _mockConfiguration.Setup(config => config["Jwt:Issuer"]).Returns("ApiGateway");
-            _mockConfiguration.Setup(config => config["Jwt:Audience"]).Returns("ApiGatewayUsers");
-            _controller = new AuthController(_mockConfiguration.Object, _mockLogger.Object);
+            _mockLogger = new Mock<ILogger<AuthController>>();
+            _authController = new AuthController(_mockConfiguration.Object, _mockLogger.Object);
         }
 
         [Fact]
-        public void GenerateToken_WithValidRequest_ShouldReturnOkResult()
+        public void GenerateToken_ReturnsBadRequest_WhenCredentialsAreInvalid()
         {
-            var loginRequest = new LoginRequest
-            {
-                Username = "testuser",
-                Password = "testpassword"
-            };
+            var loginRequest = new LoginRequest { Username = "", Password = "" };
+            var result = _authController.GenerateToken(loginRequest) as BadRequestObjectResult;
 
-            var result = _controller.GenerateToken(loginRequest);
-
-            Assert.IsType<OkObjectResult>(result);
-            _mockLogger.Verify(logger => logger.LogInformation(It.IsAny<string>(), It.IsAny<object[]>()), Times.AtLeast(1));
+            Assert.NotNull(result);
+            Assert.Equal(400, result.StatusCode);
+            _mockLogger.Verify(logger => logger.Log(
+                It.Is<LogLevel>(l => l == LogLevel.Information),
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("requested for user: ")),
+                It.IsAny<Exception>(),
+                It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)), Times.Once);
         }
 
         [Fact]
-        public void GenerateToken_WithInvalidCredentials_ShouldReturnBadRequest()
+        public void GenerateToken_ReturnsOk_WhenCredentialsAreValid()
         {
-            var loginRequest = new LoginRequest
-            {
-                Username = "testuser",
-                Password = ""
-            };
+            var loginRequest = new LoginRequest { Username = "testuser", Password = "password123" };
+            _mockConfiguration.SetupGet(x => x["Jwt:Key"]).Returns("your-secret-key-here-must-be-at-least-256-bits");
+            _mockConfiguration.SetupGet(x => x["Jwt:Issuer"]).Returns("ApiGateway");
+            _mockConfiguration.SetupGet(x => x["Jwt:Audience"]).Returns("ApiGatewayUsers");
 
-            var result = _controller.GenerateToken(loginRequest);
+            var result = _authController.GenerateToken(loginRequest) as OkObjectResult;
 
-            Assert.IsType<BadRequestObjectResult>(result);
-            _mockLogger.Verify(logger => logger.LogWarning(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
+            Assert.NotNull(result);
+            Assert.Equal(200, result.StatusCode);
+            _mockLogger.Verify(logger => logger.Log(
+                It.Is<LogLevel>(l => l == LogLevel.Information),
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Token generated successfully for user: ")),
+                It.IsAny<Exception>(),
+                It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)), Times.Once);
         }
     }
 }
