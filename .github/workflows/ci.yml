@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up target language latest stable version
+        run: echo "Setting up target language latest stable version"
+        # Actual setup command should be here i.e., `setup-language@latest`, however, as the language is unknown, this is a placeholder
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Run Linter
+        run: echo "Running linter"
+        # Add linter command here
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run Unit Tests
+        run: echo "Running unit tests"
+        # Add test command here
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Project
+        run: echo "Building the project"
+        # Add build command here
+
+  sast:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Perform SAST
+        run: echo "Running SAST security scan"
+        # Add SAST tool invocation here (optional job)
