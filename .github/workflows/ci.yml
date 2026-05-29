@@ -1,0 +1,135 @@
+name: CI — log4j CVE-2021-44228 Remediation
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build-and-test:
+    name: Build, Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect build tool
+        id: detect
+        run: |
+          if [ -f "pom.xml" ]; then
+            echo "tool=maven" >> "$GITHUB_OUTPUT"
+          elif [ -f "build.gradle.kts" ]; then
+            echo "tool=gradle-kts" >> "$GITHUB_OUTPUT"
+          elif [ -f "build.gradle" ]; then
+            echo "tool=gradle" >> "$GITHUB_OUTPUT"
+          else
+            echo "tool=unknown" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK (latest stable)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: ${{ steps.detect.outputs.tool == 'maven' && 'maven' || 'gradle' }}
+
+      # ── Maven path ──────────────────────────────────────────────────────────
+      - name: Maven — Verify log4j-core version is 2.17.2+
+        if: steps.detect.outputs.tool == 'maven'
+        run: |
+          mvn dependency:tree -Dincludes=org.apache.logging.log4j:log4j-core | \
+            grep log4j-core | \
+            awk -F: '{print $4}' | \
+            while read ver; do
+              python3 - <<EOF
+          import sys
+          from packaging.version import Version
+          v = Version("$ver".strip())
+          safe = Version("2.17.2")
+          if v < safe:
+              print(f"FAIL: log4j-core {v} is below safe threshold {safe}")
+              sys.exit(1)
+          else:
+              print(f"OK: log4j-core {v} >= {safe}")
+          EOF
+            done
+
+      - name: Maven — Build and run tests
+        if: steps.detect.outputs.tool == 'maven'
+        run: mvn --batch-mode --no-transfer-progress verify
+
+      # ── Gradle path ─────────────────────────────────────────────────────────
+      - name: Gradle — Make wrapper executable
+        if: >
+          steps.detect.outputs.tool == 'gradle' ||
+          steps.detect.outputs.tool == 'gradle-kts'
+        run: chmod +x ./gradlew
+
+      - name: Gradle — Verify log4j-core version is 2.17.2+
+        if: >
+          steps.detect.outputs.tool == 'gradle' ||
+          steps.detect.outputs.tool == 'gradle-kts'
+        run: |
+          ./gradlew dependencies --configuration runtimeClasspath | \
+            grep log4j-core | \
+            grep -oP '\d+\.\d+\.\d+' | \
+            while read ver; do
+              python3 - <<EOF
+          import sys
+          from packaging.version import Version
+          v = Version("$ver".strip())
+          safe = Version("2.17.2")
+          if v < safe:
+              print(f"FAIL: log4j-core {v} is below safe threshold {safe}")
+              sys.exit(1)
+          else:
+              print(f"OK: log4j-core {v} >= {safe}")
+          EOF
+            done
+
+      - name: Gradle — Build and run tests
+        if: >
+          steps.detect.outputs.tool == 'gradle' ||
+          steps.detect.outputs.tool == 'gradle-kts'
+        run: ./gradlew build
+
+      # ── Fallback ─────────────────────────────────────────────────────────────
+      - name: Unknown build tool — warn
+        if: steps.detect.outputs.tool == 'unknown'
+        run: |
+          echo "::warning::No recognised build descriptor found (pom.xml / build.gradle / build.gradle.kts)."
+          echo "Please add the appropriate build file and re-run this workflow."
+          exit 1
+
+  sast-dependency-scan:
+    name: SAST — Dependency Vulnerability Scan (Trivy)
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: false
+          vuln-type: library
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-dependency-scan
