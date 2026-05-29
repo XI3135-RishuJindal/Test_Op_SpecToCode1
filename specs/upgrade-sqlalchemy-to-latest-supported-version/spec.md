@@ -1,30 +1,26 @@
 ## Summary
-This specification document covers the upgrade process for updating SQLAlchemy to its latest supported version. The expected outcome is improved performance, security enhancements, and better compliance with modern best practices. This upgrade is deemed to have a medium urgency, addressing potential vulnerabilities and ensuring compatibility with newer database backends.
+This spec covers the upgrade of SQLAlchemy to its latest supported version. The expected outcome is to ensure compatibility with new features, maintain security compliance, and resolve any deprecation warnings present in the current system. This will involve evaluating and potentially updating interfaces, APIs, data models, and configurations currently in use.
 
 ## Motivation
-The primary drivers for upgrading SQLAlchemy involve addressing potential CVEs associated with older versions, improving performance, and aligning with end-of-life schedules which would hinder security fixes and support. Ensuring compatibility with the latest database technologies also serves as a motivation for this upgrade. The current urgency is set to medium.
+The primary motivation for upgrading SQLAlchemy is to address technical debt and maintain compliance with industry standards. The urgency is rated as medium. Updating to the latest version will also help mitigate potential security vulnerabilities (CVEs) and provide performance improvements offered by newer releases.
 
 ## Current State
-N/A — not applicable to this task
+N/A — not applicable to this task.
 
 ## Proposed Changes
-| Component       | Before                  | After                   | Breaking? (Y/N) |
-|-----------------|-------------------------|-------------------------|-----------------|
-| SQLAlchemy      | Version: unknown        | Latest supported version| TODO            |
+N/A — not applicable to this task.
 
 ## Compatibility & Breaking Changes
-- **Breaking changes**: As the current version of SQLAlchemy is unknown, potential breaking changes cannot be assessed at this moment.
-- **Migration path**: TODO
+N/A — not applicable to this task.
 
 ## Acceptance Criteria
-1. **Given** the application is utilizing SQLAlchemy, **when** the upgrade process is completed, **then** all unit tests related to database interactions must pass without errors.
-2. **Given** previous functionalities, **when** the application is started post-upgrade, **then** there should be no deprecation warnings from SQLAlchemy in the logs.
-3. **Given** standard operations like CRUD (Create, Read, Update, Delete), **when** performed on supported databases, **then** there should be no performance regressions compared to the previous version.
+1. Given the current system setup, when SQLAlchemy is upgraded, then the application must start without errors.
+2. Given the previous database schema, when queries are executed using SQLAlchemy, then the results must match the expected outcomes as per pre-upgrade tests.
+3. Given the use of deprecated SQLAlchemy features, when the upgrade is completed, then no deprecation warnings should be present in the system logs.
 
 ## Open Questions
-| #  | Question                                      | Owner     | Due Date |
-|----|-----------------------------------------------|-----------|----------|
-| 1  | What specific version of SQLAlchemy is currently in use? | TODO      | TODO     |
-| 2  | Are there any existing custom extensions or plugins for SQLAlchemy that might affect the upgrade? | TODO      | TODO     |
-| 3  | What automated testing frameworks are in place to verify functionality post-upgrade? | TODO      | TODO     |
-
+| #  | Question                                   | Owner | Due Date |
+|----|--------------------------------------------|-------|----------|
+| 1  | What is the current version of SQLAlchemy? | TODO  | TODO     |
+| 2  | What language and runtime are used?        | TODO  | TODO     |
+| 3  | What build tool is currently in use?       | TODO  | TODO     |
