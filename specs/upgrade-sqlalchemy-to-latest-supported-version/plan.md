@@ -1,57 +1,53 @@
-# PLAN: SQLAlchemy Upgrade
+# PLAN Document for SQLAlchemy Upgrade
 
 ## Overview
-The chosen strategy for upgrading SQLAlchemy is the **feature-flag gated approach**. This approach is selected based on the medium urgency of the upgrade and the moderate effort required, which allows for incremental testing and minimizes risk by enabling easy toggling between old and new functionality. 
+The recommended strategy for upgrading SQLAlchemy is a **feature-flag gated** approach. Given the medium urgency and technical debt, this method allows incremental adoption of changes and provides rollback capabilities at each stage, reducing risk. The effort estimate, based on the moderate upgrade option, suggests this approach to manage ongoing development operations smoothly without major disruptions.
 
 ## Phases
-
-| Phase | Description                                      | Dependencies | Estimated Effort |
-|-------|--------------------------------------------------|--------------|------------------|
-| 1     | Implement initial feature flags for existing SQLAlchemy logic. | N/A          | Moderate        |
-| 2     | Upgrade SQLAlchemy to the latest supported version under feature flag. | Phase 1      | Moderate        |
-| 3     | Switch feature flag to new version of SQLAlchemy in non-critical workloads. Monitor for issues. | Phase 2      | Moderate        |
-| 4     | Fully enable new SQLAlchemy version across all components. Remove feature flag logic. | Phase 3      | Moderate        |
+| Phase | Description | Dependencies | Estimated Effort |
+|-------|-------------|--------------|------------------|
+| Phase 1 | Implement feature flags to toggle between existing and new SQLAlchemy versions. | None | 1 person-day |
+| Phase 2 | Upgrade development environment to the target SQLAlchemy version and stabilize. | Phase 1 | 2 person-days |
+| Phase 3 | Conduct testing in staging with feature flags and address breaking changes. | Phase 2 | 3 person-days |
+| Phase 4 | Deploy to production with feature flags enabling fallback to the previous version. | Phase 3 | 2 person-days |
 
 ## Component Changes
-- **Database Abstraction Layer**: 
-  - Implement feature flags to enable/disable new version-specific code paths.
-  - Modify ORM model definitions as needed to accommodate any syntax changes.
-  - Files affected: `db_layer.py`, `models.py`.
-- **APIs**:
-  - Ensure all SQLAlchemy-related queries are covered by feature flags.
-  - Adjust API endpoints if necessary due to ORM model changes. 
-  - Methods affected: `get_data()`, `save_data()`.
+- **Components**: Files or classes directly interacting with SQLAlchemy will require modifications to accommodate new API changes.
+- **Files Affected**: Identify SQLAlchemy initialization files (e.g., `database.py`, `models/`).
+- **APIs Modified**: 
+  - Ensure compatibility of ORM models. 
+  - Modify any custom dialects or core schema references.
+  - Update deprecated methods if listed in SQLAlchemy release notes.
 
 ## Dependency Upgrade Plan
-
-| Dependency  | Current Version | Target Version | Breaking Changes | Migration Notes |
-|-------------|-----------------|----------------|------------------|-----------------|
-| SQLAlchemy  | Unknown         | Latest Supported | TBD              | Review SQLAlchemy release notes for breaking changes and mitigations. |
+| Dependency   | Current Version | Target Version | Breaking Changes | Migration Notes |
+|--------------|-----------------|----------------|------------------|-----------------|
+| SQLAlchemy   | Unknown         | Latest         | Refer to official release notes for detailed changes | Conduct thorough testing to identify impacts |
 
 ## Infrastructure Changes
-N/A — not applicable to this task
+- Docker base image: TODO
+- Kubernetes manifest changes: TODO
+- CI/CD pipeline changes: Include additional steps for enabling/disabling feature flags.
+- IaC updates: TODO
 
 ## Rollback Strategy
-- **Phase 1**: Revert feature flag changes if issues occur.
-- **Phase 2**: Downgrade SQLAlchemy version under feature flag. Re-enable old version paths.
-- **Phase 3**: Roll back feature flag switch to old version if instability detected.
-- **Phase 4**: Re-implement feature flag if unforeseen issues arise.
+- **Phase 1 Rollback**: Remove feature flags if implementation issues are discovered.
+- **Phase 2 Rollback**: Revert development environment to pre-upgrade state.
+- **Phase 3 Rollback**: Utilize feature flags to fallback to previous SQLAlchemy version if tests fail.
+- **Phase 4 Rollback**: Gradually disable new version through feature flags while monitoring stability.
 
 ## Testing Strategy
-- **Unit Testing**: Ensure 90% coverage of database abstraction layer, primarily using `unittest`.
-- **Integration Testing**: Leverage `pytest` to validate integration between different system components with updated SQLAlchemy.
-- **Regression Testing**: Run a full suite of tests against all historical business use cases involving database operations.
-- **Performance Testing**: Use `pytest-benchmark` to ensure no significant degradations.
+- **Unit Tests**: Achieve 90% code coverage using Pytest.
+- **Integration Tests**: Validate interaction between SQLAlchemy and the database.
+- **Regression Tests**: Run a full suite of tests from the previous stable version to ensure no new failures.
+- **Performance Tests**: Benchmark query execution times pre- and post-upgrade to detect and address any regressions.
 
 ## Timeline
+| Milestone              | Phase   | Estimated Completion | Owner        |
+|------------------------|---------|----------------------|--------------|
+| Feature Flags Complete | Phase 1 | Week 1               | TODO         |
+| Upgrade Stabilized     | Phase 2 | Week 2               | TODO         |
+| Testing Finalized      | Phase 3 | Week 3               | TODO         |
+| Production Deployment  | Phase 4 | Week 4               | TODO         |
 
-| Milestone              | Phase  | Estimated Completion | Owner      |
-|------------------------|--------|----------------------|------------|
-| Initial feature flag impl | Phase 1 | TBD                  | TODO       |
-| SQLAlchemy upgrade with feature flags | Phase 2 | TBD                  | TODO       |
-| Feature flag switch for non-critical workloads | Phase 3 | TBD                  | TODO       |
-| Full deployment without feature flags | Phase 4 | TBD                  | TODO       |
-
----
-
-Please review SQLAlchemy's release notes to fill any unknowns regarding current and target versions along with specific breaking changes. Specific timeline dates and owners to be determined based on resource availability and project schedules.
+Note: All dependencies should derive from the upgrade option, with estimates adopted from the moderate estimate of person-days for each phase.
