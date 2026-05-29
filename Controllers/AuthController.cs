@@ -30,7 +30,7 @@ namespace ApiGateway.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         public IActionResult GenerateToken([FromBody] LoginRequest request)
         {
-            _logger.LogInformation("Token generation requested for user: {Username}", request.Username);
+            _logger.LogInformation("Token generation requested for user: {Username}", request.Username.Substring(0, 2) + "***");
 
             try
             {
@@ -67,32 +67,22 @@ namespace ApiGateway.Controllers
                 var token = tokenHandler.CreateToken(tokenDescriptor);
                 var tokenString = tokenHandler.WriteToken(token);
 
-                _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
-
-                return Ok(new
-                {
-                    Token = tokenString,
-                    Expires = tokenDescriptor.Expires,
-                    TokenType = "Bearer"
-                });
+                _logger.LogInformation("Token generated successfully for user: {UserId}", tokenDescriptor.Subject.Claims.First(c => c.Type == ClaimTypes.NameIdentifier).Value);
+                return Ok(new { token = tokenString });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
-                
                 return StatusCode(500, new ErrorResponse
                 {
-                    Error = "TokenGenerationError",
+                    Error = "TokenGenerationFailed",
                     Message = "An error occurred while generating the token",
                     StatusCode = 500
                 });
             }
         }
     }
-
-    public class LoginRequest
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-    }
 }
+```
+
+```plaintext

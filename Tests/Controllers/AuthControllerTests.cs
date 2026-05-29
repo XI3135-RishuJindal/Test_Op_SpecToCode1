@@ -1,9 +1,10 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Moq;
 using Xunit;
 using ApiGateway.Controllers;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using Moq;
+using Microsoft.AspNetCore.Mvc;
+using ApiGateway.Models;
 
 namespace ApiGateway.Tests.Controllers
 {
@@ -11,81 +12,50 @@ namespace ApiGateway.Tests.Controllers
     {
         private readonly Mock<IConfiguration> _mockConfiguration;
         private readonly Mock<ILogger<AuthController>> _mockLogger;
-        private readonly AuthController _controller;
+        private readonly AuthController _authController;
 
         public AuthControllerTests()
         {
             _mockConfiguration = new Mock<IConfiguration>();
             _mockLogger = new Mock<ILogger<AuthController>>();
-            
-            // Setup configuration
-            _mockConfiguration.Setup(x => x["Jwt:Key"]).Returns("test-secret-key-for-unit-tests-256-bits");
-            _mockConfiguration.Setup(x => x["Jwt:Issuer"]).Returns("TestIssuer");
-            _mockConfiguration.Setup(x => x["Jwt:Audience"]).Returns("TestAudience");
-            
-            _controller = new AuthController(_mockConfiguration.Object, _mockLogger.Object);
+            _authController = new AuthController(_mockConfiguration.Object, _mockLogger.Object);
         }
 
         [Fact]
-        public void GenerateToken_ValidCredentials_ReturnsToken()
+        public void GenerateToken_ReturnsBadRequest_WhenCredentialsAreInvalid()
         {
-            // Arrange
-            var request = new LoginRequest
-            {
-                Username = "testuser",
-                Password = "testpassword"
-            };
+            var loginRequest = new LoginRequest { Username = "", Password = "" };
+            var result = _authController.GenerateToken(loginRequest) as BadRequestObjectResult;
 
-            // Act
-            var result = _controller.GenerateToken(request);
-
-            // Assert
-            var okResult = Assert.IsType<OkObjectResult>(result);
-            var tokenResponse = okResult.Value;
-            Assert.NotNull(tokenResponse);
-            
-            // Use reflection to check the anonymous object properties
-            var tokenProperty = tokenResponse.GetType().GetProperty("Token");
-            Assert.NotNull(tokenProperty);
-            var token = tokenProperty.GetValue(tokenResponse) as string;
-            Assert.NotNull(token);
-            Assert.NotEmpty(token);
+            Assert.NotNull(result);
+            Assert.Equal(400, result.StatusCode);
+            _mockLogger.Verify(logger => logger.Log(
+                It.Is<LogLevel>(l => l == LogLevel.Information),
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("requested for user: ")),
+                It.IsAny<Exception>(),
+                It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)), Times.Once);
         }
 
         [Fact]
-        public void GenerateToken_EmptyUsername_ReturnsBadRequest()
+        public void GenerateToken_ReturnsOk_WhenCredentialsAreValid()
         {
-            // Arrange
-            var request = new LoginRequest
-            {
-                Username = "",
-                Password = "testpassword"
-            };
+            var loginRequest = new LoginRequest { Username = "testuser", Password = "password123" };
+            _mockConfiguration.SetupGet(x => x["Jwt:Key"]).Returns("your-secret-key-here-must-be-at-least-256-bits");
+            _mockConfiguration.SetupGet(x => x["Jwt:Issuer"]).Returns("ApiGateway");
+            _mockConfiguration.SetupGet(x => x["Jwt:Audience"]).Returns("ApiGatewayUsers");
 
-            // Act
-            var result = _controller.GenerateToken(request);
+            var result = _authController.GenerateToken(loginRequest) as OkObjectResult;
 
-            // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
-        }
-
-        [Fact]
-        public void GenerateToken_EmptyPassword_ReturnsBadRequest()
-        {
-            // Arrange
-            var request = new LoginRequest
-            {
-                Username = "testuser",
-                Password = ""
-            };
-
-            // Act
-            var result = _controller.GenerateToken(request);
-
-            // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
+            Assert.NotNull(result);
+            Assert.Equal(200, result.StatusCode);
+            _mockLogger.Verify(logger => logger.Log(
+                It.Is<LogLevel>(l => l == LogLevel.Information),
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Token generated successfully for user: ")),
+                It.IsAny<Exception>(),
+                It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)), Times.Once);
         }
     }
 }
+```
