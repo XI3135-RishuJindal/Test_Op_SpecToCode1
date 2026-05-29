@@ -1,7 +1,7 @@
 # PLAN: Monolith Decomposition into Microservices
 
 > **Status:** Draft
-> **Upgrade Option:** moderate
+> **Upgrade Option:** Moderate
 > **Urgency:** Medium
 
 ---
@@ -10,15 +10,15 @@
 
 **Migration Strategy: Strangler-Fig**
 
-Given the medium urgency rating and the "moderate" effort option, a **strangler-fig pattern** is the recommended approach. Rather than a high-risk big-bang rewrite, bounded contexts are extracted incrementally from the monolith while the monolith continues to serve unextracted functionality. Each extracted service is placed behind a routing facade (API gateway or reverse proxy) that progressively redirects traffic as services become production-ready.
+Given the medium urgency rating and a moderate effort/risk profile, a **strangler-fig pattern** is the recommended approach. Rather than a big-bang rewrite, individual bounded contexts are extracted incrementally from the monolith while the monolith continues to serve unextracted functionality. Each extracted service is placed behind a routing facade (API gateway or reverse proxy), allowing traffic to be shifted gradually and rolled back per-service without full system downtime.
 
 **Justification:**
-- Medium urgency does not warrant the delivery risk of a big-bang decomposition.
-- The strangler-fig pattern allows rollback at the individual service boundary rather than requiring full system rollback.
-- Incremental extraction produces demonstrable value at each phase and limits blast radius of failures.
-- Tech stack is currently unconfirmed (see TODOs below); strangler-fig tolerates discovery of unknowns mid-execution better than parallel-run or feature-flag strategies that require deep instrumentation upfront.
+- Medium urgency does not warrant the high risk of a big-bang cutover.
+- The strangler-fig pattern allows value delivery in phases while limiting blast radius.
+- Parallel-run is considered for high-risk service boundaries (e.g., data ownership transitions) but is not the primary strategy due to the cost of maintaining dual write paths.
+- Feature-flag gating will be used within phases to control traffic routing to new services.
 
-> **TODO:** Once the language, runtime, and build tool are confirmed via codebase audit, validate that the strangler-fig routing layer (API gateway / reverse proxy) is compatible with the existing entry points.
+> **TODO:** Confirm bounded context map once codebase language, runtime, and framework details are available from a full tech analysis. The phases below are structured around a generic decomposition workflow and must be refined against actual module/domain boundaries.
 
 ---
 
@@ -26,130 +26,130 @@ Given the medium urgency rating and the "moderate" effort option, a **strangler-
 
 | Phase | Description | Dependencies | Estimated Effort |
 |-------|-------------|--------------|-----------------|
-| 0 | **Discovery & Domain Mapping** — Audit codebase, identify bounded contexts, map data ownership, document inter-module coupling, produce decomposition candidate register | Access to full source repository and production traffic data | TODO person-days (derive after codebase audit) |
-| 1 | **Foundation** — Establish shared infrastructure: service mesh or API gateway skeleton, CI/CD pipeline templates, container base images, observability stack (logging, tracing, metrics), inter-service contract testing framework | Phase 0 complete; infrastructure platform confirmed | TODO person-days |
-| 2 | **Extract First Candidate Service** — Select lowest-coupling bounded context from Phase 0 register; extract, deploy, and route traffic via strangler facade; validate parity with monolith behavior | Phase 1 complete | TODO person-days |
-| 3 | **Extract Subsequent Services (Iterative)** — Repeat extraction pattern for each remaining candidate in priority order; decommission monolith modules as services reach stable production state | Phase 2 pattern validated | TODO person-days per service |
-| 4 | **Monolith Decommission & Cleanup** — Remove strangler facade routing rules for fully migrated paths; retire monolith deployment; finalize documentation | All services extracted and validated | TODO person-days |
+| 1 | **Discovery & Domain Mapping** — Identify bounded contexts, data ownership, and inter-module coupling. Produce a decomposition candidate register. | Access to full codebase and architecture diagrams | TODO (person-days — derive from moderate option once detail is provided) |
+| 2 | **Foundation** — Establish shared infrastructure: API gateway, service mesh or inter-service communication pattern, centralized logging/tracing, CI/CD pipeline templates for microservices, and container baseline. | Phase 1 complete; infrastructure decisions finalized | TODO |
+| 3 | **Pilot Extraction** — Extract one low-risk, loosely coupled bounded context as a proof-of-concept microservice. Validate operational patterns (deployment, observability, rollback). | Phase 2 complete | TODO |
+| 4 | **Incremental Extraction** — Extract remaining high-priority bounded contexts one at a time, applying lessons from Phase 3. Each extraction follows: isolate → anti-corruption layer → extract → migrate data → cut over traffic. | Phase 3 complete; per-service data migration plans | TODO |
+| 5 | **Monolith Decommission** — Retire residual monolith shell once all bounded contexts are extracted and traffic fully migrated. | Phase 4 complete; all services stable in production | TODO |
 
-> **TODO:** Populate person-day estimates once the upgrade option detail and codebase size metrics are available.
+> **TODO:** Populate effort estimates (person-days) once the moderate upgrade option detail and codebase inventory are provided.
 
 ---
 
 ## Component Changes
 
-### Strangler-Fig Facade / API Gateway
-- **What changes:** A new routing layer is introduced in front of the monolith. Initially it passes all traffic through to the monolith. As each service is extracted, routing rules are updated to direct relevant requests to the new service.
-- **Files affected:** TODO — routing configuration files (e.g., `nginx.conf`, `gateway.yaml`, or equivalent) to be identified after infrastructure audit.
-- **APIs modified:** No external API contract changes in early phases; internal routing is transparent to consumers.
+> **TODO:** Specific class names, method names, and file paths cannot be identified because the language, runtime, build tool, and codebase context were not provided in the tech analysis. The structural changes below are described generically and **must be mapped to actual components** during Phase 1 discovery.
 
-### Bounded Context Extraction (per service)
-- **What changes:** A self-contained module within the monolith is refactored into a standalone deployable service with its own data store, API surface, and deployment unit.
-- **Files affected:** TODO — specific class/module/file names to be identified during Phase 0 domain mapping.
-- **APIs modified:** Internal method calls between the extracted module and the remaining monolith are replaced with network calls (REST, gRPC, or message queue — TODO: confirm preferred IPC mechanism).
+### General Structural Changes Per Extracted Service
 
-### Data Layer Decomposition
-- **What changes:** Shared database tables owned by extracted bounded contexts are migrated to service-owned data stores. The monolith accesses this data via the new service's API rather than direct DB queries.
-- **Files affected:** TODO — ORM models, repository classes, migration scripts (names unknown until codebase audit).
-- **APIs modified:** TODO — data access layer interfaces.
+| Concern | Monolith State | Target Microservice State |
+|---------|---------------|--------------------------|
+| **Routing** | Internal method/function calls | HTTP/gRPC endpoints or async messaging (TODO: confirm transport) |
+| **Data store** | Shared monolith database | Dedicated per-service data store (database-per-service pattern) |
+| **Authentication** | Centralized in-process auth | Delegated to API gateway or shared auth service |
+| **Configuration** | Single config file/env block | Per-service config, externalized (TODO: confirm config management tooling) |
+| **Build artifact** | Single deployable unit | Independent container image per service |
+| **Inter-service calls** | In-process | Anti-corruption layer → synchronous REST/gRPC or async event bus (TODO: confirm broker) |
 
-### Observability Instrumentation
-- **What changes:** Distributed tracing, structured logging, and health-check endpoints are added to each extracted service.
-- **Files affected:** TODO — application bootstrap/entry-point files, middleware configuration.
-- **APIs modified:** New `/health` and `/metrics` endpoints added per service.
+### Anti-Corruption Layer (ACL)
+- During extraction, an ACL module must be introduced at the monolith boundary to translate between the monolith's internal domain model and the new service's API contract.
+- **TODO:** Identify specific modules/classes that represent domain boundaries once code context is available.
 
-> **TODO:** All specific class names, method names, and file paths are pending codebase audit in Phase 0.
+### API Gateway / Routing Facade
+- A routing facade must be introduced in Phase 2 to front both the monolith and extracted services, enabling traffic shifting without client-side changes.
+- **TODO:** Select and name the gateway component (e.g., Kong, AWS API Gateway, Nginx, Envoy) based on infrastructure context.
 
 ---
 
 ## Dependency Upgrade Plan
 
-N/A — not applicable to this task.
+> **TODO:** No dependency versions were provided in the tech analysis (language, runtime, framework, and build tool are all listed as unknown). This table must be populated after Phase 1 discovery identifies the technology stack.
 
-> **Note:** No specific framework or library versions were provided in the tech analysis. Dependency upgrade decisions for individual extracted services should be documented in per-service implementation plans produced during Phase 2 and Phase 3.
+| Dependency | Current Version | Target Version | Breaking Changes | Migration Notes |
+|------------|----------------|----------------|-----------------|-----------------|
+| TODO | TODO | TODO | TODO | TODO |
+
+**Note:** All version numbers will be sourced exclusively from the tech analysis output — no assumptions will be made from external sources.
 
 ---
 
 ## Infrastructure Changes
 
-> **TODO:** Language, runtime, build tool, and existing infrastructure platform are unconfirmed. The items below represent the expected infrastructure changes for a typical strangler-fig decomposition; each must be validated against actual context.
+> **TODO:** No infrastructure context (Docker, Kubernetes, CI/CD, IaC) was provided. The items below represent the expected infrastructure concerns for this decomposition and must be confirmed or replaced with actual context.
 
-- **Container Images:** TODO — define base images per extracted service once runtime is confirmed.
-- **Orchestration:** TODO — confirm whether Kubernetes, ECS, or other orchestration is in use. If Kubernetes: new `Deployment`, `Service`, and `Ingress` manifests required per extracted service.
-- **API Gateway / Reverse Proxy:** TODO — confirm existing gateway (e.g., Kong, AWS API Gateway, nginx, Envoy). Routing rules must be added per extraction phase.
-- **Service Mesh:** TODO — evaluate whether a service mesh (e.g., Istio, Linkerd) is warranted based on number of services and traffic complexity.
-- **CI/CD Pipelines:** TODO — confirm existing CI/CD tooling. New pipeline templates required per extracted service (build → test → container build → deploy).
-- **Secrets Management:** TODO — confirm secrets management approach for inter-service credentials.
-- **Observability Stack:** TODO — confirm logging aggregator, metrics platform, and tracing backend (e.g., ELK, Prometheus/Grafana, Jaeger/Zipkin).
+- **Container Runtime:** TODO — Confirm whether Docker or an alternative container runtime is in use. Each extracted microservice will require its own `Dockerfile` and image build pipeline.
+- **Orchestration:** TODO — Confirm whether Kubernetes, ECS, or another orchestrator is the target. Kubernetes is assumed as the likely target; if confirmed, each service will require `Deployment`, `Service`, and `ConfigMap` manifests.
+- **Service Mesh:** TODO — Evaluate whether a service mesh (e.g., Istio, Linkerd) is warranted for inter-service mTLS, traffic management, and observability.
+- **API Gateway:** TODO — Select and configure a gateway to front the strangler-fig routing facade (Phase 2).
+- **CI/CD Pipelines:** TODO — Existing monolith pipeline must be extended or replaced with per-service pipeline templates. Confirm current CI/CD tooling (e.g., GitHub Actions, Jenkins, GitLab CI).
+- **Observability Stack:** TODO — Centralized distributed tracing (e.g., Jaeger, Zipkin), metrics (e.g., Prometheus/Grafana), and log aggregation (e.g., ELK, Loki) must be in place before Phase 3.
+- **IaC:** TODO — Confirm IaC tooling (Terraform, Pulumi, CloudFormation) for provisioning per-service infrastructure.
 
 ---
 
 ## Rollback Strategy
 
-### Phase 0 — Discovery & Domain Mapping
-- **Rollback:** No production changes made. Discard decomposition candidate register and revert to monolith-only operation. Zero risk.
+Each phase is independently reversible. Rollback is executed per-service, not per-phase wholesale.
 
-### Phase 1 — Foundation
-- **Rollback:** Decommission the API gateway / routing facade. All traffic continues to flow directly to the monolith. Remove CI/CD pipeline templates and observability infrastructure if not yet in use.
-- **Trigger:** Foundation infrastructure is unstable or incompatible with monolith entry points.
+### Phase 1 — Discovery & Domain Mapping
+- **Rollback:** No production changes made. Discard decomposition candidate register and revert to monolith-only operation. No technical rollback required.
 
-### Phase 2 — Extract First Candidate Service
-- **Rollback:** Update the strangler-fig routing rule for the extracted bounded context to redirect 100% of traffic back to the monolith. The extracted service can be scaled to zero or decommissioned without affecting monolith operation.
-- **Trigger:** Extracted service fails parity validation or introduces latency regression beyond agreed SLO.
-- **Prerequisite:** Monolith code path for the extracted context must not be deleted until the service is declared stable (maintain monolith code in a feature branch or behind a flag during Phase 2).
+### Phase 2 — Foundation
+- **Rollback:** Remove API gateway / routing facade from the traffic path. All requests revert to the monolith directly. Decommission shared infrastructure provisioned in this phase.
+- **Gate:** Do not proceed to Phase 3 until the routing facade has been validated in a non-production environment.
 
-### Phase 3 — Extract Subsequent Services (Iterative)
-- **Rollback:** Same pattern as Phase 2, applied per service independently. Each service extraction is independently reversible via routing rule reversion.
-- **Trigger:** Per-service parity or performance failure.
+### Phase 3 — Pilot Extraction
+- **Rollback:** Flip the feature flag / routing rule at the API gateway to redirect 100% of traffic for the pilot service back to the monolith. The extracted service can be stopped without affecting other functionality.
+- **Data Rollback:** If data migration has occurred, execute the documented reverse migration script before decommissioning the extracted service's data store.
+- **Gate:** Pilot service must pass all integration and smoke tests before Phase 4 begins.
 
-### Phase 4 — Monolith Decommission
-- **Rollback:** This phase is the highest-risk rollback scenario. Mitigation: do not decommission the monolith deployment until all services have been stable in production for a defined soak period (TODO: define soak period SLA). If rollback is required, restore monolith deployment and revert gateway routing rules to monolith.
-- **Trigger:** Critical regression discovered post-decommission.
+### Phase 4 — Incremental Extraction (per service)
+- **Rollback:** Each service extraction is independently reversible using the same mechanism as Phase 3: reroute traffic at the gateway back to the monolith, execute reverse data migration if applicable, stop the extracted service.
+- **Sequencing:** Services must be extracted in dependency order (leaf services first) to avoid cascading rollback requirements.
+- **TODO:** Define maximum acceptable rollback window (RTO) per service once SLAs are known.
+
+### Phase 5 — Monolith Decommission
+- **Rollback:** Monolith artifact and data store must be retained (not deleted) for a defined retention period post-decommission. If a critical regression is detected, the monolith can be redeployed and the gateway routing rules reverted.
+- **TODO:** Define retention period and decommission sign-off criteria.
 
 ---
 
 ## Testing Strategy
 
-### Unit Tests
-- **Scope:** Each extracted service's internal business logic.
-- **Tools:** TODO — confirm test framework once language/runtime is known.
-- **Coverage Target:** ≥ 80% line coverage per extracted service.
-- **CI Gate:** Block merge on coverage regression.
+### Test Pyramid
 
-### Integration Tests
-- **Scope:** Service-to-service interactions; extracted service against its own data store; strangler-fig routing layer.
-- **Tools:** TODO — confirm integration test tooling. Recommend contract testing (e.g., Pact) for consumer-driven contract validation between services.
-- **CI Gate:** All integration tests must pass before promotion to staging.
+| Layer | Scope | Tools | Coverage Target | CI Gate |
+|-------|-------|-------|----------------|---------|
+| **Unit** | Individual service logic, domain models, ACL translation | TODO (derive from stack once language is known) | ≥ 80% line coverage per extracted service | Block merge on failure |
+| **Integration** | Service-to-service contracts, database interactions, API gateway routing rules | TODO — consider Pact for consumer-driven contract testing; Testcontainers for DB | All inter-service contracts covered | Block merge on failure |
+| **Regression** | End-to-end flows covering business-critical paths that span monolith + extracted services | TODO (e.g., Playwright, Postman/Newman, RestAssured — derive from stack) | 100% of P0/P1 user journeys | Block release on failure |
+| **Performance** | Latency and throughput baselines for extracted services vs. monolith equivalent | TODO (e.g., k6, Gatling, Locust — derive from stack) | p99 latency ≤ monolith baseline; no throughput regression | Block release if regression > 10% |
 
-### Regression Tests
-- **Scope:** End-to-end behavioral parity between monolith and extracted service for each extracted bounded context.
-- **Approach:** Record monolith request/response pairs in production (traffic shadowing or log capture) during Phase 0; replay against extracted service during Phase 2/3 to validate parity.
-- **Tools:** TODO — confirm traffic shadowing tooling (e.g., GoReplay, Diffy, or equivalent).
-- **CI Gate:** Zero parity failures on recorded regression suite before routing cutover.
+### Additional Testing Concerns
 
-### Performance / Load Tests
-- **Scope:** Latency and throughput of extracted services under production-representative load; comparison against monolith baseline.
-- **Tools:** TODO — confirm load testing tooling (e.g., k6, Gatling, Locust).
-- **Targets:** TODO — define SLOs (p95 latency, error rate) based on current monolith baselines captured in Phase 0.
-- **CI Gate:** Performance tests run on staging before each routing cutover; block cutover if SLO targets are breached.
+- **Contract Testing:** Introduce consumer-driven contract tests (e.g., Pact) at each service boundary before extraction to detect breaking API changes early.
+- **Chaos/Resilience Testing:** TODO — Once services are in production (Phase 4+), introduce fault injection to validate circuit breakers and fallback behavior.
+- **Data Migration Validation:** Each data migration script must have a corresponding validation test that asserts row counts, referential integrity, and spot-check data fidelity before traffic cutover.
+- **Feature Flag Testing:** Routing flag states (monolith path vs. service path) must both be covered in integration and regression suites.
 
 ---
 
 ## Timeline
 
+> **TODO:** Person-day estimates were not provided in the moderate upgrade option detail. The milestone structure below is correct; effort values and completion dates must be populated once the upgrade option is fully specified and Phase 1 discovery is complete.
+
 | Milestone | Phase | Estimated Completion | Owner |
 |-----------|-------|---------------------|-------|
-| Codebase audit complete; bounded context register published | 0 | TODO | TODO |
-| Decomposition candidate priority list approved | 0 | TODO | TODO |
-| API gateway / routing facade live in production (pass-through) | 1 | TODO | TODO |
-| CI/CD pipeline templates and observability stack operational | 1 | TODO | TODO |
-| First service extracted and serving production traffic | 2 | TODO | TODO |
-| First service parity validated; monolith code path frozen | 2 | TODO | TODO |
-| All priority services extracted and stable | 3 | TODO | TODO |
-| Monolith decommissioned | 4 | TODO | TODO |
-
-> **TODO:** All estimated completion dates and owners are pending: (1) confirmation of codebase size and complexity from Phase 0 audit, (2) team capacity allocation, and (3) detailed person-day estimates from the upgrade option. Populate this table at the conclusion of Phase 0.
+| Decomposition candidate register finalized | Phase 1 | TODO | TODO |
+| Bounded context map approved by stakeholders | Phase 1 | TODO | TODO |
+| API gateway and observability stack live in non-prod | Phase 2 | TODO | TODO |
+| CI/CD pipeline templates for microservices validated | Phase 2 | TODO | TODO |
+| Pilot service extracted and serving production traffic | Phase 3 | TODO | TODO |
+| Pilot service rollback procedure validated | Phase 3 | TODO | TODO |
+| All priority-1 bounded contexts extracted | Phase 4 | TODO | TODO |
+| All bounded contexts extracted; monolith in maintenance mode | Phase 4 | TODO | TODO |
+| Monolith decommissioned | Phase 5 | TODO | TODO |
 
 ---
 
-*Document generated from available context. All TODO items must be resolved before Phase 1 execution begins.*
+*This document will be updated as Phase 1 discovery produces concrete bounded context definitions, technology stack confirmation, and refined effort estimates from the moderate upgrade option.*
