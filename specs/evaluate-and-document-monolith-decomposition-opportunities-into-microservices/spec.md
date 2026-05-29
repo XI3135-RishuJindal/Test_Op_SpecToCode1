@@ -2,116 +2,94 @@
 
 ## Summary
 
-This spec covers the evaluation and documentation of opportunities to decompose the existing monolithic application into discrete microservices. The goal is to identify bounded contexts, high-coupling pain points, and independently deployable units within the current codebase, and to produce a structured decomposition map that guides a moderate-pace migration. The expected outcome is a clear, agreed-upon decomposition plan that reduces deployment risk, improves team autonomy, and enables independent scaling of critical application domains.
+This spec covers the evaluation and documentation of opportunities to decompose the existing monolithic application into discrete microservices. The goal is to identify bounded contexts, service boundaries, and coupling points within the monolith that are candidates for extraction, and to produce a structured record of those opportunities that can guide incremental modernization efforts. The expected outcome is a prioritized decomposition map that reduces deployment coupling, improves independent scalability, and lowers the risk of future changes to isolated business domains.
 
 ---
 
 ## Motivation
 
 **Business Drivers**
-- Monolithic deployments create high-risk, all-or-nothing release cycles that slow feature delivery.
-- Independent scaling of high-load domains is not possible in the current architecture, leading to inefficient resource utilization.
-- Team ownership boundaries are unclear, causing coordination overhead and merge conflicts across shared codebases.
+- Monolithic architectures create organizational bottlenecks where unrelated teams must coordinate deployments, increasing lead time and release risk.
+- Independent scaling of high-demand subsystems is not possible when all functionality is bundled into a single deployable unit.
+- Onboarding new engineers is slowed by the need to understand the entire codebase before contributing safely to any one area.
 
 **Technical Drivers**
-- Upgrade urgency is rated **medium**, indicating accumulated technical debt that is not yet critical but will compound if unaddressed.
-- Tightly coupled modules prevent independent technology upgrades, framework migrations, or runtime changes for individual domains.
-- A monolithic deployment model limits fault isolation; a failure in one domain can cascade across the entire application.
-- The moderate decomposition option has been selected, indicating a phased, risk-managed extraction rather than a full rewrite.
-
-**Specific Risks of Inaction**
-- Continued growth of the monolith increases the cost of any future decomposition.
-- Inability to adopt domain-specific technology choices (e.g., different runtimes, data stores) as requirements evolve.
-
-> **Note:** Specific CVEs, EOL dates, and framework versions are not available in the provided context. See [Open Questions](#open-questions).
+- Upgrade urgency is rated **medium**, indicating accumulated technical debt that, if left unaddressed, will compound into higher-urgency issues.
+- Tight internal coupling makes targeted dependency upgrades, security patches, and framework migrations risky and expensive across the whole system.
+- A monolithic deployment model limits fault isolation: a failure in one subsystem can degrade or bring down the entire application.
+- TODO: Specific CVEs, EOL framework versions, or compliance requirements have not been provided in the tech analysis and must be confirmed before finalizing urgency ratings per service boundary.
 
 ---
 
 ## Current State
 
-> **Note:** Language, runtime, build tool, and framework details were not provided in the tech analysis. The following describes the general structural characteristics that must be assessed during discovery. Specific class names, config keys, schema elements, and API interfaces are marked as TODO pending codebase review.
+> **Note:** The tech analysis did not supply language, runtime, build tool, framework inventory, or code-level context. All current-state details below are structural placeholders. Each TODO must be resolved through codebase discovery before this spec is considered complete.
 
-**Known Characteristics**
-- The application is a monolith with an upgrade urgency of **medium** and unspecified accumulated tech debt.
-- All domains are deployed as a single unit, sharing a common runtime and (assumed) a single shared data store — TODO: confirm.
-- Inter-domain communication is assumed to occur via in-process method calls rather than network interfaces — TODO: confirm.
+| Aspect | Current State |
+|---|---|
+| Deployment model | Single deployable monolith |
+| Language / Runtime | TODO — not identified in tech analysis |
+| Build tool | TODO — not identified in tech analysis |
+| Frameworks in use | TODO — not identified in tech analysis |
+| Data model | TODO — shared database schema assumed; tables and ownership boundaries unknown |
+| Internal interfaces | TODO — inter-module APIs, shared libraries, or direct in-process calls not documented |
+| External interfaces | TODO — inbound/outbound APIs, event streams, or third-party integrations not listed |
+| Authentication / AuthZ boundary | TODO — unknown whether auth is centralized or embedded per module |
+| Configuration surface | TODO — config keys and environment variables not provided |
+| Observability | TODO — logging, metrics, and tracing approach unknown |
 
-**Areas Requiring Discovery**
-| Artifact | Detail Needed | Status |
-|---|---|---|
-| Domain boundaries | Identification of logical bounded contexts | TODO |
-| Data model | Shared tables, cross-domain foreign keys, schema ownership | TODO |
-| Public APIs / interfaces | External-facing endpoints per domain | TODO |
-| Internal coupling points | Shared classes, utilities, and cross-cutting concerns | TODO |
-| Authentication / session model | Shared vs. domain-specific auth state | TODO |
-| Background jobs / workers | Ownership and domain affiliation of async processes | TODO |
-| Configuration | Shared config keys vs. domain-specific config | TODO |
+Key behaviours that any decomposition must preserve:
+- TODO — functional requirements and SLAs for each candidate domain must be captured during discovery.
 
 ---
 
 ## Proposed Changes
 
-The decomposition follows a **moderate** strategy: extract high-value, lower-risk bounded contexts incrementally while leaving tightly coupled core domains in the monolith until later phases.
-
-**Decomposition Principles Applied**
-- Single Responsibility per service: each microservice owns one bounded context.
-- Database-per-service: each extracted service owns its data; shared data access is eliminated.
-- Strangler Fig pattern: new services are introduced alongside the monolith, with traffic gradually shifted.
-- Synchronous communication via well-defined APIs for request/response; asynchronous messaging for event-driven flows.
-
-**Component Change Table**
+Because source-level context was not provided, the changes below describe the **evaluation and documentation deliverables** that this spec authorizes, not a final decomposition decision. Decomposition decisions will be recorded as child specs once discovery is complete.
 
 | Component | Before | After | Breaking? |
 |---|---|---|---|
-| Monolith deployment unit | Single deployable artifact containing all domains | Multiple independently deployable services + residual monolith core | Y |
-| Inter-domain calls | In-process method calls | Network API calls or async message passing | Y |
-| Shared database | Single database serving all domains | Per-service databases; shared DB access removed for extracted services | Y |
-| Domain-specific configuration | Unified config file/store | Per-service configuration with service-specific keys | Y |
-| Authentication / identity | Shared in-process session or auth module | Centralized identity service or shared auth library consumed over network | Y — TODO: confirm approach |
-| Background jobs | Co-located with monolith | Migrated to owning service or dedicated worker service | Y |
-| Logging / observability | Single log stream | Distributed tracing, aggregated logging, per-service metrics | N (additive) |
-| API gateway / routing | Direct monolith routing | API gateway layer routing to monolith and extracted services | N (additive) |
-| Specific bounded contexts (e.g., billing, notifications, user management) | Embedded in monolith | Extracted as named microservices | Y — TODO: enumerate after discovery |
-
-> **TODO:** Populate the specific bounded context rows once codebase discovery is complete.
+| Decomposition map | Does not exist | Documented bounded-context map with candidate service boundaries, data ownership, and dependency graph | N |
+| Domain ownership registry | Does not exist | Registry mapping each identified domain to owning team, data entities, and external contracts | N |
+| Inter-module communication inventory | Implicit in-process calls | Explicit catalog of all cross-domain calls with payload shapes and frequency | N |
+| Shared database analysis | Single shared schema (assumed) | Per-domain data ownership assessment; shared tables flagged for strangler-fig or schema-split treatment | N — evaluation only; no schema changes in this phase |
+| Service candidate profiles | Does not exist | One profile per candidate service: domain scope, dependencies, scaling requirements, extraction complexity rating | N |
+| TODO: Specific service extractions | Monolith module | Standalone microservice | Y — to be defined in child specs |
 
 ---
 
 ## Compatibility & Breaking Changes
 
-| Breaking Change | Impact | Migration Path |
+This spec covers the **evaluation phase only**. No runtime breaking changes are introduced by producing documentation. Breaking changes will arise in subsequent extraction specs. Known categories are listed below for planning purposes.
+
+| Change Category | Impact | Migration Path |
 |---|---|---|
-| In-process calls replaced by network calls | All callers of extracted domain logic must use new API contracts | Define and version API contracts before extraction; update callers in monolith to use new client; run both in parallel during transition |
-| Shared database split | Queries joining across domain boundaries will break | Identify cross-domain joins; introduce API calls or event-driven data replication to replace joins; migrate data ownership per service |
-| Unified config split into per-service config | Deployment pipelines and config management tooling must change | Audit all config keys; assign ownership; update deployment manifests per service |
-| Shared auth/session model | Services cannot access shared in-process session state | Introduce token-based auth (e.g., JWT) or a dedicated identity service; update all services to validate tokens independently — TODO: confirm auth approach |
-| Monolith-resident background jobs moved | Job scheduling and monitoring integrations may break | Re-register jobs in owning service; update monitoring dashboards and alerting rules |
-| Single log stream replaced by distributed logs | Existing log queries and alerting rules may not match new format | Introduce log aggregation layer; update queries and alerts before decommissioning monolith log stream |
-| Specific domain API contracts | TODO — dependent on discovery | TODO |
+| Synchronous in-process calls converted to network calls | Latency increase; new failure modes (timeouts, partial failures) | TODO — define retry, circuit-breaker, and fallback contracts per extracted service |
+| Shared database tables split by domain | Consumers of shared tables must be updated | TODO — strangler-fig pattern or database-per-service migration plan to be defined per domain |
+| Shared authentication / session state | Distributed services cannot share in-memory session | TODO — centralized identity provider or token-based auth strategy to be specified |
+| Shared configuration / secrets | Per-service config management required | TODO — secrets management and environment parity strategy to be defined |
+| Monolithic build pipeline | Single pipeline replaced by per-service pipelines | TODO — CI/CD topology to be designed; no breaking change to end users but operational change for teams |
+| Transactional boundaries | ACID transactions spanning domains become distributed | TODO — saga or outbox pattern applicability to be assessed per domain |
 
 ---
 
 ## Acceptance Criteria
 
-1. **Given** the codebase has been analyzed, **when** the decomposition discovery phase is complete, **then** a documented list of at least N bounded contexts is produced, each with a defined owner, data boundary, and external interface contract — where N is agreed upon by the team (TODO: set N).
+1. **Given** the codebase has been analyzed, **when** the decomposition evaluation is complete, **then** a bounded-context map exists that identifies every major domain within the monolith, with each domain assigned a name, a description, and a list of its primary data entities.
 
-2. **Given** a bounded context has been identified for extraction, **when** the extraction is complete, **then** the extracted service passes its full test suite independently without requiring the monolith to be running.
+2. **Given** the bounded-context map exists, **when** it is reviewed by engineering and product stakeholders, **then** every identified domain has a designated owning team or a TODO owner flag, with no domains left unassigned without explicit acknowledgment.
 
-3. **Given** an extracted microservice is deployed, **when** it receives a valid API request, **then** it returns the correct response with latency no greater than the equivalent monolith endpoint's p99 latency baseline (measured before extraction).
+3. **Given** the bounded-context map exists, **when** inter-domain dependencies are analyzed, **then** a dependency graph is produced that lists every cross-domain call or data access, categorized as synchronous, asynchronous, or shared-data coupling.
 
-4. **Given** an extracted microservice is deployed, **when** the monolith's corresponding module is disabled, **then** no functional regression is detected in end-to-end integration tests covering that domain.
+4. **Given** the dependency graph exists, **when** each candidate service is profiled, **then** each profile includes: domain scope, inbound and outbound interface contracts, data ownership boundaries, estimated extraction complexity (low / medium / high), and a breaking-change risk rating.
 
-5. **Given** the database-per-service principle is applied to an extracted service, **when** the service's database is inspected, **then** it contains no tables or foreign keys owned by a different service's bounded context.
+5. **Given** the service candidate profiles exist, **when** the profiles are reviewed, **then** a prioritized extraction backlog is produced with at least one candidate ranked as the lowest-risk starting point, supported by documented rationale.
 
-6. **Given** a cross-domain data access pattern previously resolved via a shared database join, **when** the relevant service is extracted, **then** the data access is fulfilled via a defined API call or event-driven mechanism, with no direct cross-database queries present.
+6. **Given** the shared database schema is analyzed, **when** the data ownership assessment is complete, **then** every database table (or equivalent storage entity) is assigned to exactly one domain, and tables shared across domains are explicitly flagged with a proposed resolution strategy.
 
-7. **Given** the authentication model is updated for an extracted service, **when** a request is made with a valid token, **then** the service authenticates and authorizes the request without calling back to the monolith's auth module.
+7. **Given** the decomposition map and profiles exist, **when** a stakeholder review meeting is held, **then** the outputs are accepted or returned with documented change requests — no spec is considered complete without a recorded sign-off or an open-question log entry explaining the blocker.
 
-8. **Given** distributed tracing is configured, **when** a request spans multiple services, **then** a single trace ID links all service logs and spans in the observability platform.
-
-9. **Given** the decomposition plan is documented, **when** reviewed by engineering leads, **then** every identified bounded context has a recorded extraction priority (high / medium / low / defer) with a documented rationale.
-
-10. **Given** a service extraction is complete, **when** a deployment pipeline runs, **then** the extracted service is built, tested, and deployed independently without triggering a full monolith build or deployment.
+8. **Given** the evaluation deliverables are finalized, **when** they are committed to the project repository, **then** each child extraction effort can reference this spec by ID and trace its scope back to a named bounded context documented here.
 
 ---
 
@@ -119,15 +97,13 @@ The decomposition follows a **moderate** strategy: extract high-value, lower-ris
 
 | # | Question | Owner | Due Date |
 |---|---|---|---|
-| 1 | What is the primary language, runtime, and build tool of the monolith? This is required to assess extraction tooling and packaging options. | TODO | TODO |
-| 2 | What frameworks are in use? Framework-specific coupling patterns (e.g., ORM, DI containers) significantly affect extraction complexity. | TODO | TODO |
-| 3 | Is there a single shared database? What database technology is used? | TODO | TODO |
-| 4 | What are the existing external-facing APIs and which domains do they belong to? | TODO | TODO |
-| 5 | What bounded contexts have already been informally identified by the engineering team? | TODO | TODO |
-| 6 | What is the current authentication and session management mechanism? | TODO | TODO |
-| 7 | Are there existing integration or contract tests that can serve as a regression baseline? | TODO | TODO |
-| 8 | What is the target infrastructure for microservices (e.g., containers, serverless, VMs)? | TODO | TODO |
-| 9 | What is the acceptable latency overhead budget for network-based inter-service calls replacing in-process calls? | TODO | TODO |
-| 10 | Which teams or individuals will own each extracted service post-decomposition? | TODO | TODO |
-| 11 | Are there regulatory or compliance constraints (e.g., data residency, PCI, HIPAA) that restrict how data can be split across services? | TODO | TODO |
-| 12 | What is the agreed definition of "moderate" decomposition — specifically, how many services are in scope for the initial phase? | TODO | TODO |
+| 1 | What language, runtime, and build toolchain does the monolith use? This is required to assess extraction feasibility and tooling options. | TODO | TODO |
+| 2 | What frameworks are in use, and are any approaching EOL or carrying known CVEs that should influence extraction priority? | TODO | TODO |
+| 3 | Does the monolith use a single shared relational database, a document store, or a mixed persistence model? | TODO | TODO |
+| 4 | Are there existing module or package boundaries in the codebase that approximate domain boundaries, or is the code largely unstructured? | TODO | TODO |
+| 5 | What are the current SLAs and traffic patterns per functional area? This is needed to assess independent scaling requirements. | TODO | TODO |
+| 6 | Is there an existing API gateway, service mesh, or inter-process communication infrastructure, or would that need to be introduced? | TODO | TODO |
+| 7 | What is the team's operational maturity with containerization, orchestration, and distributed systems observability? | TODO | TODO |
+| 8 | Are there regulatory or compliance constraints (e.g., data residency, audit logging) that must be preserved across service boundaries? | TODO | TODO |
+| 9 | What is the acceptable downtime or degradation window during any extraction? Is a strangler-fig approach mandated, or is a big-bang extraction acceptable for low-traffic domains? | TODO | TODO |
+| 10 | Who has authority to approve the final prioritized extraction backlog and sign off on this spec? | TODO | TODO |
