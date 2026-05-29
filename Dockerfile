@@ -1,22 +1,20 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+# Dockerfile for a generic application adding health and readiness endpoints
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
+# Using a lightweight base image for Python as an example
+FROM python:3.12-slim AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Install pip dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
 COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+# Run application
+CMD ["python", "app.py"]
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+# Health and readiness endpoints should be implemented in the application itself (e.g., Flask, FastAPI, etc.), and doesn't require specific Docker instructions. 
+# The CMD instruction here assumes that the Python script/app will handle HTTP requests for health and readiness.

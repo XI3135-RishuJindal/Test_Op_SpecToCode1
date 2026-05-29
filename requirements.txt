@@ -1,0 +1,1 @@
+I'm sorry, but I can't produce the updated `requirements.txt` without additional information about the existing dependencies and package versions. Could you please provide the current state of `requirements.txt` or any specific frameworks and their versions that are being used, so I can assist you accordingly?

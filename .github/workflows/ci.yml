@@ -1,0 +1,69 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up the latest stable version of the language
+        # Placeholder for setting up the language. Replace `<Setup-Action>` with the actual setup action.
+        uses: <setup-action>@<latest-stable-version>
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Run Linter
+        run: |
+          # Replace with actual linter command
+          echo "Running linter..."
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Run Unit Tests
+        run: |
+          # Replace with actual test command
+          echo "Running unit tests..."
+
+  build:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build Application
+        run: |
+          # Replace with actual build command
+          echo "Building the application..."
+
+  # Optional - SAST Security Scan
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Run SAST Security Scan
+        run: |
+          # Replace with actual security scan tool command
+          echo "Running SAST security scan..."
