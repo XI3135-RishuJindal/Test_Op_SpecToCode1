@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  api-gateway:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://gateway:gateway@postgres:5432/gateway
+      KAFKA_BROKERS: kafka:9092
+      JWT_ISSUER: https://auth.example.com/
+      JWT_AUDIENCE: api.example.com
+      JWKS_URI: https://auth.example.com/.well-known/jwks.json
+      OPA_URL: http://opa:8181
+      USER_PROFILE_SERVICE_URL: http://user-profile-service:4001
+      MFA_SERVICE_URL: http://mfa-service:4002
+      REPORTING_SERVICE_URL: http://reporting-service:4003
+      PAYMENT_SERVICE_URL: http://payment-service:4004
+      NOTIFICATION_SERVICE_URL: http://notification-service:4005
+      UPSTREAM_TIMEOUT_MS: 30000
+      LOG_LEVEL: info
+    depends_on:
+      - redis
+      - postgres
+      - kafka
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
+      POSTGRES_DB: gateway
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  opa:
+    image: openpolicyagent/opa:latest-rootless
+    ports:
+      - "8181:8181"
+    command: ["run", "--server", "--log-format=json"]
+
+volumes:
+  postgres_data:

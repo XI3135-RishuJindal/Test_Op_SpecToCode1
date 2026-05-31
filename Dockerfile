@@ -1,22 +1,29 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM node:20-alpine AS builder
+
 WORKDIR /app
-EXPOSE 80
-EXPOSE 443
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
-COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
+COPY package*.json ./
+RUN npm ci --only=production && npm ci
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+COPY tsconfig.json ./
+COPY src ./src
 
-FROM base AS final
+RUN npm run build
+
+# ---- Production image ----
+FROM node:20-alpine AS production
+
 WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+COPY --from=builder /app/dist ./dist
+
+EXPOSE 3000
+
+USER node
+
+CMD ["node", "dist/index.js"]
