@@ -1,0 +1,190 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect language and run tests
+        run: |
+          echo "Detecting project type..."
+
+          if [ -f "package.json" ]; then
+            echo "Detected Node.js project"
+            node --version
+            npm --version
+            npm ci
+            npm test
+
+          elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
+            echo "Detected Python project"
+            python --version
+            if [ -f "requirements.txt" ]; then
+              pip install -r requirements.txt
+            elif [ -f "pyproject.toml" ]; then
+              pip install .
+            fi
+            if command -v pytest &> /dev/null; then
+              pytest
+            else
+              python -m unittest discover
+            fi
+
+          elif [ -f "pom.xml" ]; then
+            echo "Detected Maven (Java) project"
+            java -version
+            mvn --version
+            mvn test
+
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            echo "Detected Gradle (Java/Kotlin) project"
+            java -version
+            ./gradlew test
+
+          elif [ -f "go.mod" ]; then
+            echo "Detected Go project"
+            go version
+            go test ./...
+
+          elif [ -f "Cargo.toml" ]; then
+            echo "Detected Rust project"
+            rustc --version
+            cargo --version
+            cargo test
+
+          elif [ -f "Gemfile" ]; then
+            echo "Detected Ruby project"
+            ruby --version
+            bundle install
+            bundle exec rake test || bundle exec rspec
+
+          elif [ -f "composer.json" ]; then
+            echo "Detected PHP project"
+            php --version
+            composer install
+            ./vendor/bin/phpunit || php artisan test
+
+          else
+            echo "WARNING: Could not detect project type. Please update this workflow with the correct test command."
+            echo "See CI_SETUP_NOTES.md for guidance."
+            exit 1
+          fi
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect language and run linter
+        run: |
+          echo "Detecting project type for linting..."
+
+          if [ -f "package.json" ]; then
+            echo "Detected Node.js project"
+            npm ci
+            if npx eslint --version &> /dev/null 2>&1; then
+              npx eslint .
+            elif grep -q '"lint"' package.json; then
+              npm run lint
+            else
+              echo "No linter configured. Install ESLint or add a lint script to package.json."
+            fi
+
+          elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
+            echo "Detected Python project"
+            pip install flake8 pylint 2>/dev/null || true
+            if command -v flake8 &> /dev/null; then
+              flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+              flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+            elif command -v pylint &> /dev/null; then
+              pylint **/*.py || true
+            else
+              echo "No Python linter found."
+            fi
+
+          elif [ -f "pom.xml" ]; then
+            echo "Detected Maven project"
+            mvn checkstyle:check || echo "Checkstyle not configured, skipping."
+
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            echo "Detected Gradle project"
+            ./gradlew checkstyleMain || echo "Checkstyle not configured, skipping."
+
+          elif [ -f "go.mod" ]; then
+            echo "Detected Go project"
+            go vet ./...
+
+          elif [ -f "Cargo.toml" ]; then
+            echo "Detected Rust project"
+            cargo clippy -- -D warnings
+
+          elif [ -f "Gemfile" ]; then
+            echo "Detected Ruby project"
+            gem install rubocop 2>/dev/null || true
+            rubocop || true
+
+          elif [ -f "composer.json" ]; then
+            echo "Detected PHP project"
+            composer require --dev squizlabs/php_codesniffer 2>/dev/null || true
+            ./vendor/bin/phpcs . || true
+
+          else
+            echo "WARNING: Could not detect project type for linting."
+            echo "Please update this workflow with the correct lint command."
+          fi
+
+  sast:
+    name: SAST Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ github.event.repository.language }}
+        continue-on-error: true
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+        continue-on-error: true
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        continue-on-error: true
+
+      - name: Run Semgrep SAST scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/default
+            p/security-audit
+            p/secrets
+        continue-on-error: true
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload SARIF results (if present)
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+        continue-on-error: true
