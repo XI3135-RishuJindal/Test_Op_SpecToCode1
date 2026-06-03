@@ -22,15 +22,15 @@ LABEL description="Application container"
 #   1. Copy .env.example to .env and fill in all required values:
 #        cp .env.example .env
 #   2. Build the image:
-#        docker build -t app:latest .
-#   3. Run the container with your .env file:
-#        docker run --env-file .env -p 8080:8080 app:latest
-#   4. Or use docker-compose (recommended for local development):
+#        docker build -t myapp:latest .
+#   3. Run with your .env file:
+#        docker run --env-file .env -p 8080:8080 myapp:latest
+#   4. Or use docker-compose:
 #        docker-compose up --build
 
 WORKDIR /app
 
-# Set safe defaults for optional variables
+# Set safe defaults for optional environment variables
 ENV APP_ENV=production \
     APP_PORT=8080 \
     LOG_LEVEL=info \
