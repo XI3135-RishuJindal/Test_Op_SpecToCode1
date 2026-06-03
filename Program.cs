@@ -1,9 +1,8 @@
-```csharp
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
+using System.Text;
+using ApiGateway.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,21 +21,25 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Configure external authentication (OpenID Connect)
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = OpenIdConnectDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
-})
-.AddOpenIdConnect("Okta", options =>
-{
-    options.Authority = builder.Configuration["Authentication:Okta:Authority"];
-    options.ClientId = builder.Configuration["Authentication:Okta:ClientId"];
-    options.ClientSecret = builder.Configuration["Authentication:Okta:ClientSecret"];
-    options.ResponseType = OpenIdConnectResponseType.Code;
-    options.SaveTokens = true;
-    options.RequireHttpsMetadata = true;
-});
+// Register password expiration service (integrates with existing communication frameworks via ILogger).
+builder.Services.AddSingleton<IPasswordExpirationService, PasswordExpirationService>();
+
+// Configure JWT Authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer           = true,
+            ValidateAudience         = true,
+            ValidateLifetime         = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer              = builder.Configuration["Jwt:Issuer"],
+            ValidAudience            = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey         = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "default-secret-key-for-development"))
+        };
+    });
 
 builder.Services.AddAuthorization();
 
@@ -69,4 +72,3 @@ finally
 {
     Log.CloseAndFlush();
 }
-```

@@ -1,3 +1,4 @@
+```
 # Use the official .NET 8.0 runtime as base image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
@@ -19,4 +20,11 @@ RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+# Install security library dependencies
+RUN apt-get update && \
+    apt-get install -y libssl-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+```

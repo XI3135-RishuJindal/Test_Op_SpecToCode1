@@ -1,9 +1,8 @@
-- [ ] update Controllers/AuthController.cs: add methods for handling SSO redirects and responses
-- [ ] create src/Services/TokenService.cs: implement logic for parsing IdP tokens and extracting user claims
-- [ ] modify Program.cs: setup and configure middleware for supported IdPs
-- [ ] add appsettings.json: include configuration sections for multiple IdPs
-- [ ] update Tests/Controllers/AuthControllerTests.cs: write unit tests for SSO redirect and token handling methods
-- [ ] develop integration tests for verifying complete SSO flow with mock IdPs
-- [ ] ensure all API routes are documented in Swagger
-- [ ] update README.md: include setup instructions for SSO registration
-- [ ] perform code review and obtain stakeholder approval
+- [ ] Update `Controllers/AuthController.cs`: Add logic to enforce new password length and complexity requirements.
+- [ ] Update `Controllers/AuthController.cs`: Implement checks against common passwords during password creation.
+- [ ] Implement password expiration policy: Add logic to prompt user changes every 90 days.
+- [ ] Modify `Tests/Controllers/AuthControllerTests.cs`: Add unit tests for new password policy validations.
+- [ ] Modify `appsettings.json`: Include configurations for password policy settings if needed.
+- [ ] Review and update Dockerfile and related deployment configurations to ensure environment supports new security checks.
+- [ ] Document new password policies and user communication in `README.md` and ensure clarity for end-users.
+- [ ] Ensure backward compatibility and conduct code reviews to verify adherence to security practices.
