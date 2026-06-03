@@ -1,22 +1,43 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+FROM alpine:latest
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
+LABEL maintainer=""
+LABEL description="Application container"
+
+# Document required environment variables
+# Copy and review .env.example for all required variables before running
+# Required environment variables (set via -e, --env-file, or docker-compose environment):
+#
+#   APP_ENV        - Application environment (e.g. development, staging, production)
+#   APP_PORT       - Port the application listens on (default: 8080)
+#   APP_SECRET_KEY - Secret key for session/token signing (required, no default)
+#   DATABASE_URL   - Full database connection string (required, no default)
+#   LOG_LEVEL      - Logging verbosity (e.g. debug, info, warn, error; default: info)
+#
+# Optional environment variables:
+#   TZ             - Timezone (default: UTC)
+#   PUID           - User ID to run the process as (default: 1000)
+#   PGID           - Group ID to run the process as (default: 1000)
+#
+# Local setup instructions:
+#   1. Copy .env.example to .env and fill in all required values:
+#        cp .env.example .env
+#   2. Build the image:
+#        docker build -t app:latest .
+#   3. Run the container with your .env file:
+#        docker run --env-file .env -p 8080:8080 app:latest
+#   4. Or use docker-compose (recommended for local development):
+#        docker-compose up --build
+
+WORKDIR /app
+
+# Set safe defaults for optional variables
+ENV APP_ENV=production \
+    APP_PORT=8080 \
+    LOG_LEVEL=info \
+    TZ=UTC
+
 COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+EXPOSE 8080
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+CMD ["sh", "-c", "echo 'No start command configured. Set CMD in Dockerfile or override at runtime.' && exit 1"]
