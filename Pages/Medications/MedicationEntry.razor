@@ -1,0 +1,89 @@
+@* MedicationEntry.razor
+   Placement: Pages/Medications/MedicationEntry.razor
+   Purpose  : Responsive, accessible medication entry form.
+   Follows   : WCAG 2.1 AA, team Razor/Blazor conventions, MedicationDTO field mapping.
+   Review    : See docs/code-reviews/medication-entry-placement-review.md for sign-off record.
+*@
+
+@page "/medications/entry"
+
+<h2 id="form-title">Medication Entry</h2>
+
+<EditForm Model="@_model" OnValidSubmit="HandleValidSubmit" aria-labelledby="form-title">
+    <DataAnnotationsValidator />
+    <ValidationSummary role="alert" aria-live="polite" />
+
+    <div class="med-form">
+
+        <!-- Medication Name -->
+        <div class="form-group">
+            <label for="medName">
+                Medication Name <span class="required" aria-hidden="true">*</span>
+            </label>
+            <InputText id="medName"
+                       class="form-control"
+                       @bind-Value="_model.Name"
+                       aria-required="true"
+                       aria-describedby="medName-error"
+                       placeholder="e.g., Amoxicillin" />
+            <ValidationMessage For="@(() => _model.Name)" id="medName-error" role="alert" />
+        </div>
+
+        <!-- Dosage -->
+        <div class="form-group">
+            <label for="medDosage">
+                Dose <span class="required" aria-hidden="true">*</span>
+            </label>
+            <InputNumber id="medDosage"
+                         class="form-control"
+                         @bind-Value="_model.Dosage"
+                         aria-required="true"
+                         aria-describedby="medDosage-error"
+                         placeholder="e.g., 500" />
+            <ValidationMessage For="@(() => _model.Dosage)" id="medDosage-error" role="alert" />
+        </div>
+
+        <!-- Frequency -->
+        <div class="form-group">
+            <label for="medFrequency">
+                Frequency <span class="required" aria-hidden="true">*</span>
+            </label>
+            <InputText id="medFrequency"
+                       class="form-control"
+                       @bind-Value="_model.Frequency"
+                       aria-required="true"
+                       aria-describedby="medFrequency-error"
+                       placeholder="e.g., Twice daily" />
+            <ValidationMessage For="@(() => _model.Frequency)" id="medFrequency-error" role="alert" />
+        </div>
+
+        <!-- Route -->
+        <div class="form-group">
+            <label for="medRoute">
+                Route <span class="required" aria-hidden="true">*</span>
+            </label>
+            <InputText id="medRoute"
+                       class="form-control"
+                       @bind-Value="_model.Route"
+                       aria-required="true"
+                       aria-describedby="medRoute-error"
+                       placeholder="e.g., Oral" />
+            <ValidationMessage For="@(() => _model.Route)" id="medRoute-error" role="alert" />
+        </div>
+
+    </div>
+
+    <button type="submit" class="btn btn-primary">Submit</button>
+</EditForm>
+
+@code {
+    // Code-behind logic is intentionally minimal in this file.
+    // Heavy logic lives in MedicationEntry.razor.cs per team convention.
+    private MedicationEntryModel _model = new();
+
+    private void HandleValidSubmit()
+    {
+        // TODO: Wire up to service/API layer when backend integration is in scope.
+        // For now, form submission is validated client-side only (per spec out-of-scope note).
+    }
+}
