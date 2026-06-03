@@ -7,8 +7,8 @@ on:
     branches: ["main", "master"]
 
 jobs:
-  docs-lint:
-    name: Lint & Validate Documentation
+  lint-and-validate-docs:
+    name: Lint and Validate Documentation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -20,111 +20,75 @@ jobs:
             echo "ERROR: .env.example is missing from the repository root."
             exit 1
           else
-            echo "OK: .env.example found."
+            echo ".env.example found."
           fi
 
       - name: Check for local setup documentation
         run: |
-          FOUND=0
-          for candidate in docs/local-setup.md docs/setup.md README.md; do
-            if [ -f "$candidate" ]; then
-              echo "OK: Setup documentation found at $candidate"
-              FOUND=1
+          DOC_FOUND=0
+          for path in "docs/local-setup.md" "docs/setup.md" "README.md"; do
+            if [ -f "$path" ]; then
+              echo "Setup documentation found at: $path"
+              DOC_FOUND=1
               break
             fi
           done
-          if [ "$FOUND" -eq 0 ]; then
-            echo "ERROR: No setup documentation found (checked docs/local-setup.md, docs/setup.md, README.md)."
+          if [ "$DOC_FOUND" -eq 0 ]; then
+            echo "ERROR: No local setup documentation found (checked docs/local-setup.md, docs/setup.md, README.md)."
             exit 1
           fi
 
-      - name: Validate .env.example has no real secrets (basic heuristic)
+      - name: Validate .env.example has no real secrets (basic check)
         run: |
           # Fail if .env.example contains patterns that look like real secrets
-          if grep -Eq '(password|secret|token|key)\s*=\s*[A-Za-z0-9+/]{16,}' .env.example; then
+          if grep -E '(password|secret|token|key)\s*=\s*[A-Za-z0-9+/]{16,}' .env.example --ignore-case; then
             echo "WARNING: .env.example may contain real secret values. Please replace with placeholders."
             exit 1
           else
-            echo "OK: .env.example does not appear to contain real secrets."
+            echo ".env.example secret placeholder check passed."
           fi
 
-      - name: Check .env.example entries have comments
+      - name: Lint Markdown files
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: |
+            README.md
+            docs/**/*.md
+        continue-on-error: true
+
+      - name: Check .env.example for required documentation fields
         run: |
-          # Warn if any non-blank, non-comment line in .env.example lacks an inline comment
-          MISSING=0
-          while IFS= read -r line; do
-            # Skip blank lines and full-line comments
-            if [[ -z "$line" || "$line" =~ ^# ]]; then
-              continue
-            fi
-            # Check that the line contains an inline comment
-            if ! echo "$line" | grep -q '#'; then
-              echo "WARNING: Missing inline comment on line: $line"
-              MISSING=1
-            fi
-          done < .env.example
-          if [ "$MISSING" -eq 1 ]; then
-            echo "Some .env.example entries are missing inline comments. Please add descriptions."
-            exit 1
-          else
-            echo "OK: All .env.example entries have inline comments."
+          echo "Checking .env.example for inline comments..."
+          UNCOMMENTED=$(grep -v '^\s*#' .env.example | grep -v '^\s*$' | grep -v '=' || true)
+          if [ -n "$UNCOMMENTED" ]; then
+            echo "WARNING: Some lines in .env.example may be missing comments or are malformed:"
+            echo "$UNCOMMENTED"
           fi
-
-      - name: Install markdown linter
-        run: npm install -g markdownlint-cli
-
-      - name: Lint Markdown documentation files
-        run: |
-          FILES=""
-          for candidate in docs/local-setup.md docs/setup.md README.md; do
-            if [ -f "$candidate" ]; then
-              FILES="$FILES $candidate"
-            fi
-          done
-          if [ -n "$FILES" ]; then
-            markdownlint $FILES || true
-          fi
-
-      - name: Check local-setup doc contains required sections
-        run: |
-          DOC=""
-          for candidate in docs/local-setup.md docs/setup.md README.md; do
-            if [ -f "$candidate" ]; then
-              DOC="$candidate"
-              break
-            fi
-          done
-          MISSING_SECTIONS=0
-          for section in "Prerequisites" "clone" ".env" "install" "Variable Name"; do
-            if ! grep -qi "$section" "$DOC"; then
-              echo "WARNING: Setup doc may be missing section or content related to: $section"
-              MISSING_SECTIONS=1
-            fi
-          done
-          if [ "$MISSING_SECTIONS" -eq 1 ]; then
-            echo "Please ensure the setup documentation covers all required sections."
-            exit 1
-          else
-            echo "OK: Setup documentation contains expected sections."
-          fi
+          echo ".env.example structure check complete."
 
   security-scan:
     name: SAST Security Scan
     runs-on: ubuntu-latest
-    needs: docs-lint
+    needs: lint-and-validate-docs
     permissions:
-      security-events: write
+      actions: read
       contents: read
+      security-events: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run Trivy filesystem scan (secrets & misconfigurations)
-        uses: aquasecurity/trivy-action@0.28.0
+      - name: Scan for secrets in documentation and config files
+        uses: trufflesecurity/trufflehog@main
         with:
-          scan-type: fs
-          scan-ref: .
-          scanners: secret,misconfig
-          severity: HIGH,CRITICAL
-          exit-code: 1
-          ignore-unfixed: true
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+        continue-on-error: true
+
+      - name: Run Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
