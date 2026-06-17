@@ -1,18 +1,10 @@
-Quality Principles:
-- Responsive Design: All UIs must adapt fluidly to screens from 320px wide up to large desktops. No horizontal scrolling should be needed.
-- Accessibility (a11y): UIs must meet WCAG 2.1 AA standards, including semantic HTML, labeled inputs, keyboard navigation, and screen reader compatibility.
-- Validation & Usability: Required fields must be clearly indicated and visually emphasized upon validation failure.
-- Documentation: All UI components must have accompanying description and field annotation.
-- Internationalization ready: Text should be externalized for easy translation (not hardcoded).
-- Coding Standards: Use consistent naming, clear file structure, and organize logic for maintainability.
-Architecture Guardrails:
-- UI implementation (e.g., Blazor, Razor Pages, or React) must be separated from business/data logic.
-- All form data models should directly reference or be mapped to the MedicationDTO model where applicable.
-- No direct database or backend business logic in the UI layer.
-Non-Functional Requirements:
-- Form loads in under 1s on a 4G connection.
-- Automated tests must exist for field validation, responsiveness, and keyboard accessibility.
-Review Standards:
-- Stakeholders expect field requirements, responsive behavior, and accessibility to be demoed on real mobile/desktop emulators.
-- All acceptance criteria must be verifiable through tests or observable UI behavior.
-- Source code should be peer-reviewed for maintainability and standards compliance.
+Quality standards and guardrails for Email Account Registration Setup:
+
+- **Security:** Email address validation and verification logic must mitigate spoofing, injection, and enumeration threats. No sensitive error details should be leaked in client-facing responses.
+- **Validation:** All email inputs must be validated using an RFC 5322-compliant regex or equivalent high-fidelity approach. Inputs must be trimmed, case-normalized, and rejected if invalid.
+- **Reliability:** The email verification process should be fault-tolerant—failures of the email system must return actionable error responses; replays and retries should be handled idempotently.
+- **User Experience:** API responses for email registration should be clear, not indicate whether an email is already registered, and must not disclose user enumeration signals.
+- **Extensibility:** The implementation must keep responsibilities separated—validation, persistence, and email sending should be encapsulated and easily extendable.
+- **Testing:** Unit tests must cover positive path (valid email, email sent), invalid formats, and all error boundaries (e.g., delivery system is down), using realistic test data.
+- **Documentation:** API endpoints must include XML documentation. Edge cases, errors, and security caveats should be documented in code comments where applicable.
+- **Non-Functional:** Performance impact must be negligible (sub-150ms for email validation), email sending should be asynchronous, and failures must be auditable in logs without storing PII beyond operational needs.
