@@ -1,0 +1,5 @@
+- [ ] AuthController.cs: Add a new endpoint to handle phone number registration.
+- [ ] AuthController.cs: Implement validation logic for phone number format using regular expressions.
+- [ ] Integrate SMS sending service: Configure a service to send verification SMS on successful validation.
+- [ ] ApiGateway.csproj: Add any necessary packages for SMS sending capabilities.
+- [ ] Tests/Controllers/AuthControllerTests.cs: Develop unit tests for phone number validation and SMS dispatch logic.

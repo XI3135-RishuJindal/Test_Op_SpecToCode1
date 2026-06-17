@@ -1,0 +1,3 @@
+To deliver the phone account registration setup, start by adding a new API endpoint in `AuthController.cs` for phone number registration. Extend the existing input validation logic in the controller to include phone number format validation. Integrate an SMS sending service that triggers on successful validation, ensuring SMS tokens are sent only to numbers passing format checks. Update `ApiGateway.csproj` to include any required SMS service packages. Implement validation logic using regular expressions, adhering strictly to international phone number standards. 
+
+Finally, create corresponding test cases within `Tests/Controllers/AuthControllerTests.cs` to ensure robust validation and SMS dispatching, alongside error handling for malformed inputs.

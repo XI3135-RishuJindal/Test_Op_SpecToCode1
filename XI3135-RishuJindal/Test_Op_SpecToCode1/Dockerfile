@@ -11,12 +11,11 @@ WORKDIR /src
 COPY ["ApiGateway.csproj", "."]
 RUN dotnet restore "./ApiGateway.csproj"
 COPY . .
-
-# Install dependency scanning tool
-RUN apt-get update && apt-get install -y dependency-scanner-tool
-
 WORKDIR "/src/."
 RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
+
+# Add dependency scanning tools
+RUN dotnet tool install -g dotnet-dependency-scanner
 
 FROM build AS publish
 RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false

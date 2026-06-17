@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ApiGateway.Models;
-using System.ComponentModel.DataAnnotations;
 
 namespace ApiGateway.Controllers
 {
@@ -30,11 +29,13 @@ namespace ApiGateway.Controllers
         public async Task<IActionResult> Post([FromBody] TestRequest request)
         {
             var requestId = Guid.NewGuid().ToString();
-            
             _logger.LogInformation("Processing POST request to /api/test with RequestId: {RequestId}", requestId);
 
             try
             {
+                // Simulate async pipeline step for consistency
+                await Task.Yield();
+
                 // Validate request
                 if (request == null)
                 {
@@ -43,7 +44,7 @@ namespace ApiGateway.Controllers
                     {
                         Error = "InvalidRequest",
                         Message = "Request body cannot be null",
-                        StatusCode = 400
+                        StatusCode = StatusCodes.Status400BadRequest
                     });
                 }
 
@@ -54,56 +55,51 @@ namespace ApiGateway.Controllers
                     {
                         Error = "InvalidMessage",
                         Message = "Message cannot be null or empty",
-                        StatusCode = 400
+                        StatusCode = StatusCodes.Status400BadRequest
                     });
                 }
 
                 // Log request details
-                _logger.LogInformation("Processing request with message: {Message}, RequestId: {RequestId}", 
-                    request.Message, requestId);
+                _logger.LogInformation("Processing request with message: {Message}, RequestId: {RequestId}", request.Message, requestId);
 
                 // Process medication if provided
                 MedicationDTO? processedMedication = null;
                 if (request.Medication != null)
                 {
                     _logger.LogInformation("Processing medication data for RequestId: {RequestId}", requestId);
-                    
-                    // Simulate processing - in a real scenario, this would route to backend services
+
                     processedMedication = new MedicationDTO
                     {
                         Id = request.Medication.Id,
-                        Name = request.Medication.Name,
-                        Description = request.Medication.Description,
+                        Name = request.Medication.Name?.Trim() ?? string.Empty,
+                        Description = request.Medication.Description?.Trim() ?? string.Empty,
                         Dosage = request.Medication.Dosage,
-                        Unit = request.Medication.Unit,
-                        CreatedAt = request.Medication.CreatedAt,
+                        Unit = request.Medication.Unit?.Trim() ?? string.Empty,
+                        CreatedAt = request.Medication.CreatedAt == default ? DateTime.UtcNow : request.Medication.CreatedAt,
                         UpdatedAt = DateTime.UtcNow
                     };
                 }
 
-                // Create response
                 var response = new TestResponse
                 {
                     Status = "Success",
-                    Message = $"Request processed successfully: {request.Message}",
+                    Message = $"Processed: {request.Message.Trim()}",
                     ProcessedMedication = processedMedication,
                     ProcessedAt = DateTime.UtcNow,
                     RequestId = requestId
                 };
 
-                _logger.LogInformation("Successfully processed request with RequestId: {RequestId}", requestId);
-
+                _logger.LogInformation("Successfully processed RequestId: {RequestId}", requestId);
                 return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing request with RequestId: {RequestId}", requestId);
-                
-                return StatusCode(500, new ErrorResponse
+                _logger.LogError(ex, "Unexpected error processing RequestId: {RequestId}", requestId);
+                return StatusCode(StatusCodes.Status500InternalServerError, new ErrorResponse
                 {
                     Error = "InternalServerError",
-                    Message = "An error occurred while processing the request",
-                    StatusCode = 500,
+                    Message = "An unexpected error occurred while processing the request.",
+                    StatusCode = StatusCodes.Status500InternalServerError,
                     Details = ex.Message
                 });
             }
