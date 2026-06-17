@@ -1,91 +1,73 @@
+```csharp
+using ApiGateway.Controllers;
+using ApiGateway.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
-using ApiGateway.Controllers;
 
 namespace ApiGateway.Tests.Controllers
 {
     public class AuthControllerTests
     {
-        private readonly Mock<IConfiguration> _mockConfiguration;
-        private readonly Mock<ILogger<AuthController>> _mockLogger;
-        private readonly AuthController _controller;
+        private readonly Mock<IAuthenticatorAppService> _mockAuthenticatorAppService;
+        private readonly AuthController _authController;
 
         public AuthControllerTests()
         {
-            _mockConfiguration = new Mock<IConfiguration>();
-            _mockLogger = new Mock<ILogger<AuthController>>();
-            
-            // Setup configuration
-            _mockConfiguration.Setup(x => x["Jwt:Key"]).Returns("test-secret-key-for-unit-tests-256-bits");
-            _mockConfiguration.Setup(x => x["Jwt:Issuer"]).Returns("TestIssuer");
-            _mockConfiguration.Setup(x => x["Jwt:Audience"]).Returns("TestAudience");
-            
-            _controller = new AuthController(_mockConfiguration.Object, _mockLogger.Object);
+            var config = new ConfigurationBuilder().AddInMemoryCollection().Build();
+            var logger = Mock.Of<ILogger<AuthController>>();
+
+            _mockAuthenticatorAppService = new Mock<IAuthenticatorAppService>();
+            _authController = new AuthController(config, logger, _mockAuthenticatorAppService.Object);
         }
 
         [Fact]
-        public void GenerateToken_ValidCredentials_ReturnsToken()
+        public void GenerateMfaSetupCode_ReturnsValidUrl()
         {
             // Arrange
-            var request = new LoginRequest
-            {
-                Username = "testuser",
-                Password = "testpassword"
-            };
+            var expectedUrl = "some-otp-url";
+            _mockAuthenticatorAppService
+                .Setup(s => s.GenerateSetupCode(It.IsAny<string>(), It.IsAny<string>()))
+                .Returns(expectedUrl);
 
             // Act
-            var result = _controller.GenerateToken(request);
+            var result = _authController.GenerateMfaSetupCode() as OkObjectResult;
 
             // Assert
-            var okResult = Assert.IsType<OkObjectResult>(result);
-            var tokenResponse = okResult.Value;
-            Assert.NotNull(tokenResponse);
-            
-            // Use reflection to check the anonymous object properties
-            var tokenProperty = tokenResponse.GetType().GetProperty("Token");
-            Assert.NotNull(tokenProperty);
-            var token = tokenProperty.GetValue(tokenResponse) as string;
-            Assert.NotNull(token);
-            Assert.NotEmpty(token);
+            Assert.NotNull(result);
+            Assert.Equal(expectedUrl, result.Value);
         }
 
-        [Fact]
-        public void GenerateToken_EmptyUsername_ReturnsBadRequest()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void ValidateMfaToken_ReturnsExpectedResult(bool expectedValidationResult)
         {
             // Arrange
-            var request = new LoginRequest
-            {
-                Username = "",
-                Password = "testpassword"
-            };
+            var secret = "some-secret";
+            var token = "123456";
+            _mockAuthenticatorAppService
+                .Setup(s => s.ValidateToken(secret, token))
+                .Returns(expectedValidationResult);
 
             // Act
-            var result = _controller.GenerateToken(request);
+            var result = _authController.ValidateMfaToken(token);
 
             // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
-        }
-
-        [Fact]
-        public void GenerateToken_EmptyPassword_ReturnsBadRequest()
-        {
-            // Arrange
-            var request = new LoginRequest
+            if (expectedValidationResult)
             {
-                Username = "testuser",
-                Password = ""
-            };
-
-            // Act
-            var result = _controller.GenerateToken(request);
-
-            // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
+                var okResult = Assert.IsType<OkObjectResult>(result);
+                Assert.True((bool)okResult.Value);
+            }
+            else
+            {
+                var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+                var errorResponse = Assert.IsType<ErrorResponse>(badRequestResult.Value);
+                Assert.Equal("InvalidToken", errorResponse.Error);
+            }
         }
     }
 }
+```
