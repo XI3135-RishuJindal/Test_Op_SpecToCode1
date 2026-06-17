@@ -1,79 +1,68 @@
 ```csharp
-using Xunit;
-using Moq;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using ApiGateway.Controllers;
 using ApiGateway.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Moq;
+using Xunit;
 
 namespace ApiGateway.Tests.Controllers
 {
     public class AuthControllerTests
     {
-        private readonly Mock<IConfiguration> _mockConfiguration;
-        private readonly Mock<ILogger<AuthController>> _mockLogger;
-        private readonly AuthController _authController;
+        private readonly AuthController _controller;
+        private readonly Mock<ILogger<AuthController>> _loggerMock;
+        private readonly IConfiguration _configuration;
 
         public AuthControllerTests()
         {
-            _mockConfiguration = new Mock<IConfiguration>();
-            _mockLogger = new Mock<ILogger<AuthController>>();
-            _authController = new AuthController(_mockConfiguration.Object, _mockLogger.Object);
-        }
+            _loggerMock = new Mock<ILogger<AuthController>>();
+            var configData = new Dictionary<string, string>
+            {
+                { "Jwt:Key", "test-key" },
+                { "Jwt:Issuer", "issuer" },
+                { "Jwt:Audience", "audience" }
+            };
 
-        [Theory]
-        [InlineData("1234567890", true)]
-        [InlineData("123-456-7890", false)]
-        [InlineData("+11234567890", true)]
-        [InlineData("+1 (123) 456-7890", false)]
-        [InlineData("", false)]
-        [InlineData(null, false)]
-        public void ValidatePhoneNumberFormat_ShouldWorkCorrectly(string phoneNumber, bool expectedIsValid)
-        {
-            // Assume a hypothetical method in AuthController that validates phone number format
-            var result = _authController.ValidatePhoneNumberFormat(phoneNumber);
+            _configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(configData)
+                .Build();
 
-            Assert.Equal(expectedIsValid, result);
+            _controller = new AuthController(_configuration, _loggerMock.Object);
         }
 
         [Fact]
-        public void DispatchSms_ShouldOnlyDispatchWhenPhoneNumberIsValid()
+        public async Task RegisterPhoneNumber_InvalidNumber_ShouldReturnBadRequest()
         {
-            // Hypothetical method to simulate SMS dispatch
-            var validPhoneNumber = "+11234567890";
-            var invalidPhoneNumber = "123-456-7890";
+            // Arrange
+            var request = new PhoneRegistrationRequest { PhoneNumber = "InvalidNumber" };
 
-            var validResult = _authController.DispatchSms(validPhoneNumber);
-            var invalidResult = _authController.DispatchSms(invalidPhoneNumber);
+            // Act
+            var result = await _controller.RegisterPhoneNumber(request) as ObjectResult;
 
-            Assert.True(validResult);
-            Assert.False(invalidResult);
-        }
-
-        [Fact]
-        public void Registration_WithInvalidPhoneNumber_ShouldReturnBadRequest()
-        {
-            var invalidRequest = new PhoneRegistrationRequest { PhoneNumber = "invalid-phone" };
-
-            var result = _authController.RegisterPhoneNumber(invalidRequest) as BadRequestObjectResult;
-
+            // Assert
             Assert.NotNull(result);
-            Assert.Equal(400, result.StatusCode);
+            Assert.Equal(StatusCodes.Status400BadRequest, result.StatusCode);
+
+            var errorResponse = Assert.IsType<ErrorResponse>(result.Value);
+            Assert.Equal("InvalidPhoneNumber", errorResponse.Error);
         }
 
         [Fact]
-        public void Registration_WithValidPhoneNumber_ShouldDispatchSmsAndReturnOk()
+        public async Task RegisterPhoneNumber_ValidNumber_ShouldReturnOk()
         {
-            var validRequest = new PhoneRegistrationRequest { PhoneNumber = "+11234567890" };
+            // Arrange
+            var request = new PhoneRegistrationRequest { PhoneNumber = "+12345678901" };
 
-            var result = _authController.RegisterPhoneNumber(validRequest) as OkResult;
+            // Act
+            var result = await _controller.RegisterPhoneNumber(request) as ObjectResult;
 
+            // Assert
             Assert.NotNull(result);
-            Assert.Equal(200, result.StatusCode);
+            Assert.Equal(StatusCodes.Status200OK, result.StatusCode);
         }
     }
 }
 ```
-
-Note: In this code, `ValidatePhoneNumberFormat`, `DispatchSms`, and `RegisterPhoneNumber` methods are hypothetical and should exist in the `AuthController` class for the tests to work. Modify the tests accordingly once those methods are implemented in the `AuthController`.

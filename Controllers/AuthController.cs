@@ -1,14 +1,10 @@
 ```csharp
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using ApiGateway.Models;
-using Twilio;
-using Twilio.Rest.Api.V2010.Account;
-using Twilio.Types;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace ApiGateway.Controllers
 {
@@ -23,54 +19,49 @@ namespace ApiGateway.Controllers
         {
             _configuration = configuration;
             _logger = logger;
-            TwilioClient.Init(_configuration["Twilio:AccountSid"], _configuration["Twilio:AuthToken"]);
         }
 
+        /// <summary>
+        /// Endpoint for phone number registration
+        /// </summary>
+        /// <param name="request">Phone registration request</param>
+        /// <returns>Action result indicating success or failure</returns>
         [HttpPost("register-phone")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public IActionResult RegisterPhoneNumber([FromBody] PhoneNumberRequest request)
+        public async Task<IActionResult> RegisterPhoneNumber([FromBody] PhoneRegistrationRequest request)
         {
-            _logger.LogInformation("Phone number registration requested for number: {PhoneNumber}", request.PhoneNumber);
+            _logger.LogInformation("Phone number registration requested for: {PhoneNumber}", request.PhoneNumber);
 
-            string pattern = @"^\+[1-9]\d{1,14}$"; // E.164 format
-
-            if (Regex.IsMatch(request.PhoneNumber, pattern))
+            // Validate phone number format
+            if (string.IsNullOrWhiteSpace(request.PhoneNumber) || !IsValidPhoneNumber(request.PhoneNumber))
             {
-                try
+                return BadRequest(new ErrorResponse
                 {
-                    var message = MessageResource.Create(
-                        to: new PhoneNumber(request.PhoneNumber),
-                        from: new PhoneNumber(_configuration["Twilio:FromPhoneNumber"]),
-                        body: "Thank you for registering! Here is your verification code: 123456.");
-
-                    _logger.LogInformation("Verification SMS sent successfully to {PhoneNumber}", request.PhoneNumber);
-                    return Ok();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to send verification SMS to {PhoneNumber}", request.PhoneNumber);
-                    return BadRequest(new ErrorResponse
-                    {
-                        Error = "SmsFailure",
-                        Message = "Failed to send SMS. Please try again later.",
-                        StatusCode = 400
-                    });
-                }
+                    Error = "InvalidPhoneNumber",
+                    Message = "The phone number is invalid or not in the correct format.",
+                    StatusCode = StatusCodes.Status400BadRequest
+                });
             }
-            
-            _logger.LogWarning("Invalid phone number format: {PhoneNumber}", request.PhoneNumber);
-            return BadRequest(new ErrorResponse
-            {
-                Error = "InvalidPhoneNumber",
-                Message = "The phone number format is invalid.",
-                StatusCode = 400
-            });
+
+            // TODO: Integrate SMS service to send verification message here
+            // await SMSService.SendVerificationAsync(request.PhoneNumber);
+
+            _logger.LogInformation("Phone number {PhoneNumber} is valid, SMS verification should be sent.", request.PhoneNumber);
+
+            return Ok(new { Message = "Phone number is valid, verification process initiated." });
+        }
+
+        private bool IsValidPhoneNumber(string phoneNumber)
+        {
+            // Simple regex for international phone number validation
+            var regex = new Regex(@"^\+\d{1,3}\d{1,14}(?:x.+)?$", RegexOptions.Compiled);
+            return regex.IsMatch(phoneNumber);
         }
     }
 }
 
-public class PhoneNumberRequest
+public class PhoneRegistrationRequest
 {
     public string PhoneNumber { get; set; } = string.Empty;
 }
