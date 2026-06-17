@@ -1,18 +1,6 @@
-Approach
-- Use reflection within the test project to enumerate all controllers (types deriving from ControllerBase with [ApiController]) and extract:
-  - Class-level [Route] template (replace [controller] with controller name sans “Controller” and normalize to lowercase).
-  - Method-level HttpMethodAttribute(s) and optional method templates combined with the class route.
-  - Presence of [Authorize] at class or method level to infer auth requirement.
-- Normalize discovered paths to lowercase and leading slash for stable comparisons.
-- Assert that no discovered route contains banned segments: payment, payments, billing, checkout, webhook, webhooks, stripe, paypal, braintree, square, adyen.
-
-Architecture decisions
-- Add “guardrail” tests that do not require hosting the app or hitting Swagger; these are compile-time assembly scans, lightweight and deterministic.
-- Add a complementary “dependency guard” test that reads ApiGateway.csproj and asserts no banned SDKs are referenced.
-- Maintain a human-readable route inventory markdown file under openspec/audits to be reviewed with each PR. The inventory will be created from current code and manually updated if routes change. The reflection test output message will help reconcile differences during review.
-
-Implementation details
-- Tests/Guards/RouteInventoryTests.cs
-  - Discovers and composes full routes and HTTP verbs.
-  - Exposes a failure message listing any offending routes and a pretty-printed inventory to assist remediation.
-  - Option
+To deliver the "Enable Authenticator App for Multi-factor Authentication" user story, we will perform the following actions:
+1. **Architecture Updates**: Introduce a new service to handle MFA, specifically using authenticator applications. This service will interface with existing authentication endpoints within the AuthController.
+2. **Dependencies and Libraries**: Integrate libraries (e.g., Google Authenticator or similar) to assist with MFA code generation and validation.
+3. **Controller Changes**: Modify `AuthController.cs` to support new MFA endpoints. Implement logic to handle incoming second-factor authentication requests and validate against generated codes.
+4. **Configuration**: Amend `Program.cs` to ensure any new configuration values related to MFA (e.g., shared secrets) are loaded correctly.
+5. **Testing and Validation**: Extend `AuthControllerTests.cs` to include tests for new MFA logic. Emphasize edge cases where incorrect or maligned inputs are received.

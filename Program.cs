@@ -1,7 +1,9 @@
+```csharp
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
+using ApiGateway.Services; // Added for the authenticator app service
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +39,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+// Register AuthenticatorAppService
+builder.Services.AddSingleton<IAuthenticatorAppService, AuthenticatorAppService>();
+
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
@@ -68,3 +73,4 @@ finally
 {
     Log.CloseAndFlush();
 }
+```

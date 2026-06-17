@@ -1,15 +1,11 @@
-## Tasks (auto-derived from plan — review and refine)
+- **Implementation Tasks in Repository: XI3135-RishuJindal/Test_Op_SpecToCode1**
+  - [ ] Update `Program.cs`: Configure services for MFA and any necessary middlewares.
+  - [ ] Create a new service class in `Services/AuthenticatorAppService.cs` for handling MFA logic.
+  - [ ] Modify `Controllers/AuthController.cs`: Add endpoints and logic to process MFA requests.
+  - [ ] Amend `Models/` to include any new data contracts for MFA operations.
+  - [ ] Update `appsettings.json` and `appsettings.Development.json` to include MFA-related settings.
 
-- [ ] Use reflection within the test project to enumerate all controllers (types deriving from ControllerBase with [ApiController]) and extract:
-- [ ] Class-level [Route] template (replace [controller] with controller name sans “Controller” and normalize to lowercase).
-- [ ] Method-level HttpMethodAttribute(s) and optional method templates combined with the class route.
-- [ ] Presence of [Authorize] at class or method level to infer auth requirement.
-- [ ] Normalize discovered paths to lowercase and leading slash for stable comparisons.
-- [ ] Assert that no discovered route contains banned segments: payment, payments, billing, checkout, webhook, webhooks, stripe, paypal, braintree, square, adyen.
-- [ ] Add “guardrail” tests that do not require hosting the app or hitting Swagger; these are compile-time assembly scans, lightweight and deterministic.
-- [ ] Add a complementary “dependency guard” test that reads ApiGateway.csproj and asserts no banned SDKs are referenced.
-- [ ] Maintain a human-readable route inventory markdown file under openspec/audits to be reviewed with each PR. The inventory will be created from current code and manually updated if routes change. The reflection test output message will help reconcile differences during review.
-- [ ] Tests/Guards/RouteInventoryTests.cs
-- [ ] Discovers and composes full routes and HTTP verbs.
-- [ ] Exposes a failure message listing any offending routes and a pretty-printed inventory to assist remediation.
-- [ ] Option
+- **Testing Tasks**
+  - [ ] Extend `Tests/Controllers/AuthControllerTests.cs`: Add tests to ensure MFA logic functions as expected.
+  - [ ] Conduct end-to-end testing to verify the entire authentication flow with MFA enabled.
+  - [ ] Review test coverage to ensure it meets security and functional requirements.
