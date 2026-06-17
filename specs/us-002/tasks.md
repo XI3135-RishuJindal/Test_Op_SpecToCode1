@@ -1,5 +1,5 @@
-- [ ] Modify `Controllers/AuthController.cs`: Implement SSO login flow using OAuth 2.0/OIDC or SAML 2.0.
-- [ ] Update `Program.cs`: Configure routing and token validation logic to handle SSO redirects securely.
-- [ ] Enhance `Tests/Controllers/AuthControllerTests.cs`: Add unit tests covering SSO login scenarios and token validation checks.
-- [ ] Validate application performance: Ensure login flow is completed within the stipulated 3 seconds.
-- [ ] Conduct security review: Verify all token exchanges happen over SSL/TLS.
+- [ ] AuthController.cs: Add a new endpoint to handle phone number registration.
+- [ ] AuthController.cs: Implement validation logic for phone number format using regular expressions.
+- [ ] Integrate SMS sending service: Configure a service to send verification SMS on successful validation.
+- [ ] ApiGateway.csproj: Add any necessary packages for SMS sending capabilities.
+- [ ] Tests/Controllers/AuthControllerTests.cs: Develop unit tests for phone number validation and SMS dispatch logic.

@@ -1,11 +1,14 @@
 ```csharp
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
-using System.Diagnostics;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using ApiGateway.Models;
+using Twilio;
+using Twilio.Rest.Api.V2010.Account;
+using Twilio.Types;
+using System.Text.RegularExpressions;
 
 namespace ApiGateway.Controllers
 {
@@ -20,77 +23,55 @@ namespace ApiGateway.Controllers
         {
             _configuration = configuration;
             _logger = logger;
+            TwilioClient.Init(_configuration["Twilio:AccountSid"], _configuration["Twilio:AuthToken"]);
         }
 
-        /// <summary>
-        /// Initiates SSO login process and handles performance and security validation.
-        /// </summary>
-        /// <returns>Action result indicating success or failure</returns>
-        [HttpGet("sso")]
-        public IActionResult InitiateSSOLogin()
+        [HttpPost("register-phone")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        public IActionResult RegisterPhoneNumber([FromBody] PhoneNumberRequest request)
         {
-            var stopwatch = Stopwatch.StartNew();
-            try
+            _logger.LogInformation("Phone number registration requested for number: {PhoneNumber}", request.PhoneNumber);
+
+            string pattern = @"^\+[1-9]\d{1,14}$"; // E.164 format
+
+            if (Regex.IsMatch(request.PhoneNumber, pattern))
             {
-                // Simulate SSO login flow triggering
-                // Redirect to IdP (In actual implementation, handle actual redirect flow)
-                var simulatedRedirect = SimulateSSORedirect();
-                if (!simulatedRedirect)
+                try
                 {
+                    var message = MessageResource.Create(
+                        to: new PhoneNumber(request.PhoneNumber),
+                        from: new PhoneNumber(_configuration["Twilio:FromPhoneNumber"]),
+                        body: "Thank you for registering! Here is your verification code: 123456.");
+
+                    _logger.LogInformation("Verification SMS sent successfully to {PhoneNumber}", request.PhoneNumber);
+                    return Ok();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send verification SMS to {PhoneNumber}", request.PhoneNumber);
                     return BadRequest(new ErrorResponse
                     {
-                        Error = "SSOError",
-                        Message = "Failed to redirect to Identity Provider",
+                        Error = "SmsFailure",
+                        Message = "Failed to send SMS. Please try again later.",
                         StatusCode = 400
                     });
                 }
-
-                // Simulating token validation (In actual implementation, validate the token received from IdP)
-                var tokenValid = SimulateTokenValidation();
-                if (!tokenValid)
-                {
-                    return Unauthorized(new ErrorResponse
-                    {
-                        Error = "TokenInvalid",
-                        Message = "The token received is invalid",
-                        StatusCode = 401
-                    });
-                }
-
-                stopwatch.Stop();
-                if (stopwatch.ElapsedMilliseconds > 3000)
-                {
-                    _logger.LogWarning("SSO login flow exceeded 3 seconds: {ElapsedMilliseconds} ms", stopwatch.ElapsedMilliseconds);
-                    // Handle the timeout logic such as error response or logging
-                }
-
-                _logger.LogInformation("SSO login flow completed successfully in {ElapsedMilliseconds} ms", stopwatch.ElapsedMilliseconds);
-
-                return Ok(new { Message = "SSO login successful" });
             }
-            catch (Exception ex)
+            
+            _logger.LogWarning("Invalid phone number format: {PhoneNumber}", request.PhoneNumber);
+            return BadRequest(new ErrorResponse
             {
-                _logger.LogError(ex, "Unexpected error during SSO login");
-                return StatusCode(500, new ErrorResponse
-                {
-                    Error = "InternalError",
-                    Message = "An unexpected error occurred during SSO login",
-                    StatusCode = 500
-                });
-            }
-        }
-
-        private bool SimulateSSORedirect()
-        {
-            // Simulate SSO IdP redirection (This is a placeholder for the actual implementation)
-            return true;
-        }
-
-        private bool SimulateTokenValidation()
-        {
-            // Simulate token validation process (This is a placeholder for the actual implementation)
-            return true;
+                Error = "InvalidPhoneNumber",
+                Message = "The phone number format is invalid.",
+                StatusCode = 400
+            });
         }
     }
+}
+
+public class PhoneNumberRequest
+{
+    public string PhoneNumber { get; set; } = string.Empty;
 }
 ```

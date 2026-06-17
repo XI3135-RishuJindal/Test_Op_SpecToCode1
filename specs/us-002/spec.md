@@ -1,16 +1,7 @@
-## User Login
-The User Login feature enables existing users with SSO-linked accounts to sign in seamlessly. Utilizing OAuth 2.0/OIDC or SAML 2.0 protocols, the application redirects users to their Identity Provider (IdP) for authentication. Post-authentication, tokens received are validated to establish a user session, redirecting users to their target destination or the homepage. This secure practice is crucial to safeguard user data while guaranteeing a quick and smooth login experience within a 3-second time frame.
+The phone account registration setup story describes the functionality for a user to register using their phone number. The registration process provides an easy way for users to access account services. The core functionality involves validating the user's phone number format when entered and sending a verification SMS once the format is deemed correct. 
 
-### Acceptance Criteria
-- Users can click 'Sign in with SSO' to initiate the login flow.
-- Successful redirection to IdP and back with proper state/nonce validation.
-- Token validation should be secured and completed within 3 seconds.
-- On authenticated success, establish a session and redirect to the intended page or homepage.
-- All communication must occur over SSL/TLS.
+Acceptance criteria include the following:
+1. When a user inputs their phone number on the registration page, the system must validate the phone number's format.
+2. Upon submission of a correctly formatted phone number, the system should send a verification SMS to the user's phone.
 
-### Out-of-Scope
-- Integration with non-SSO login methods.
-- UI/UX components redesign.
-
-### Dependencies
-- Integration with identity providers (IdP) such as OAuth or SAML compatible services.
+This feature ensures seamless integration with existing systems, maintaining user-friendly interactions without overloading existing infrastructure. No external cross-service dependencies are anticipated beyond any existing SMS service providers.
