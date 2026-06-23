@@ -1,22 +1,35 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+# ── Build stage ────────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
 WORKDIR /app
-EXPOSE 80
-EXPOSE 443
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
-COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
+COPY package*.json ./
+RUN npm ci
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+COPY tsconfig.json nest-cli.json ./
+COPY src ./src
 
-FROM base AS final
+RUN npm run build
+
+# ── Production stage ───────────────────────────────────────────────────────────
+FROM node:20-alpine AS production
+
 WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY --from=builder /app/dist ./dist
+
+# Non-root user for security
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:3000/health || exit 1
+
+CMD ["node", "dist/main"]
