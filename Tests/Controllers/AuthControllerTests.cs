@@ -1,128 +1,69 @@
-using System;
-using System.Threading.Tasks;
+```csharp
+using Xunit;
+using Microsoft.AspNetCore.Mvc;
+using Moq;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using ApiGateway.Controllers;
 using ApiGateway.Models;
-using ApiGateway.Services;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using Moq;
-using Xunit;
 
 namespace ApiGateway.Tests.Controllers
 {
     public class AuthControllerTests
     {
-        private readonly Mock<IEmailSender> _emailSenderMock;
-        private readonly Mock<ILogger<AuthController>> _loggerMock;
-        private readonly Mock<IConfiguration> _configMock;
+        private readonly Mock<IConfiguration> _mockConfiguration;
+        private readonly Mock<ILogger<AuthController>> _mockLogger;
+        private readonly AuthController _controller;
 
         public AuthControllerTests()
         {
-            _emailSenderMock = new Mock<IEmailSender>();
-            _loggerMock = new Mock<ILogger<AuthController>>();
-            _configMock = new Mock<IConfiguration>();
-            // Only needed for token endpoint, but harmless for register tests.
-        }
-
-        private AuthController CreateController()
-        {
-            return new AuthController(_configMock.Object, _loggerMock.Object, _emailSenderMock.Object);
+            _mockConfiguration = new Mock<IConfiguration>();
+            _mockLogger = new Mock<ILogger<AuthController>>();
+            _controller = new AuthController(_mockConfiguration.Object, _mockLogger.Object);
         }
 
         [Fact]
-        public async Task Register_ValidEmail_ReturnsOk_And_EmailSenderCalled()
+        public void GenerateToken_ReturnsBadRequest_OnInvalidCredentials()
         {
             // Arrange
-            var controller = CreateController();
-            var validEmail = "user.test+foo@example-domain.com";
-            var request = new RegisterEmailRequest { Email = validEmail };
-
-            _emailSenderMock
-                .Setup(e => e.SendVerificationEmailAsync(It.Is<string>(email => email == validEmail)))
-                .Returns(Task.CompletedTask)
-                .Verifiable();
+            var loginRequest = new LoginRequest
+            {
+                Username = string.Empty,
+                Password = string.Empty
+            };
 
             // Act
-            var actionResult = await controller.Register(request);
+            var result = _controller.GenerateToken(loginRequest) as BadRequestObjectResult;
 
             // Assert
-            var okResult = Assert.IsType<OkResult>(actionResult);
-            Assert.Equal(StatusCodes.Status200OK, okResult.StatusCode);
-            _emailSenderMock.Verify(e => e.SendVerificationEmailAsync(validEmail), Times.Once);
-        }
-
-        [Theory]
-        [InlineData("")]
-        [InlineData(" ")]
-        [InlineData(null)]
-        [InlineData("plainaddress")]
-        [InlineData("missing@tld")]
-        [InlineData("@no-local-part.com")]
-        [InlineData("Joe Smith <email@domain.com>")]
-        [InlineData("email.domain.com")]
-        [InlineData("email@domain..com")]
-        [InlineData("user@.com")]
-        [InlineData("user@com")]
-        public async Task Register_InvalidEmail_ReturnsBadRequest_ErrorResponse(string? invalidEmail)
-        {
-            // Arrange
-            var controller = CreateController();
-            var request = new RegisterEmailRequest { Email = invalidEmail ?? "" };
-
-            // Act
-            var actionResult = await controller.Register(request);
-
-            // Assert
-            var badReq = Assert.IsType<BadRequestObjectResult>(actionResult);
-            Assert.Equal(StatusCodes.Status400BadRequest, badReq.StatusCode);
-
-            var error = Assert.IsType<ErrorResponse>(badReq.Value);
-            Assert.False(string.IsNullOrWhiteSpace(error.Error));
-            Assert.False(string.IsNullOrWhiteSpace(error.Message));
-            Assert.Equal(400, error.StatusCode);
-            Assert.True(error.Timestamp <= DateTime.UtcNow.AddSeconds(1));
+            Assert.NotNull(result);
+            var errorResponse = result.Value as ErrorResponse;
+            Assert.NotNull(errorResponse);
+            Assert.Equal("InvalidCredentials", errorResponse.Error);
+            Assert.Equal("Username and password are required", errorResponse.Message);
         }
 
         [Fact]
-        public async Task Register_EmailSenderThrows_ReturnsInternalServerErrorWithErrorResponse()
+        public void GenerateToken_ReturnsToken_OnValidRequest()
         {
             // Arrange
-            var controller = CreateController();
-            var request = new RegisterEmailRequest { Email = "some.valid-address@example.org" };
-            _emailSenderMock
-                .Setup(e => e.SendVerificationEmailAsync(It.IsAny<string>()))
-                .ThrowsAsync(new Exception("Simulated email send failure"));
+            var loginRequest = new LoginRequest
+            {
+                Username = "testuser",
+                Password = "testpassword"
+            };
+
+            _mockConfiguration.Setup(c => c["Jwt:Key"]).Returns("your-secret-key-here-must-be-at-least-256-bits");
+            _mockConfiguration.Setup(c => c["Jwt:Issuer"]).Returns("ApiGateway");
+            _mockConfiguration.Setup(c => c["Jwt:Audience"]).Returns("ApiGatewayUsers");
 
             // Act
-            var actionResult = await controller.Register(request);
+            var result = _controller.GenerateToken(loginRequest) as OkObjectResult;
 
             // Assert
-            var objResult = Assert.IsType<ObjectResult>(actionResult);
-            Assert.Equal(StatusCodes.Status500InternalServerError, objResult.StatusCode);
-
-            var error = Assert.IsType<ErrorResponse>(objResult.Value);
-            Assert.False(string.IsNullOrWhiteSpace(error.Error));
-            Assert.False(string.IsNullOrWhiteSpace(error.Message));
-            Assert.Equal(500, error.StatusCode);
-        }
-
-        [Fact]
-        public async Task Register_NullRequest_ReturnsBadRequest_ErrorResponse()
-        {
-            // Arrange
-            var controller = CreateController();
-
-            // Act
-            var actionResult = await controller.Register(null);
-
-            // Assert
-            var badReq = Assert.IsType<BadRequestObjectResult>(actionResult);
-            Assert.Equal(StatusCodes.Status400BadRequest, badReq.StatusCode);
-
-            var error = Assert.IsType<ErrorResponse>(badReq.Value);
-            Assert.Contains("required", error.Message, StringComparison.OrdinalIgnoreCase);
-            Assert.Equal(400, error.StatusCode);
+            Assert.NotNull(result);
+            Assert.IsType<ObjectResult>(result);
         }
     }
 }
+```

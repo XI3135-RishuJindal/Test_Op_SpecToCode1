@@ -1,7 +1,8 @@
+```csharp
 namespace ApiGateway.Models
 {
     /// <summary>
-    /// Represents a login request payload
+    /// Represents a login request
     /// </summary>
     public class LoginRequest
     {
@@ -9,3 +10,4 @@ namespace ApiGateway.Models
         public string Password { get; set; } = string.Empty;
     }
 }
+```

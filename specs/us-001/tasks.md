@@ -1,10 +1,9 @@
-**XI3135-RishuJindal/Test_Op_SpecToCode1**
-
-- [ ] add Models/RegisterEmailRequest.cs: define request DTO for email registration
-- [ ] add Services/IEmailSender.cs: define interface for sending emails
-- [ ] add Services/MockEmailSender.cs: implement mock service for development/testing environment
-- [ ] modify Controllers/AuthController.cs: add POST /api/auth/register endpoint, inject IEmailSender, perform email validation and trigger email send
-- [ ] update Startup/Program.cs: register IEmailSender in DI container
-- [ ] add unit tests in Tests/Controllers/AuthControllerTests.cs: validate correct/incorrect email scenarios, verify error and happy path, simulate email send failures
-- [ ] add XML comments to new endpoint and new types for swagger support
-- [ ] update README.md: document the new endpoint, request body, and error cases
+- [ ] Modify `Controllers/AuthController.cs`: Add endpoint to initiate MFA setup prompt.
+- [ ] Modify `Controllers/AuthController.cs`: Add endpoint to handle verification of MFA code.
+- [ ] Update `appsettings.json`: Add configuration settings for MFA service details (e.g., API keys, provider URLs).
+- [ ] Implement new service class `MfaService.cs` to handle communication with external MFA delivery services (SMS, email, app).
+- [ ] Create unit tests in `Tests/Controllers/AuthControllerTests.cs` to cover new MFA initiation and verification logic.
+- [ ] Update `Program.cs` to register new `MfaService` for dependency injection.
+- [ ] Design and implement UI updates to login view to accommodate MFA instructions and code input.
+- [ ] Conduct user acceptance testing to ensure the MFA process is seamless and intuitive.
+- [ ] Review code changes and conduct a security audit to ensure that sensitive information is protected.

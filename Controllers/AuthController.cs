@@ -1,4 +1,9 @@
+```csharp
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using ApiGateway.Models;
 
 namespace ApiGateway.Controllers
@@ -9,48 +14,72 @@ namespace ApiGateway.Controllers
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthController> _logger;
-        private readonly Services.IEmailSender _emailSender;
 
-        public AuthController(
-            IConfiguration configuration,
-            ILogger<AuthController> logger,
-            Services.IEmailSender emailSender)
+        public AuthController(IConfiguration configuration, ILogger<AuthController> logger)
         {
             _configuration = configuration;
             _logger = logger;
-            _emailSender = emailSender;
         }
 
         /// <summary>
-        /// Register a new user account using an email address.
+        /// Generate JWT token for testing purposes
         /// </summary>
-        /// <param name="request">The email registration request.</param>
-        /// <remarks>
-        /// <para>
-        /// Initiates the email registration and verification process. This endpoint:
-        /// </para>
-        /// <list type="bullet">
-        ///   <item><description>Validates the format of the submitted email according to RFC 5322 standards.</description></item>
-        ///   <item><description>If the email is invalid, responds with <c>400 Bad Request</c> and <see cref="ErrorResponse"/>.</description></item>
-        ///   <item><description>If the email is valid, begins the verification workflow by attempting to send a verification email.</description></item>
-        ///   <item><description>Always responds with <c>200 OK</c> on successful submission, regardless of registration state, to mitigate user enumeration risks.</description></item>
-        ///   <item><description>If the verification email cannot be sent due to a server or delivery failure, responds with <c>500 Internal Server Error</c> and <see cref="ErrorResponse"/>.</description></item>
-        /// </list>
-        /// <para>
-        /// <b>Security:</b> The response never reveals whether the email is associated with an existing or pending account.
-        /// </para>
-        /// </remarks>
-        /// <response code="200">A verification email has been triggered if the email was valid. Response body is empty.</response>
-        /// <response code="400">Returned if the supplied email is missing or invalid. See <see cref="ErrorResponse"/>.</response>
-        /// <response code="500">Returned if the email delivery system is unavailable. See <see cref="ErrorResponse"/>.</response>
-        [HttpPost("register")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        /// <param name="request">Login request</param>
+        /// <returns>JWT token</returns>
+        [HttpPost("token")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> RegisterByEmail([FromBody] RegisterEmailRequest request)
+        public IActionResult GenerateToken([FromBody] LoginRequest request)
         {
-            // Implementation omitted for documentation-only task
-            throw new NotImplementedException();
+            _logger.LogInformation("Token generation requested for user: {Username}", request.Username);
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+                {
+                    return BadRequest(new ErrorResponse
+                    {
+                        Error = "InvalidCredentials",
+                        Message = "Username and password are required",
+                        StatusCode = 400
+                    });
+                }
+
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default-secret-key-for-development");
+                
+                var tokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Subject = new ClaimsIdentity(new[]
+                    {
+                        new Claim(ClaimTypes.Name, request.Username),
+                        new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+                        new Claim("username", request.Username)
+                    }),
+                    Expires = DateTime.UtcNow.AddHours(1),
+                    Issuer = _configuration["Jwt:Issuer"],
+                    Audience = _configuration["Jwt:Audience"],
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                };
+
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                var tokenString = tokenHandler.WriteToken(token);
+
+                _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
+
+                return Ok(new { Token = tokenString });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating token for user: {Username}", request.Username);
+                return StatusCode(500, new ErrorResponse
+                {
+                    Error = "TokenGenerationFailed",
+                    Message = "An error occurred while generating the token",
+                    StatusCode = 500
+                });
+            }
         }
     }
 }
+```

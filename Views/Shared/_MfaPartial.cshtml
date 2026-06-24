@@ -1,0 +1,29 @@
+```html
+@{
+    ViewData["Title"] = "Multi-Factor Authentication";
+}
+
+<div class="container">
+    <h2>@ViewData["Title"]</h2>
+    <p>Please set up Multi-Factor Authentication to enhance your account security.</p>
+
+    <form asp-action="VerifyMfa" method="post">
+        <div class="form-group">
+            <label for="mfaCode">Enter MFA Code</label>
+            <input type="text" class="form-control" id="mfaCode" name="mfaCode" placeholder="Enter the code you received" required>
+        </div>
+        <div class="form-group">
+            <span class="text-danger">@ViewData["ErrorMessage"]</span>
+        </div>
+        <button type="submit" class="btn btn-primary">Verify</button>
+    </form>
+</div>
+
+<style>
+    .container {
+        max-width: 500px;
+        margin: 0 auto;
+        padding-top: 50px;
+    }
+</style>
+```
