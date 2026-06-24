@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# COBOL compiled objects and binaries
+bin/
+*.o
+*.so
+*.gnt
+*.int
+
+# Environment files
+.env
+*.env.local
+
+# Data files
+/data/
+*.dat
+*.vsam
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.log
+
+# Editor / OS artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
