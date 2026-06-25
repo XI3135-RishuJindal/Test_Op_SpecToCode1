@@ -1,10 +1,6 @@
-- [ ] Enhance `AuthController.cs`: Add logic to detect existing account by email.
-- [ ] Implement business logic in `AuthController.cs` for account linking prompt and verification.
-- [ ] Develop OTP generation and verification methods, potentially using existing services.
-- [ ] Update JWT handling in `AuthController.cs` to support post-linking authentication flows.
-- [ ] Update `AuthControllerTests.cs`: Write tests to ensure flow handles account linking properly.
-- [ ] Coordinate with UI/UX teams for user prompt design and integration.
-- [ ] Conduct peer reviews focusing on security and data integrity.
-- [ ] Deploy changes to a staging environment for integration testing.
-- [ ] Perform end-to-end testing with SSO accounts to validate functionality.
-- [ ] Document changes and update relevant sections in `openspec/changes/api-gateway/specs/spec.md`.
+- [ ] Create test scenarios for SAML integration in Tests/Controllers/AuthControllerTests.cs: include cases for invalid token handling.
+- [ ] Update README.md with SAML testing procedures and expected outcomes.
+- [ ] Review the current implementation in Controllers/AuthController.cs for error handling logic against SAML-specific scenarios.
+- [ ] Ensure logging in the AuthController provides sufficient information for SAML authentication request evaluation.
+- [ ] Conduct a review session with QA to validate test coverage against previously identified SAML-related incidents.
+- [ ] Implement continuous integration checks ensuring the new SAML-related test cases are executed without failures.
