@@ -1,0 +1,68 @@
+@page
+@model ApiGateway.Pages.RegisterModel
+@{
+    ViewData["Title"] = "Register";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="~/css/register.css" />
+</head>
+<body>
+    <main>
+        <section class="register-container" aria-labelledby="register-heading">
+            <h1 id="register-heading">Create an Account</h1>
+
+            <!-- Registration form: no backend submission in this story (US-001) -->
+            <form id="register-form" method="post" novalidate>
+                <div class="form-group">
+                    <label for="Name">Name</label>
+                    <input
+                        type="text"
+                        id="Name"
+                        name="Name"
+                        autocomplete="name"
+                        aria-label="Name"
+                        aria-required="true"
+                        tabindex="1"
+                        placeholder="Full name" />
+                </div>
+
+                <div class="form-group">
+                    <label for="Email">Email</label>
+                    <input
+                        type="email"
+                        id="Email"
+                        name="Email"
+                        autocomplete="email"
+                        aria-label="Email"
+                        aria-required="true"
+                        tabindex="2"
+                        placeholder="Email address" />
+                </div>
+
+                <div class="form-group">
+                    <label for="Password">Password</label>
+                    <input
+                        type="password"
+                        id="Password"
+                        name="Password"
+                        autocomplete="new-password"
+                        aria-label="Password"
+                        aria-required="true"
+                        tabindex="3"
+                        placeholder="Password" />
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" tabindex="4">Register</button>
+                </div>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

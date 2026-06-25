@@ -1,1 +1,11 @@
-To deliver the MFA feature, modifications are required primarily within the `AuthController.cs` to handle MFA prompts and verification logic. The implementation involves creating new endpoints for initiating MFA and verifying codes. Interfaces with external services/APIs for sending codes via selected methods (SMS, email, app) will be established. The `Program.cs` may need updates for service registrations related to these integrations. Additionally, modification of the `appsettings.json` might be required to include MFA configuration details. Unit tests for new functions will be essential to maintain code integrity and ensure expected outcomes. Lastly, the UI will need updates to support MFA interactions and display appropriate messages.
+To deliver this story:
+- Add a new registration form UI, using either an MVC Razor page (Register.cshtml + Register.cshtml.cs) under Pages or a static HTML file as appropriate for the codebase. Semantic markup is required, including <form>, <label>, and <input> elements.
+- Ensure all input fields ("Name", "Email", "Password") are present, properly labeled, and have matching aria attributes for accessibility.
+- Implement basic responsive CSS—either in a dedicated CSS file, inline in cshtml, or using a framework if present—ensuring the form remains usable on mobile and desktop.
+- Add minimal navigation to the form (either via a dedicated URL route or action method in a new RegistrationController.cs if using MVC).
+- Add at least one accessibility-focused automated or manual test (e.g., test tab order, screen reader text, element roles).
+Files to change:
+- Pages/Register.cshtml (new)
+- Pages/Register.cshtml.cs (new if Razor Pages)
+- wwwroot/css/register.css or inline styles
+- Tests/Controllers/RegisterPageTests.cs or equivalent UI test

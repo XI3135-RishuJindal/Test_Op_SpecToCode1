@@ -1,9 +1,7 @@
-- [ ] Modify `Controllers/AuthController.cs`: Add endpoint to initiate MFA setup prompt.
-- [ ] Modify `Controllers/AuthController.cs`: Add endpoint to handle verification of MFA code.
-- [ ] Update `appsettings.json`: Add configuration settings for MFA service details (e.g., API keys, provider URLs).
-- [ ] Implement new service class `MfaService.cs` to handle communication with external MFA delivery services (SMS, email, app).
-- [ ] Create unit tests in `Tests/Controllers/AuthControllerTests.cs` to cover new MFA initiation and verification logic.
-- [ ] Update `Program.cs` to register new `MfaService` for dependency injection.
-- [ ] Design and implement UI updates to login view to accommodate MFA instructions and code input.
-- [ ] Conduct user acceptance testing to ensure the MFA process is seamless and intuitive.
-- [ ] Review code changes and conduct a security audit to ensure that sensitive information is protected.
+Repository: XI3135-RishuJindal/Test_Op_SpecToCode1.git
+
+- [ ] add Pages/Register.cshtml: Create markup for registration form with name, email, and password fields, using semantic HTML and proper labeling.
+- [ ] add Pages/Register.cshtml.cs: (if Razor Pages) Provide minimal page model/controller to render the form.
+- [ ] add wwwroot/css/register.css: Define mobile-first, responsive styles so the form displays properly on all major screen sizes.
+- [ ] add Tests/Controllers/RegisterPageTests.cs: Implement at least one automated UI accessibility or rendering test for the registration form.
+- [ ] update README.md: Document the new registration UI location and usage, and reference accessibility features.
