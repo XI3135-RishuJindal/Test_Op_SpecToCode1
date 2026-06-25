@@ -1,0 +1,10 @@
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Environment variable files
+.env
+
+# Ignore local files
+tests/
+*.md
