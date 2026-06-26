@@ -2,16 +2,15 @@
 
 ## Stack
 
-- **Service:** User Management Service
+- **Service:** Registration Service
 - **Type:** business
 - **Technologies:**
-- Node.js
-- JWT
-- OAuth 2.0
+- Java
+- Spring Boot
 - **Responsibilities:**
-- User registration
-- User authentication
-- Password management
+- Receive user registration requests
+- Validate email format and check for duplicates
+- Trigger email verification
 
 ## General Rules
 
