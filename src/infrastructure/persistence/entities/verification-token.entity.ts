@@ -12,11 +12,10 @@ export class VerificationTokenEntity {
   id: string;
 
   @Column({ type: 'uuid', name: 'user_id' })
-  @Index()
   userId: string;
 
   @Index({ unique: true })
-  @Column({ type: 'varchar', length: 512, name: 'token_hash' })
+  @Column({ type: 'varchar', length: 255, name: 'token_hash' })
   tokenHash: string;
 
   @Column({ type: 'timestamptz', name: 'expires_at' })

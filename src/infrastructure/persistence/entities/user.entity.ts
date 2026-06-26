@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
+import { AccountStatus } from '../../../domain/enums/account-status.enum';
 
 @Entity('users')
 export class UserEntity {
@@ -19,12 +20,12 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 255, name: 'password_hash' })
   passwordHash: string;
 
-  @Column({ type: 'varchar', length: 50 })
-  status: string;
-
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 255, name: 'idempotency_key' })
-  idempotencyKey: string;
+  @Column({
+    type: 'enum',
+    enum: AccountStatus,
+    default: AccountStatus.PENDING_VERIFICATION,
+  })
+  status: AccountStatus;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

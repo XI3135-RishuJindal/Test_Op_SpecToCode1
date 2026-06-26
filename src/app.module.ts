@@ -2,11 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TerminusModule } from '@nestjs/terminus';
-import { RegistrationModule } from './application/registration/registration.module';
-import { VerificationModule } from './application/verification/verification.module';
 import { HealthModule } from './interfaces/http/health/health.module';
-import { RegistrationController } from './interfaces/http/registration/registration.controller';
-import { VerificationController } from './interfaces/http/verification/verification.controller';
+import { RegistrationModule } from './interfaces/http/registration/registration.module';
+import { VerificationModule } from './interfaces/http/verification/verification.module';
 import appConfig from './infrastructure/config/app.config';
 import databaseConfig from './infrastructure/config/database.config';
 import { UserEntity } from './infrastructure/persistence/entities/user.entity';
@@ -25,28 +23,24 @@ import { VerificationTokenEntity } from './infrastructure/persistence/entities/v
     // Database
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
+      useFactory: (config: ConfigService) => ({
         type: 'postgres',
-        host: configService.get<string>('database.host'),
-        port: configService.get<number>('database.port'),
-        username: configService.get<string>('database.username'),
-        password: configService.get<string>('database.password'),
-        database: configService.get<string>('database.name'),
+        host: config.get<string>('database.host'),
+        port: config.get<number>('database.port'),
+        username: config.get<string>('database.username'),
+        password: config.get<string>('database.password'),
+        database: config.get<string>('database.name'),
         entities: [UserEntity, OutboxEventEntity, VerificationTokenEntity],
-        synchronize: configService.get<boolean>('database.synchronize', false),
-        ssl: configService.get<boolean>('database.ssl', false)
-          ? { rejectUnauthorized: false }
-          : false,
+        synchronize: config.get<boolean>('database.synchronize'),
+        ssl: config.get<boolean>('database.ssl') ? { rejectUnauthorized: false } : false,
       }),
       inject: [ConfigService],
     }),
 
-    // Feature modules
+    TerminusModule,
+    HealthModule,
     RegistrationModule,
     VerificationModule,
-    HealthModule,
-    TerminusModule,
   ],
-  controllers: [RegistrationController, VerificationController],
 })
 export class AppModule {}

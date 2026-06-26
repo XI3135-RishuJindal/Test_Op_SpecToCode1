@@ -1,13 +1,12 @@
 import { VerificationToken } from '../entities/verification-token.entity';
 
 /**
- * Output port — verification token repository.
+ * Output port — persistence contract for VerificationToken aggregates.
  */
 export interface IVerificationTokenRepository {
+  save(token: VerificationToken): Promise<void>;
   findByTokenHash(tokenHash: string): Promise<VerificationToken | null>;
-  findActiveByUserId(userId: string): Promise<VerificationToken | null>;
-  save(token: VerificationToken): Promise<VerificationToken>;
-  update(token: VerificationToken): Promise<VerificationToken>;
+  update(token: VerificationToken): Promise<void>;
 }
 
 export const VERIFICATION_TOKEN_REPOSITORY = Symbol('IVerificationTokenRepository');

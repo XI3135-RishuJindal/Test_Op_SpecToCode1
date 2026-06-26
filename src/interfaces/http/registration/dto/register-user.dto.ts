@@ -1,26 +1,29 @@
-import { IsEmail, IsString, MinLength, MaxLength, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import {
+  IsEmail,
+  IsString,
+  IsUUID,
+  MinLength,
+  MaxLength,
+  IsOptional,
+} from 'class-validator';
 
 export class RegisterUserDto {
-  @ApiProperty({ example: 'alice@example.com' })
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
+  @IsUUID()
+  idempotencyKey: string;
+
+  @ApiProperty({ example: 'user@example.com' })
   @IsEmail()
-  @Transform(({ value }: { value: string }) => value.trim().toLowerCase())
   email: string;
 
-  @ApiProperty({ example: 'P@ssw0rd!', minLength: 8, maxLength: 128 })
+  @ApiProperty({ example: 'Str0ng!Pass' })
   @IsString()
   @MinLength(8)
   @MaxLength(128)
   password: string;
 
-  @ApiPropertyOptional({ description: 'Client-supplied idempotency key (UUID v4 recommended)' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  idempotencyKey?: string;
-
-  @ApiPropertyOptional({ description: 'CAPTCHA / risk token from the client' })
+  @ApiPropertyOptional({ example: 'captcha-token-from-client' })
   @IsOptional()
   @IsString()
   captchaToken?: string;

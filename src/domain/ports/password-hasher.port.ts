@@ -1,9 +1,9 @@
 /**
- * Output port — password hashing service.
+ * Output port — password hashing and verification.
  */
 export interface IPasswordHasher {
-  hash(plaintext: string): Promise<string>;
-  verify(plaintext: string, hash: string): Promise<boolean>;
+  hash(plainText: string): Promise<string>;
+  verify(plainText: string, hash: string): Promise<boolean>;
 }
 
 export const PASSWORD_HASHER = Symbol('IPasswordHasher');

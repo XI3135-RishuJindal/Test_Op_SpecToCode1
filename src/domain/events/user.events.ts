@@ -1,26 +1,29 @@
-export interface DomainEvent {
-  readonly eventType: string;
-  readonly aggregateId: string;
-  readonly occurredAt: Date;
+/**
+ * Domain event emitted after a user successfully registers.
+ * Written to the outbox transactionally.
+ */
+export interface UserRegisteredEvent {
+  eventType: 'USER_REGISTERED';
+  aggregateId: string;
+  occurredAt: Date;
+  payload: {
+    userId: string;
+    email: string;
+    status: string;
+  };
 }
 
-export class UserRegisteredEvent implements DomainEvent {
-  readonly eventType = 'user.registered';
-  readonly occurredAt = new Date();
-
-  constructor(
-    readonly aggregateId: string,
-    readonly email: string,
-    readonly idempotencyKey: string,
-  ) {}
+/**
+ * Domain event emitted after a user's email is verified and account activated.
+ */
+export interface UserActivatedEvent {
+  eventType: 'USER_ACTIVATED';
+  aggregateId: string;
+  occurredAt: Date;
+  payload: {
+    userId: string;
+    email: string;
+  };
 }
 
-export class UserEmailVerifiedEvent implements DomainEvent {
-  readonly eventType = 'user.email_verified';
-  readonly occurredAt = new Date();
-
-  constructor(
-    readonly aggregateId: string,
-    readonly email: string,
-  ) {}
-}
+export type DomainEvent = UserRegisteredEvent | UserActivatedEvent;

@@ -1,10 +1,16 @@
 /**
- * Output port — token generator.
- * Produces cryptographically secure random tokens and their hashes.
+ * Output port — cryptographically secure token generation.
  */
 export interface ITokenGenerator {
-  /** Returns { raw, hash } — raw is sent to the user, hash is stored. */
-  generate(): Promise<{ raw: string; hash: string }>;
+  /**
+   * Generate a URL-safe random token string.
+   */
+  generate(): Promise<string>;
+
+  /**
+   * Hash a raw token for safe storage.
+   */
+  hash(rawToken: string): string;
 }
 
 export const TOKEN_GENERATOR = Symbol('ITokenGenerator');

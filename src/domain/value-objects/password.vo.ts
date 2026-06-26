@@ -1,37 +1,35 @@
 /**
- * Password value object — wraps the raw plaintext password and enforces policy.
- * The hashed form is stored separately; this VO is only used during registration.
+ * Password policy value object.
+ * Validates raw passwords against the configured policy before hashing.
  */
 export class Password {
-  private readonly _value: string;
+  static readonly MIN_LENGTH = 8;
+  static readonly MAX_LENGTH = 128;
 
-  private static readonly MIN_LENGTH = 8;
-  private static readonly MAX_LENGTH = 128;
+  private constructor() {}
 
-  constructor(raw: string) {
-    const errors = Password.validate(raw);
-    if (errors.length > 0) {
-      throw new Error(`Password policy violation: ${errors.join(', ')}`);
-    }
-    this._value = raw;
-  }
-
-  static validate(raw: string): string[] {
-    const errors: string[] = [];
+  /**
+   * Validates a raw (plain-text) password against the policy.
+   * Throws a descriptive error if the policy is violated.
+   */
+  static validate(raw: string): void {
     if (raw.length < Password.MIN_LENGTH) {
-      errors.push(`minimum length is ${Password.MIN_LENGTH}`);
+      throw new Error(`Password must be at least ${Password.MIN_LENGTH} characters.`);
     }
     if (raw.length > Password.MAX_LENGTH) {
-      errors.push(`maximum length is ${Password.MAX_LENGTH}`);
+      throw new Error(`Password must not exceed ${Password.MAX_LENGTH} characters.`);
     }
-    if (!/[A-Z]/.test(raw)) errors.push('must contain an uppercase letter');
-    if (!/[a-z]/.test(raw)) errors.push('must contain a lowercase letter');
-    if (!/[0-9]/.test(raw)) errors.push('must contain a digit');
-    if (!/[^A-Za-z0-9]/.test(raw)) errors.push('must contain a special character');
-    return errors;
-  }
-
-  get value(): string {
-    return this._value;
+    if (!/[A-Z]/.test(raw)) {
+      throw new Error('Password must contain at least one uppercase letter.');
+    }
+    if (!/[a-z]/.test(raw)) {
+      throw new Error('Password must contain at least one lowercase letter.');
+    }
+    if (!/[0-9]/.test(raw)) {
+      throw new Error('Password must contain at least one digit.');
+    }
+    if (!/[^A-Za-z0-9]/.test(raw)) {
+      throw new Error('Password must contain at least one special character.');
+    }
   }
 }

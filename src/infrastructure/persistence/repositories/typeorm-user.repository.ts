@@ -1,11 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IUserRepository } from '../../../domain/ports/user-repository.port';
 import { User } from '../../../domain/entities/user.entity';
-import { Email } from '../../../domain/value-objects/email.vo';
-import { AccountStatus } from '../../../domain/enums/account-status.enum';
 import { UserEntity } from '../entities/user.entity';
+import { AccountStatus } from '../../../domain/enums/account-status.enum';
 
 @Injectable()
 export class TypeOrmUserRepository implements IUserRepository {
@@ -14,52 +13,51 @@ export class TypeOrmUserRepository implements IUserRepository {
     private readonly repo: Repository<UserEntity>,
   ) {}
 
+  async save(user: User): Promise<void> {
+    const existing = await this.repo.findOne({ where: { email: user.email } });
+    if (existing) {
+      throw new ConflictException(`User with email ${user.email} already exists.`);
+    }
+    const entity = this.toEntity(user);
+    await this.repo.save(entity);
+  }
+
   async findById(id: string): Promise<User | null> {
     const entity = await this.repo.findOne({ where: { id } });
     return entity ? this.toDomain(entity) : null;
   }
 
-  async findByEmail(email: Email): Promise<User | null> {
-    const entity = await this.repo.findOne({ where: { email: email.value } });
+  async findByEmail(email: string): Promise<User | null> {
+    const entity = await this.repo.findOne({ where: { email } });
     return entity ? this.toDomain(entity) : null;
   }
 
-  async findByIdempotencyKey(key: string): Promise<User | null> {
-    const entity = await this.repo.findOne({ where: { idempotencyKey: key } });
-    return entity ? this.toDomain(entity) : null;
-  }
-
-  async save(user: User): Promise<User> {
-    const entity = this.toEntity(user);
-    const saved = await this.repo.save(entity);
-    return this.toDomain(saved);
-  }
-
-  async update(user: User): Promise<User> {
-    const entity = this.toEntity(user);
-    const updated = await this.repo.save(entity);
-    return this.toDomain(updated);
-  }
-
-  private toDomain(entity: UserEntity): User {
-    return User.reconstitute({
-      id: entity.id,
-      email: new Email(entity.email),
-      passwordHash: entity.passwordHash,
-      status: entity.status as AccountStatus,
-      idempotencyKey: entity.idempotencyKey,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
+  async update(user: User): Promise<void> {
+    await this.repo.update(user.id, {
+      status: user.status,
+      updatedAt: user.updatedAt,
     });
   }
 
   private toEntity(user: User): UserEntity {
     const entity = new UserEntity();
     entity.id = user.id;
-    entity.email = user.email.value;
+    entity.email = user.email;
     entity.passwordHash = user.passwordHash;
-    entity.status = user.status;
-    entity.idempotencyKey = user.idempotencyKey;
+    entity.status = user.status as AccountStatus;
+    entity.createdAt = user.createdAt;
+    entity.updatedAt = user.updatedAt;
     return entity;
+  }
+
+  private toDomain(entity: UserEntity): User {
+    return new User({
+      id: entity.id,
+      email: entity.email,
+      passwordHash: entity.passwordHash,
+      status: entity.status,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    });
   }
 }
