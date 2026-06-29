@@ -49,7 +49,7 @@ class RoleValidationPort(ABC):
 
 
 class UserRepositoryPort(ABC):
-    """Secondary port: persistence for User entities."""
+    """Secondary port: persistence operations for User entities."""
 
     @abstractmethod
     def find_by_username(self, username: str) -> Optional[User]:
@@ -63,7 +63,7 @@ class UserRepositoryPort(ABC):
 
     @abstractmethod
     def save(self, user: User) -> None:
-        """Persist a User entity."""
+        """Persist (create or update) a User entity."""
         ...
 
 

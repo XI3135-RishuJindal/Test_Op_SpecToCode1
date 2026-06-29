@@ -1,14 +1,12 @@
-"""Entry-point: run the Flask development server."""
+"""Application entry-point."""
+
+import os
 
 from app.factory import create_app
 
 app = create_app()
 
 if __name__ == "__main__":
-    import os
-
-    app.run(
-        host=os.getenv("HOST", "0.0.0.0"),
-        port=int(os.getenv("PORT", "5000")),
-        debug=os.getenv("FLASK_ENV", "production") == "development",
-    )
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    app.run(host="0.0.0.0", port=port, debug=debug)

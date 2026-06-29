@@ -1,1 +1,1 @@
-# HTTP adapters (Flask blueprints / routes)
+# Adapters layer — inbound (HTTP) and outbound (infrastructure) adapters

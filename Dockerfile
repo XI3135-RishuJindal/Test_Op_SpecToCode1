@@ -1,20 +1,22 @@
 # syntax=docker/dockerfile:1
 FROM python:3.12-slim AS base
 
-# Keeps Python from generating .pyc files and enables stdout/stderr flushing
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+# Keeps Python from generating .pyc files
+ENV PYTHONDONTWRITEBYTECODE=1
+# Turns off buffering for easier container logging
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# ── Dependencies ───────────────────────────────────────────────────────────────
+# Install dependencies in a separate layer for better caching
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ── Application source ─────────────────────────────────────────────────────────
+# Copy application source
 COPY . .
 
-# ── Runtime ────────────────────────────────────────────────────────────────────
+# Expose the default service port
 EXPOSE 5000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "main:app"]
+# Run with gunicorn in production; override CMD for development
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "main:app"]

@@ -7,9 +7,10 @@ from app.factory import create_app
 
 @pytest.fixture()
 def app():
-    """Create a test application with a fast bcrypt cost factor."""
-    application = create_app({"TESTING": True, "BCRYPT_ROUNDS": 4})
-    yield application
+    """Create a Flask test application instance."""
+    flask_app = create_app()
+    flask_app.config.update({"TESTING": True})
+    yield flask_app
 
 
 @pytest.fixture()

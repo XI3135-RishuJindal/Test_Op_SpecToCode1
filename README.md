@@ -1,10 +1,12 @@
 # Authentication Service
 
-An **infrastructure service** responsible for authenticating user credentials,
-managing multi-factor authentication (MFA), and validating user roles.
+An **infrastructure** microservice responsible for:
 
-Built with **Python 3.12** and **Flask 3**, following **hexagonal architecture**
-(ports & adapters).
+- Authenticating user credentials (username + password)
+- Managing Multi-Factor Authentication (MFA / TOTP)
+- Validating user roles
+
+Built with **Python 3.12** and **Flask 3**, following **hexagonal architecture** (ports & adapters).
 
 ---
 
@@ -12,96 +14,122 @@ Built with **Python 3.12** and **Flask 3**, following **hexagonal architecture**
 
 ```
 app/
-├── domain/          # Pure business logic — no framework dependencies
-│   ├── models.py    # User, AuthResult entities
-│   └── ports.py     # Abstract interfaces (ports)
-├── application/     # Use-case orchestration
-│   ├── auth_service.py
-│   ├── mfa_service.py
-│   └── role_service.py
-├── infrastructure/  # Driven adapters (persistence, hashing)
-│   ├── in_memory_user_repository.py
-│   └── bcrypt_password_hasher.py
-├── adapters/        # Driving adapters (HTTP / Flask blueprints)
-│   ├── health.py
-│   └── auth_routes.py
-└── factory.py       # Flask application factory
-main.py              # Entry-point
+├── domain/                  # Pure business logic — no framework dependencies
+│   ├── models.py            # Core entities: User, AuthResult
+│   ├── ports.py             # Abstract interfaces (ports)
+│   └── services.py          # Use-case implementations
+├── adapters/
+│   ├── inbound/
+│   │   └── http_routes.py   # Flask blueprints (HTTP adapter)
+│   └── outbound/
+│       ├── in_memory_user_repo.py  # In-memory user store (dev/test)
+│       └── bcrypt_hasher.py        # Bcrypt password hasher
+└── factory.py               # Application factory (dependency wiring)
+main.py                      # Entry-point
+```
+
+The domain layer depends on **nothing** outside the standard library.  
+Adapters depend on the domain; the domain never depends on adapters.
+
+---
+
+## Quick Start
+
+### 1. Clone & configure
+
+```bash
+cp .env.example .env
+# Edit .env and set SECRET_KEY to a long random string
+```
+
+### 2. Install dependencies
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt   # for tests
+```
+
+### 3. Run locally
+
+```bash
+python main.py
+# or with gunicorn:
+gunicorn --bind 0.0.0.0:5000 main:app
+```
+
+### 4. Docker
+
+```bash
+docker build -t auth-service .
+docker run --env-file .env -p 5000:5000 auth-service
 ```
 
 ---
 
-## Endpoints
+## API Reference
 
-| Method | Path          | Description                        |
-|--------|---------------|------------------------------------|
-| GET    | `/health`     | Liveness check                     |
-| POST   | `/auth/login` | Authenticate username + password   |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`  | `/health` | Liveness probe |
+| `POST` | `/auth/login` | Authenticate username + password |
+| `POST` | `/auth/mfa/enable` | Enable MFA for a user |
+| `POST` | `/auth/mfa/verify` | Verify a TOTP token |
+| `POST` | `/auth/roles/check` | Check whether a user holds a role |
+
+### `GET /health`
+
+```json
+{ "status": "ok", "service": "authentication-service" }
+```
 
 ### `POST /auth/login`
 
-**Request body**
-
+**Request**
 ```json
-{
-  "username": "alice",
-  "password": "secret123"
-}
+{ "username": "alice", "password": "s3cr3t" }
 ```
 
-**Success response** `200`
-
+**Response 200**
 ```json
-{
-  "user_id": "u-001",
-  "roles": ["user"],
-  "requires_mfa": false
-}
+{ "user_id": "u-123", "roles": ["user"], "requires_mfa": false }
 ```
 
-**Error response** `401`
+### `POST /auth/mfa/enable`
 
+**Request**
 ```json
-{ "error": "Invalid credentials" }
+{ "user_id": "u-123" }
 ```
 
----
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.12+
-- Docker (optional)
-
-### Local development
-
-```bash
-# 1. Clone and enter the repo
-git clone <repo-url>
-cd authentication-service
-
-# 2. Create a virtual environment
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-
-# 4. Configure environment
-cp .env.example .env
-# Edit .env as needed
-
-# 5. Run the development server
-FLASK_ENV=development python main.py
+**Response 200**
+```json
+{ "user_id": "u-123", "mfa_secret": "BASE32SECRET" }
 ```
 
-### Docker
+### `POST /auth/mfa/verify`
 
-```bash
-docker build -t authentication-service .
-docker run --env-file .env -p 5000:5000 authentication-service
+**Request**
+```json
+{ "user_id": "u-123", "token": "123456" }
+```
+
+**Response 200**
+```json
+{ "valid": true }
+```
+
+### `POST /auth/roles/check`
+
+**Request**
+```json
+{ "user_id": "u-123", "role": "admin" }
+```
+
+**Response 200**
+```json
+{ "user_id": "u-123", "role": "admin", "has_role": false }
 ```
 
 ---
@@ -109,29 +137,25 @@ docker run --env-file .env -p 5000:5000 authentication-service
 ## Running Tests
 
 ```bash
-pytest
-# With coverage
-pytest --cov=app --cov-report=term-missing
+pytest -v
 ```
 
 ---
 
 ## Environment Variables
 
-| Variable       | Default                    | Description                          |
-|----------------|----------------------------|--------------------------------------|
-| `FLASK_ENV`    | `production`               | `development` enables debug mode     |
-| `SECRET_KEY`   | `change-me-in-production`  | Flask secret key — **must** be set   |
-| `HOST`         | `0.0.0.0`                  | Bind address                         |
-| `PORT`         | `5000`                     | Bind port                            |
-| `BCRYPT_ROUNDS`| `12`                       | bcrypt work factor                   |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FLASK_ENV` | `development` | Flask environment |
+| `FLASK_DEBUG` | `false` | Enable debug mode |
+| `PORT` | `5000` | HTTP listen port |
+| `SECRET_KEY` | *(required)* | Session signing key |
+| `BCRYPT_ROUNDS` | `12` | Bcrypt cost factor |
+
+See `.env.example` for a full template.
 
 ---
 
-## TODO / Future Work
+## License
 
-- Replace `InMemoryUserRepository` with a SQLAlchemy / PostgreSQL adapter.
-- Integrate `pyotp` for real TOTP verification in `MFAService`.
-- Add JWT issuance on successful login.
-- Add rate-limiting middleware.
-- Add OpenAPI / Swagger documentation.
+MIT
