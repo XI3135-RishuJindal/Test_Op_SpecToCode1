@@ -1,0 +1,57 @@
+# ── Python ──────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# ── Virtual environments ─────────────────────────
+.venv/
+venv/
+ENV/
+env/
+
+# ── Testing / Coverage ───────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+coverage.xml
+*.cover
+
+# ── Type checking ────────────────────────────────
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ── Environment files ────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── IDE / Editor ─────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# ── Logs ─────────────────────────────────────────
+*.log
+logs/
+
+# ── Docker ───────────────────────────────────────
+docker-compose.override.yml
