@@ -1,0 +1,24 @@
+# Compiled class files
+target/
+*.class
+
+# Maven wrapper cache
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE files
+.idea/
+*.iml
+*.iws
+.vscode/
+*.swp
+
+# Environment files (never commit secrets)
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
