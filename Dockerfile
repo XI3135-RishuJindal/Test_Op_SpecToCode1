@@ -1,22 +1,43 @@
-# Use the official .NET 8.0 runtime as base image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+# ── Build stage ───────────────────────────────────────────────────────────────
+FROM eclipse-temurin:21-jdk-alpine AS builder
+
+WORKDIR /workspace
+
+COPY pom.xml .
+COPY src ./src
+
+# Download dependencies first (layer caching)
+RUN apk add --no-cache maven && \
+    mvn dependency:go-offline -B
+
+# Build the fat JAR, skip tests (tests run in CI)
+RUN mvn package -DskipTests -B
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM eclipse-temurin:21-jre-alpine AS runtime
+
+LABEL maintainer="pharmacy-team"
+LABEL org.opencontainers.image.title="pharmacy-microservice"
+LABEL org.opencontainers.image.description="Pharmacy Microservice — prescriptions, adherence, price comparison"
+
+# Non-root user for security
+RUN addgroup -S pharmacy && adduser -S pharmacy -G pharmacy
+
 WORKDIR /app
-EXPOSE 80
-EXPOSE 443
 
-# Use the official .NET 8.0 SDK for building
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-COPY ["ApiGateway.csproj", "."]
-RUN dotnet restore "./ApiGateway.csproj"
-COPY . .
-WORKDIR "/src/."
-RUN dotnet build "ApiGateway.csproj" -c Release -o /app/build
+COPY --from=builder /workspace/target/pharmacy-microservice-*.jar app.jar
 
-FROM build AS publish
-RUN dotnet publish "ApiGateway.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN chown pharmacy:pharmacy app.jar
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ApiGateway.dll"]
+USER pharmacy
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget -qO- http://localhost:8080/api/v1/health || exit 1
+
+ENTRYPOINT ["java", \
+    "-XX:+UseContainerSupport", \
+    "-XX:MaxRAMPercentage=75.0", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-jar", "app.jar"]
