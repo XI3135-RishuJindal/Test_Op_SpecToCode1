@@ -1,0 +1,121 @@
+openspec: '1.0'
+story:
+  id: US-010
+  title: Invalidate Used Recovery Codes
+  description: As an account user, I want used recovery codes to be invalidated immediately
+    after use so that they cannot be reused for unauthorized access.
+  feature:
+    id: F-01
+    title: Multi-factor Authentication
+  epic:
+    id: EP-003
+    title: Develop Backup Recovery Codes System
+  status: draft
+functional_requirement:
+  description: "## S-002\n\n### Purpose\nThis specification defines how recovery codes\
+    \ used within the Multi-factor Authentication Service SHALL be invalidated, ensuring\
+    \ they are not reused, to safeguard against unauthorized access.\n\n### Scope\n\
+    The scope covers the invalidation of recovery codes used during the account recovery\
+    \ process within the Multi-factor Authentication Service, including error handling\
+    \ and security compliance.\n\n### Non-Goals\n1. Does not specify how recovery\
+    \ codes are generated.\n2. Does not describe user interface elements.\n3. Does\
+    \ not cover non-recovery code authentication methods.\n4. Does not handle rate\
+    \ limiting for recoveries.\n5. Does not detail persistence mechanisms for recovery\
+    \ codes.\n6. Does not describe how notifications are sent to users.\n\n### Key\
+    \ Entities\n- **RecoveryCode**\n  - Attributes: code (string), isUsed (boolean)\n\
+    \  - Relationships: Associated with a user (User has many RecoveryCodes)\n\n###\
+    \ Functional Requirements\n- FR-001: The system SHALL invalidate a recovery code\
+    \ immediately after it is used successfully.\n- FR-002: The system MUST ensure\
+    \ a used recovery code CANNOT be reused.\n- FR-003: The system SHALL notify the\
+    \ user when an invalid or already used recovery code is attempted.\n- FR-004:\
+    \ The system MUST comply with established security standards during code invalidation.\n\
+    - FR-005: The system SHOULD log any attempts to use invalid recovery codes for\
+    \ audit purposes.\n\n### Assumptions Propagation\n- A-001: Recovery codes are\
+    \ initially valid until used, then invalidated. (Affects: FR-001, FR-002)\n- A-002:\
+    \ Invalid codes include those already used or non-existent. (Affects: FR-003)\n\
+    \n### Success Criteria\n- SC-001: 100% of used recovery codes are invalidated\
+    \ immediately after use.\n- SC-002: User receives notification within 5 seconds\
+    \ of an invalid code attempt.\n- SC-003: 100% compliance with security standards\
+    \ for invalidation process.\n\n### Priority Levels\n- P1: FR-001\n- P1: FR-002\n\
+    - P2: FR-003\n- P1: FR-004\n- P2: FR-005\n\n### Edge Cases\n- EC-001: Given a\
+    \ recovery code is tampered with, When used, Then the system must still ensure\
+    \ invalidation and proper notification.\n- EC-002: Given a temporary service outage,\
+    \ When a code is used, Then the system must retry invalidation upon service recovery.\n\
+    - EC-003: Given simultaneous requests with the same code, When processed, Then\
+    \ the system ensures code invalidation occurs only once.\n\n### Independent Testability\n\
+    - Preconditions: Valid recovery code, Successful code entry interface, User logged\
+    \ in.\n- User Action: Execute account recovery using the code.\n- Observable Outcome:\
+    \ The code becomes invalid, preventing reuse, and a confirmation message indicates\
+    \ invalidation.\n\n### Separation of Concerns\nThe specification focuses on user\
+    \ capabilities of ensuring recovery code invalidation and notification upon failure.\
+    \ The focus is on user outcomes rather than technical details or specific implementation\
+    \ steps."
+  acceptance_criteria:
+  - given_when_then: Given a recovery code is used for account recovery, When it is
+      successful, Then the recovery code is invalidated immediately.
+  - given_when_then: Given an invalid recovery code is used, When attempted, Then
+      the user receives a notification about the invalid code.
+  - given_when_then: Given the system is invalidating recovery codes, When a code
+      is used, Then it complies with security standards for invalidation.
+  epic_acceptance_criteria:
+  - given_when_then: Given a user is authenticated, when they request recovery codes,
+      then a list of codes is generated and displayed
+  - given_when_then: Given a recovery code is used, when the user attempts to use
+      it again, then it is rejected
+  - given_when_then: Given a user has existing codes, when they regenerate them, then
+      the old codes are invalidated and new ones are provided
+technical_design:
+  description: "## S-002\n\n## Technical Design Specification\n\n### 1. Contracts\
+    \ & Interfaces\n\n#### API Contracts\n- **POST /api/v1/auth/recovery-code/use**\n\
+    \  - **Request Payload**:\n    - `code` (string, required): The recovery code\
+    \ to be invalidated.\n  - **Response**:\n    - `200 OK`: Code successfully invalidated.\n\
+    \    - `400 Bad Request`: Code already used or invalid.\n    - `500 Internal Server\
+    \ Error`: Unrecoverable error during operation.\n\n#### Data Schema\n- **Table:\
+    \ RecoveryCode**\n  - **Columns**:\n    - `code` (string, PRIMARY KEY): The recovery\
+    \ code.\n    - `isUsed` (boolean, DEFAULT FALSE): Flag indicating if the code\
+    \ has been used.\n    - `userId` (integer, FOREIGN KEY): ID of the user to whom\
+    \ the code belongs.\n  - **Indexes**:\n    - Index on `userId` for faster retrieval.\n\
+    \  \n### 2. Test Strategy\n\n#### Test Cases\n\n1. **Test Code Invalidation (FR-001\
+    \ & FR-002)**\n   - **Precondition**: Valid recovery code that is not used.\n\
+    \   - **Action**: POST to `/api/v1/auth/recovery-code/use` with code.\n   - **Expected\
+    \ Outcome**: Receive `200 OK`. Code's `isUsed` becomes TRUE.\n\n2. **Test Avoid\
+    \ Reuse (FR-002)**\n   - **Precondition**: A recovery code marked `isUsed = TRUE`.\n\
+    \   - **Action**: POST to `/api/v1/auth/recovery-code/use` with the used code.\n\
+    \   - **Expected Outcome**: Receive `400 Bad Request`.\n\n3. **Test Error Notification\
+    \ (FR-003)**\n   - **Precondition**: Invalid recovery code.\n   - **Action**:\
+    \ POST to `/api/v1/auth/recovery-code/use` with invalid code.\n   - **Expected\
+    \ Outcome**: Receive `400 Bad Request` with error message.\n\n4. **Test Security\
+    \ Compliance (FR-004)**\n   - **Precondition**: Simulate attack with repeated\
+    \ invalid attempts.\n   - **Action**: POST to `/api/v1/auth/recovery-code/use`.\n\
+    \   - **Expected Outcome**: No patterns of unauthorized access detected.\n\n5.\
+    \ **Test Logging Attempts (FR-005)**\n   - **Precondition**: Invalid recovery\
+    \ code submission.\n   - **Action**: Check system logs after POST attempt.\n \
+    \  - **Expected Outcome**: Logging entry for invalid code attempt exists.\n\n\
+    ### 3. Implementation Approach\n\n#### Core Implementation\n\n1. **Class: RecoveryCodeService**\n\
+    \   - **Method: useRecoveryCode(code: String)**\n     - Validates the code.\n\
+    \     - Sets `isUsed` to TRUE on successful validation.\n     - Throws error on\
+    \ invalid/used code.\n\n2. **Method Logic**\n   - Query RecoveryCode table by\
+    \ `code`.\n   - If `isUsed` is FALSE, update `isUsed` to TRUE.\n   - If `isUsed`\
+    \ is TRUE or code is not found, return appropriate error.\n\n#### Inter-Service\
+    \ Communication\n- Audit logs from invalid attempts SHALL be asynchronously sent\
+    \ to the logging service using a standard message queue (RabbitMQ).\n\n#### ADR-001:\
+    \ Use Existing Messaging Infrastructure\n- **Context**: Existing system uses RabbitMQ\
+    \ for asynchronous events.\n- **Decision**: Use RabbitMQ to log invalid attempts.\n\
+    - **Rationale**: Reuse of existing infrastructure minimizes integration effort.\n\
+    - **Alternative**: Implement a new logging service. Rejected due to unnecessary\
+    \ complexity.\n\n### Simplicity Gate Assessment\n- **Rating**: Appropriate\n \
+    \ - The technical elements directly map to FR-001 through FR-005 without unnecessary\
+    \ overhead.\n\n### Affected Services and API Changes\n- **Multi-factor Authentication\
+    \ Service**: Addition of `/api/v1/auth/recovery-code/use` endpoint to handle recovery\
+    \ code invalidation. \n\n- **Logging Service**: Will receive audit logs asynchronously.\n\
+    \nThis technical design ensures all specified functional requirements align with\
+    \ efficient, secure, and maintainable implementation practices, achieving the\
+    \ compliance directives laid out in the functional specification."
+  affected_services:
+  - id: S-002
+  api_changes:
+  - service: S-002
+    endpoint: '[POST] /api/v1/auth/recovery/validate'
+    method: POST
+    change_type: modification
+gaps: []
