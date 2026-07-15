@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
+using System.Reflection;
+using ApiGateway.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,9 +19,18 @@ builder.Host.UseSerilog();
 
 // Add services to the container.
 builder.Services.AddControllers();
-builder.Services.AddRazorPages();  // Required to serve Pages/Register.cshtml
+
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    // Include XML comments if present (for Swagger UI)
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
+    if (File.Exists(xmlPath))
+        options.IncludeXmlComments(xmlPath);
+});
+
+builder.Services.AddSingleton<IInventoryService, InMemoryInventoryService>();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -55,7 +66,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapRazorPages();  // Maps /Register -> Pages/Register.cshtml
 
 try
 {

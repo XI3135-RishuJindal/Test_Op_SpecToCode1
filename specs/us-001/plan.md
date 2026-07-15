@@ -1,11 +1,34 @@
-To deliver this story:
-- Add a new registration form UI, using either an MVC Razor page (Register.cshtml + Register.cshtml.cs) under Pages or a static HTML file as appropriate for the codebase. Semantic markup is required, including <form>, <label>, and <input> elements.
-- Ensure all input fields ("Name", "Email", "Password") are present, properly labeled, and have matching aria attributes for accessibility.
-- Implement basic responsive CSS—either in a dedicated CSS file, inline in cshtml, or using a framework if present—ensuring the form remains usable on mobile and desktop.
-- Add minimal navigation to the form (either via a dedicated URL route or action method in a new RegistrationController.cs if using MVC).
-- Add at least one accessibility-focused automated or manual test (e.g., test tab order, screen reader text, element roles).
-Files to change:
-- Pages/Register.cshtml (new)
-- Pages/Register.cshtml.cs (new if Razor Pages)
-- wwwroot/css/register.css or inline styles
-- Tests/Controllers/RegisterPageTests.cs or equivalent UI test
+## Plan to Deliver "Add Product to Cart"
+
+### Architecture Decisions
+- Implement a new CartController in Controllers/CartController.cs.
+- Use a CartItemDTO and CartDTO in Models/ to represent cart items and the full cart.
+- The cart will be stored in-memory, keyed by user identifier (from JWT), using a simple singleton or static dictionary.
+- Add an IInventoryService interface (Models/ or Services/, relocate later if needed) with a basic InMemoryInventoryService for simulating product availability. All add/view actions will check live inventory using this service.
+- Secure all endpoints (JWT authentication required).
+- Expose endpoints:
+    - POST /api/cart/add — add product to cart
+    - GET /api/cart — get current cart for user (with inventory status check on each item)
+- Extend error handling using the existing ErrorResponse model.
+- Enable Swagger docs for these endpoints.
+
+### API Contracts
+- **POST /api/cart/add**
+    - Request: { "productId": int, "quantity": int }
+    - Response: { cart: CartDTO }
+- **GET /api/cart**
+    - Response: { cart: CartDTO }
+
+### File/Repo Changes
+- Add: Controllers/CartController.cs
+- Add: Models/CartItemDTO.cs and Models/CartDTO.cs
+- Add: Models/AddToCartRequest.cs for incoming add requests
+- Add: Services/IInventoryService.cs, Services/InMemoryInventoryService.cs
+- Add: Utility for in-memory user cart storage (internal static dictionary or single class)
+- Update: Program.cs for DI (add inventory service as singleton).
+- Add: Tests/Controllers/CartControllerTests.cs with unit tests for logic and acceptance criteria.
+
+## Notes
+- Mock product/inventory for demo; real API version TBC.
+- Ensure consistent error/result response format.
+- Document endpoints in Swagger.
