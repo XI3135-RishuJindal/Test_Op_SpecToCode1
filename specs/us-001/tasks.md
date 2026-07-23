@@ -1,7 +1,9 @@
-- [ ] Identify suitable NLP library for requirement extraction.
-- [ ] Integrate NLP model into the project under a new module or existing service.
-- [ ] Update `Program.cs` and relevant controllers such as `Controllers/TestController.cs` to handle new NLP processing logic.
-- [ ] Implement unit tests in `Tests/Controllers/TestControllerTests.cs` to validate NLP feature accuracy and edge cases.
-- [ ] Conduct performance testing to ensure the system can handle high-load scenarios without degradation.
-- [ ] Develop logging and error handling in `Controllers/TestController.cs` to improve traceability and debugging capability.
-- [ ] Conduct a security review focused on data privacy, updating `appsettings.json` configuration if needed.
+- [ ] Create `Controllers/WishlistController.cs`: Implement endpoints for adding products to the wishlist.
+- [ ] Develop `Models/WishlistDTO.cs`: Define the data structure for wishlist items.
+- [ ] Update `Program.cs`: Register services and configurations needed for the `WishlistController`.
+- [ ] Add a new database migration for the wishlist table to store user-wishlist information.
+- [ ] Implement `Tests/Controllers/WishlistControllerTests.cs`: Write unit tests to cover the new functionality.
+- [ ] Conduct peer code reviews and resolve any identified issues.
+- [ ] Perform testing to ensure the feature meets acceptance criteria and does not break existing functionality.
+- [ ] Update documentation to reflect the newly added feature and how to use it.
+- [ ] Deploy the changes to the staging environment for further integration testing.

@@ -1,15 +1,23 @@
-To deliver the requirement extraction feature, several technical and architectural steps need to be followed:
+To implement the "Add Product to Wishlist" feature, the following steps and decisions are necessary:
 
-1. Choose an appropriate NLP library or framework compatible with .NET for extracting requirements from text. Libraries like ML.NET can be considered for this purpose.
+1. **Architecture Decisions:**
+   - Implement a new `WishlistController` in the ApiGateway for handling wishlist actions.
+   - Incorporate wishlist operations in a new model `WishlistDTO` to represent wishlist objects.
+   - Use existing authentication mechanisms to ensure only authenticated users can add items to their wishlist.
 
-2. Integrate the chosen NLP model into the current project structure. This integration may involve creating a new service or enhancing existing services, such as the TestController, to handle text input and process it to extract requirements.
+2. **API Contract:**
+   - A new endpoint `/api/wishlist` with POST method to add products to the user's wishlist.
+   - Endpoint parameters include user identification from authentication token and the product ID.
 
-3. Update the solution's architecture to support the new NLP feature. Ensure that the system's scalability and performance are not compromised, particularly when processing large volumes of data.
+3. **Data Model Changes:**
+   - Introduce a new database table to map user IDs to product IDs and store timestamp for when a product was added.
 
-4. Implement robust logging and error-handling mechanisms, allowing for effective monitoring and troubleshooting of the NLP feature.
+4. **Code Changes:**
+   - Create `WishlistController.cs` in `Controllers/`.
+   - Add `WishlistDTO.cs` in `Models/`.
+   - Modify `Program.cs` to register new services for wishlist operations.
+   - Include tests for the new controller in `Tests/Controllers/WishlistControllerTests.cs`.
 
-5. Perform thorough unit and integration testing. Test the feature's accuracy and performance to ensure it meets target success criteria. Validate against realistic datasets to closely mimic production scenarios.
-
-6. Review the security implications of handling potentially sensitive text data, ensuring compliance with data protection regulations.
-
-Relevant files and classes in the XI3135-RishuJindal/Test_Op_SpecToCode1.git repository, such as Program.cs and existing controller classes, may need modification to implement this feature.
+5. **Review and Validation:**
+   - Conduct thorough code review for adherence to coding standards and security practices.
+   - Perform functionality testing to validate that all acceptance criteria are met.

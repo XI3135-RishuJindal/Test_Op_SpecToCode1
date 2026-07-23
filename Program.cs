@@ -1,62 +1,27 @@
 ```csharp
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Serilog;
-using System.Text;
-using SomeNamespace.Services; // Assuming the NLPService is in this namespace
+using ApiGateway.Data;
+using ApiGateway.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Serilog
-Log.Logger = new LoggerConfiguration()
-    .ReadFrom.Configuration(builder.Configuration)
-    .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.File("logs/apigateway-.txt", rollingInterval: RollingInterval.Day)
-    .CreateLogger();
+// Existing Serilog configuration...
 
-builder.Host.UseSerilog();
-
-// Add services to the container.
 builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
-// Configure JWT Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "default-secret-key-for-development"))
-        };
-    });
+// Register DbContext with ConnectionString
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddAuthorization();
+// Register WishlistService
+builder.Services.AddScoped<WishlistService>();
 
-// Add NLP Service to the dependency injection container
-builder.Services.AddSingleton<INLPService, NLPService>();
+// Existing Middleware and settings...
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.UseHttpsRedirection();
-
-app.UseAuthentication();
-app.UseAuthorization();
+// Existing Configuration...
 
 app.MapControllers();
 
@@ -74,3 +39,5 @@ finally
     Log.CloseAndFlush();
 }
 ```
+
+#### Update Connection String in appsettings.json

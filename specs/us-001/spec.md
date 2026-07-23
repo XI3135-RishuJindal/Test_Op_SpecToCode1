@@ -1,16 +1,23 @@
-This feature aims to facilitate the automatic extraction of core requirements from text inputs using Natural Language Processing (NLP). The primary users are analysts who will utilize this feature to expedite the process of requirement gathering, thereby improving their efficiency and productivity. The system should identify and extract key requirements accurately, minimizing the need for manual intervention.
+### User Story: Add Product to Wishlist
 
-Acceptance Criteria:
-- The system processes text inputs and extracts core requirements automatically.
-- Analysts should be able to easily access and review the extracted requirements.
-- The feature should integrate seamlessly with the existing service architecture.
-- The extracted data should maintain a high level of accuracy and relevance.
+**What:**
+This feature allows users to add products to their wishlist directly from the product page. A wishlist serves as a collection of items that users are interested in purchasing later or tracking for price changes.
 
-Out of Scope:
-- Manual validation of extracted requirements after processing.
-- Integration with third-party NLP tools beyond those predefined.
-- Expansion to non-English text processing.
+**Why:**
+Enabling users to add to a wishlist increases user engagement and the likelihood of future purchases by enabling users to easily revisit products they're interested in.
 
-Dependencies:
-- There could be a dependency on existing NLP libraries compatible with the project’s tech stack.
-- Integration with internal data storage and management systems for extracted requirement handling.
+**Acceptance Criteria:**
+- Users can add any product displayed on the product page to their wishlist.
+- A confirmation message is displayed once a product is added successfully.
+- Users cannot add the same product to the wishlist more than once.
+- The wishlist should be saved to the user's account and persist across different sessions and devices.
+- If not authenticated, users should be redirected to the login page or prompted to log in.
+
+**Out-of-Scope:**
+- Sharing wishlist with others.
+- Managing multiple wishlists (e.g. categorizing wishlists).
+- Notifications related to wishlist activity (such as price changes or availability alerts).
+
+**Cross-Service Dependencies:**
+- User authentication service for verifying logged-in status.
+- Database storage for persisting wishlist data.
