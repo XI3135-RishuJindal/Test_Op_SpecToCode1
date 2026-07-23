@@ -1,9 +1,22 @@
-- [ ] Create `Controllers/WishlistController.cs`: Implement endpoints for adding products to the wishlist.
-- [ ] Develop `Models/WishlistDTO.cs`: Define the data structure for wishlist items.
-- [ ] Update `Program.cs`: Register services and configurations needed for the `WishlistController`.
-- [ ] Add a new database migration for the wishlist table to store user-wishlist information.
-- [ ] Implement `Tests/Controllers/WishlistControllerTests.cs`: Write unit tests to cover the new functionality.
-- [ ] Conduct peer code reviews and resolve any identified issues.
-- [ ] Perform testing to ensure the feature meets acceptance criteria and does not break existing functionality.
-- [ ] Update documentation to reflect the newly added feature and how to use it.
-- [ ] Deploy the changes to the staging environment for further integration testing.
+### Task List
+1. **Design Tasks:**
+   - Create mockups for the wishlist feature on the product page.
+   - Review design mockups with stakeholders.
+
+2. **Development Tasks:**
+   - Develop front-end components that allow users to add products to their wishlist.
+   - Implement backend changes including new API endpoints and database schema alterations.
+   - Validate user authentication before allowing wishlist actions.
+
+3. **Testing Tasks:**
+   - Perform unit testing on new front-end and backend components.
+   - Execute integration tests to check wishlist feature flow.
+
+4. **Documentation Tasks:**
+   - Document API specifications for wishlist management.
+   - Update user manuals and help documentation.
+
+5. **Review and Deployment Tasks:**
+   - Conduct a code review session.
+   - Deploy to the staging environment and perform UAT.
+   - Make necessary adjustments from UAT feedback and prepare for production deployment.

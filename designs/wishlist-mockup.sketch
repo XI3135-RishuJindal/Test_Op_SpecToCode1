@@ -1,0 +1,8 @@
+<Content for the mockup design in Sketch format representing the 'Add to Wishlist' functionality. This includes the following elements:>
+
+- Button placement on the product page near 'Add to Cart'
+- UI consistency with existing design standards in color, typography, and button style
+- Wireframes showing different states: logged-in view with the wishlist button visible, hover, and clicked states
+- An overlay or pop-up confirmation for successful wishlist addition
+
+(Note: The actual Sketch file should be created using a graphic design tool and saved at 'designs/wishlist-mockup.sketch')
