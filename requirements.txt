@@ -1,0 +1,2 @@
+# No dependency upgrades are in scope for this change (CI baseline validation + operational runbook only).
+# Existing requirements.txt was not provided in Base Source Code, so this file is intentionally empty.
