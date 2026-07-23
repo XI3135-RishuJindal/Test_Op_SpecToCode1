@@ -1,3 +1,4 @@
+```csharp
 namespace ApiGateway.Models
 {
     /// <summary>
@@ -10,5 +11,7 @@ namespace ApiGateway.Models
         public MedicationDTO? ProcessedMedication { get; set; }
         public DateTime ProcessedAt { get; set; } = DateTime.UtcNow;
         public string RequestId { get; set; } = string.Empty;
+        public object? AdditionalData { get; set; } // Storing extracted requirements
     }
 }
+```

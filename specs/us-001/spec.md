@@ -1,30 +1,16 @@
-# US-001: Add Product to Cart
+This feature aims to facilitate the automatic extraction of core requirements from text inputs using Natural Language Processing (NLP). The primary users are analysts who will utilize this feature to expedite the process of requirement gathering, thereby improving their efficiency and productivity. The system should identify and extract key requirements accurately, minimizing the need for manual intervention.
 
-## Overview
-As a shopper, I want to add products to my cart and see it updated immediately, so that I have a smooth and accurate shopping experience.
+Acceptance Criteria:
+- The system processes text inputs and extracts core requirements automatically.
+- Analysts should be able to easily access and review the extracted requirements.
+- The feature should integrate seamlessly with the existing service architecture.
+- The extracted data should maintain a high level of accuracy and relevance.
 
-## Functional Specification
+Out of Scope:
+- Manual validation of extracted requirements after processing.
+- Integration with third-party NLP tools beyond those predefined.
+- Expansion to non-English text processing.
 
-### Narrative
-Shoppers can add a quantity of a specific, available product to their cart using an API endpoint. The cart reflects the updated contents without delay. If the product is out of stock, it must not be added and the user is notified. At any time, when viewing the cart, product quantities and availability are kept accurate via real-time inventory lookups.
-
-### Acceptance Criteria
-
-1. **Success:** When the user adds a product (in stock) with a specified quantity via the API, that item appears in their cart and the cart state is returned promptly in API response.
-2. **Out of Stock:** When the user tries to add a product that is out of stock, the item is not added to the cart, and an error message is returned.
-3. **Cart View:** When the cart is viewed, it accurately reflects all added items, with correct product details, quantities, and up-to-date availability.
-4. **Inventory Sync:** If the cart is viewed after product inventory changes (e.g., item becomes out of stock), the cart contents are automatically updated or flagged (e.g., with "out of stock" status).
-5. **API Error Handling:** All error scenarios (e.g., invalid productId, invalid quantity, unauthenticated/unauthorized) return a structured error response.
-
-### Success Metrics
-- Cart operations must provide user feedback in less than 500ms.
-- Cart and inventory must remain in sync.
-
-### Out of Scope
-- Persistent cart storage (use in-memory for now, database integration future).
-- Guest/anonymous user carts (require authenticated user).
-- Discount/coupon logic.
-- UI code (API only, not front-end logic).
-
-### Cross-Service Dependencies
-- Inventory service or an inventory API for real-time product availability checks. If not yet available, use an inventory mock/interface to allow rapid development and future integration.
+Dependencies:
+- There could be a dependency on existing NLP libraries compatible with the project’s tech stack.
+- Integration with internal data storage and management systems for extracted requirement handling.

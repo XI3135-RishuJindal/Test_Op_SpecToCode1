@@ -1,34 +1,15 @@
-## Plan to Deliver "Add Product to Cart"
+To deliver the requirement extraction feature, several technical and architectural steps need to be followed:
 
-### Architecture Decisions
-- Implement a new CartController in Controllers/CartController.cs.
-- Use a CartItemDTO and CartDTO in Models/ to represent cart items and the full cart.
-- The cart will be stored in-memory, keyed by user identifier (from JWT), using a simple singleton or static dictionary.
-- Add an IInventoryService interface (Models/ or Services/, relocate later if needed) with a basic InMemoryInventoryService for simulating product availability. All add/view actions will check live inventory using this service.
-- Secure all endpoints (JWT authentication required).
-- Expose endpoints:
-    - POST /api/cart/add — add product to cart
-    - GET /api/cart — get current cart for user (with inventory status check on each item)
-- Extend error handling using the existing ErrorResponse model.
-- Enable Swagger docs for these endpoints.
+1. Choose an appropriate NLP library or framework compatible with .NET for extracting requirements from text. Libraries like ML.NET can be considered for this purpose.
 
-### API Contracts
-- **POST /api/cart/add**
-    - Request: { "productId": int, "quantity": int }
-    - Response: { cart: CartDTO }
-- **GET /api/cart**
-    - Response: { cart: CartDTO }
+2. Integrate the chosen NLP model into the current project structure. This integration may involve creating a new service or enhancing existing services, such as the TestController, to handle text input and process it to extract requirements.
 
-### File/Repo Changes
-- Add: Controllers/CartController.cs
-- Add: Models/CartItemDTO.cs and Models/CartDTO.cs
-- Add: Models/AddToCartRequest.cs for incoming add requests
-- Add: Services/IInventoryService.cs, Services/InMemoryInventoryService.cs
-- Add: Utility for in-memory user cart storage (internal static dictionary or single class)
-- Update: Program.cs for DI (add inventory service as singleton).
-- Add: Tests/Controllers/CartControllerTests.cs with unit tests for logic and acceptance criteria.
+3. Update the solution's architecture to support the new NLP feature. Ensure that the system's scalability and performance are not compromised, particularly when processing large volumes of data.
 
-## Notes
-- Mock product/inventory for demo; real API version TBC.
-- Ensure consistent error/result response format.
-- Document endpoints in Swagger.
+4. Implement robust logging and error-handling mechanisms, allowing for effective monitoring and troubleshooting of the NLP feature.
+
+5. Perform thorough unit and integration testing. Test the feature's accuracy and performance to ensure it meets target success criteria. Validate against realistic datasets to closely mimic production scenarios.
+
+6. Review the security implications of handling potentially sensitive text data, ensuring compliance with data protection regulations.
+
+Relevant files and classes in the XI3135-RishuJindal/Test_Op_SpecToCode1.git repository, such as Program.cs and existing controller classes, may need modification to implement this feature.

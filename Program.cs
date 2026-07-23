@@ -1,9 +1,9 @@
+```csharp
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using System.Text;
-using System.Reflection;
-using ApiGateway.Services;
+using SomeNamespace.Services; // Assuming the NLPService is in this namespace
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,18 +19,8 @@ builder.Host.UseSerilog();
 
 // Add services to the container.
 builder.Services.AddControllers();
-
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    // Include XML comments if present (for Swagger UI)
-    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
-    if (File.Exists(xmlPath))
-        options.IncludeXmlComments(xmlPath);
-});
-
-builder.Services.AddSingleton<IInventoryService, InMemoryInventoryService>();
+builder.Services.AddSwaggerGen();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -50,6 +40,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+
+// Add NLP Service to the dependency injection container
+builder.Services.AddSingleton<INLPService, NLPService>();
 
 var app = builder.Build();
 
@@ -80,3 +73,4 @@ finally
 {
     Log.CloseAndFlush();
 }
+```
