@@ -1,0 +1,47 @@
+```yaml
+name: Deploy Wishlist Feature to Staging
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout codebase
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Build project
+        run: npm run build
+
+      - name: Deploy to Staging
+        env:
+          STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          echo "Deploying application to Staging environment"
+          # Commands to deploy e.g., using AWS CLI or another method
+          # aws s3 sync ./build s3://your-staging-bucket-name
+          # or use AWS CodeDeploy, ECS, Beanstalk, etc.
+          echo "Deployment to Staging successful"
+```
+
+### Notes
+- Replace placeholders such as `npm run build`, AWS S3 bucket settings, or deployment commands according to actual deployment technology.
+- Make sure to securely configure your secrets in GitHub Actions Secrets.
+- The script assumes standard Node.js application setup; adjust according to language and framework in use.
+- Ensure the CI/CD pipeline contains necessary authentication mechanisms to communicate with your deployment infrastructure (e.g., AWS credentials).

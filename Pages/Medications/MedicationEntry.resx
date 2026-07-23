@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="MedicationEntry_Title" xml:space="preserve">
+    <value>Medication Entry Form</value>
+  </data>
+  <data name="MedicationEntry_Name" xml:space="preserve">
+    <value>Medication Name</value>
+  </data>
+  <data name="MedicationEntry_Dosage" xml:space="preserve">
+    <value>Dose (mg, units, etc.)</value>
+  </data>
+  <data name="MedicationEntry_Frequency" xml:space="preserve">
+    <value>Frequency</value>
+  </data>
+  <data name="MedicationEntry_Route" xml:space="preserve">
+    <value>Route</value>
+  </data>
+  <data name="MedicationEntry_Submit" xml:space="preserve">
+    <value>Submit</value>
+  </data>
+  <data name="MedicationEntry_Name_Required" xml:space="preserve">
+    <value>Medication name is required.</value>
+  </data>
+  <data name="MedicationEntry_Name_MaxLength" xml:space="preserve">
+    <value>Medication name must be at most 100 characters.</value>
+  </data>
+  <data name="MedicationEntry_Dosage_Required" xml:space="preserve">
+    <value>Dosage is required.</value>
+  </data>
+  <data name="MedicationEntry_Dosage_Range" xml:space="preserve">
+    <value>Dosage must be greater than 0.</value>
+  </data>
+  <data name="MedicationEntry_Frequency_Required" xml:space="preserve">
+    <value>Frequency is required.</value>
+  </data>
+  <data name="MedicationEntry_Frequency_MaxLength" xml:space="preserve">
+    <value>Frequency must be at most 50 characters.</value>
+  </data>
+  <data name="MedicationEntry_Route_Required" xml:space="preserve">
+    <value>Route is required.</value>
+  </data>
+  <data name="MedicationEntry_Route_MaxLength" xml:space="preserve">
+    <value>Route must be at most 50 characters.</value>
+  </data>
+</root>

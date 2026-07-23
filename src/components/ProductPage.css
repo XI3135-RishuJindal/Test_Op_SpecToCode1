@@ -1,0 +1,20 @@
+```css
+.product-page {
+  padding: 20px;
+}
+
+.wishlist-button {
+  background-color: #ff4081;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.wishlist-button:hover {
+  background-color: #e73370;
+}
+```

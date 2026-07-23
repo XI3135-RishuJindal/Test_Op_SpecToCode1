@@ -1,0 +1,105 @@
+/*
+ * MedicationEntry.razor.css – Component-scoped styles for the Medication Entry form.
+ * Uses CSS custom properties and media queries for responsive layout.
+ * Follows team convention: one .razor.css file per Blazor component.
+ * Review: docs/code-reviews/medication-entry-placement-review.md
+ */
+
+/* ── Layout ──────────────────────────────────────────────────────────── */
+
+.med-form {
+    display: grid;
+    gap: 1rem;
+    /* Mobile-first: single column */
+    grid-template-columns: 1fr;
+}
+
+/* Tablet and above: two columns */
+@media (min-width: 600px) {
+    .med-form {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* Desktop: keep two columns, widen gap */
+@media (min-width: 1024px) {
+    .med-form {
+        gap: 1.5rem;
+    }
+}
+
+/* ── Form groups ─────────────────────────────────────────────────────── */
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.form-group label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+/* Required field marker */
+.required {
+    color: #c0392b;
+    margin-left: 0.2em;
+}
+
+/* ── Inputs ──────────────────────────────────────────────────────────── */
+
+.form-control {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+/* Visible focus state for keyboard navigation (WCAG 2.1 AA) */
+.form-control:focus {
+    outline: none;
+    border-color: #0056b3;
+    box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.35);
+}
+
+/* Validation failure state */
+.form-control.invalid,
+.form-control[aria-invalid="true"] {
+    border-color: #c0392b;
+    background-color: #fff5f5;
+}
+
+/* ── Validation messages ─────────────────────────────────────────────── */
+
+.validation-message {
+    color: #c0392b;
+    font-size: 0.8rem;
+    margin-top: 0.15rem;
+}
+
+/* ── Submit button ───────────────────────────────────────────────────── */
+
+.btn-primary {
+    margin-top: 1rem;
+    padding: 0.6rem 1.5rem;
+    background-color: #0056b3;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #004494;
+}
+
+.btn-primary:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.45);
+}

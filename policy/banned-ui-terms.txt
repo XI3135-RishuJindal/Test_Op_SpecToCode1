@@ -1,0 +1,35 @@
+# Banned terms for UI and route guardrails (case-insensitive)
+# One term or phrase per line. Lines starting with '#' are comments.
+
+payment
+payments
+payout
+payouts
+billing
+invoice
+invoices
+invoicing
+checkout
+subscribe
+subscription
+subscriptions
+card
+credit-card
+creditcard
+debit-card
+debitcard
+stripe
+paypal
+apple pay
+google pay
+gpay
+adyen
+braintree
+klarna
+sepa
+ach
+iban
+wallet
+bank transfer
+bank-transfer
+upi

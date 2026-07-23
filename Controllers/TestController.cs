@@ -1,3 +1,4 @@
+```csharp
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ApiGateway.Models;
@@ -11,9 +12,11 @@ namespace ApiGateway.Controllers
     public class TestController : ControllerBase
     {
         private readonly ILogger<TestController> _logger;
+        private readonly IConfiguration _configuration;
 
-        public TestController(ILogger<TestController> logger)
+        public TestController(IConfiguration configuration, ILogger<TestController> logger)
         {
+            _configuration = configuration;
             _logger = logger;
         }
 
@@ -58,6 +61,15 @@ namespace ApiGateway.Controllers
                     });
                 }
 
+                // Mask sensitive data if configured
+                var sensitiveDataHandlingConfig = _configuration.GetSection("NLP:SensitiveDataHandling");
+                if (sensitiveDataHandlingConfig.GetValue<bool>("EnableMasking"))
+                {
+                    _logger.LogInformation("Masking enabled for sensitive data. Applying mask pattern: {MaskPattern}", 
+                        sensitiveDataHandlingConfig.GetValue<string>("MaskPattern"));
+                    request.Message = MaskSensitiveData(request.Message, sensitiveDataHandlingConfig.GetValue<string>("MaskPattern"));
+                }
+
                 // Log request details
                 _logger.LogInformation("Processing request with message: {Message}, RequestId: {RequestId}", 
                     request.Message, requestId);
@@ -77,36 +89,39 @@ namespace ApiGateway.Controllers
                         Dosage = request.Medication.Dosage,
                         Unit = request.Medication.Unit,
                         CreatedAt = request.Medication.CreatedAt,
-                        UpdatedAt = DateTime.UtcNow
+                        UpdatedAt = request.Medication.UpdatedAt
                     };
                 }
 
-                // Create response
                 var response = new TestResponse
                 {
-                    Status = "Success",
-                    Message = $"Request processed successfully: {request.Message}",
+                    Status = "Processed",
+                    Message = "Request has been processed successfully",
                     ProcessedMedication = processedMedication,
                     ProcessedAt = DateTime.UtcNow,
                     RequestId = requestId
                 };
 
-                _logger.LogInformation("Successfully processed request with RequestId: {RequestId}", requestId);
-
                 return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing request with RequestId: {RequestId}", requestId);
-                
+                _logger.LogError(ex, "An error occurred while processing the request with RequestId: {RequestId}", requestId);
                 return StatusCode(500, new ErrorResponse
                 {
                     Error = "InternalServerError",
-                    Message = "An error occurred while processing the request",
+                    Message = "An unexpected error occurred while processing the request",
                     StatusCode = 500,
                     Details = ex.Message
                 });
             }
         }
+
+        private string MaskSensitiveData(string input, string maskPattern)
+        {
+            // Simple mask implementation, can be extended with regex for specific patterns
+            return input.Replace("sensitive", maskPattern); // Example: simple replacement (for demonstration purposes)
+        }
     }
 }
+```
