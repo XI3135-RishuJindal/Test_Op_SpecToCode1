@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup language (target: latest stable)
+        run: |
+          echo "No language/runtime specified in upgrade context; target version is 'latest stable' but no setup action/version is available."
+          exit 1
+
+      - name: Run lint
+        run: |
+          echo "No build tool / lint command specified in upgrade context."
+          exit 1
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup language (target: latest stable)
+        run: |
+          echo "No language/runtime specified in upgrade context; target version is 'latest stable' but no setup action/version is available."
+          exit 1
+
+      - name: Run unit tests
+        run: |
+          echo "No build tool / test command specified in upgrade context."
+          exit 1
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup language (target: latest stable)
+        run: |
+          echo "No language/runtime specified in upgrade context; target version is 'latest stable' but no setup action/version is available."
+          exit 1
+
+      - name: Build
+        run: |
+          echo "No build tool / build command specified in upgrade context."
+          exit 1
+
+  sast:
+    name: SAST (optional)
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SAST scan
+        run: |
+          echo "No SAST tooling specified in upgrade context; skipping."
+          exit 0
