@@ -1,0 +1,3 @@
+# requirements.txt
+# No runtime/framework upgrade targets were specified in the provided upgrade context.
+# Source-access validation task does not require adding or changing Python dependencies.
