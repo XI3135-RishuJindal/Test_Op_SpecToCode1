@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint_test_build:
+    name: Lint, Test, Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint
+        run: |
+          echo "No language/build tool specified in upgrade context. Skipping lint."
+          exit 0
+
+      - name: Unit tests
+        run: |
+          echo "No language/build tool specified in upgrade context. Skipping unit tests."
+          exit 0
+
+      - name: Build
+        run: |
+          echo "No language/build tool specified in upgrade context. Skipping build."
+          exit 0
+
+      - name: Generate SBOM (CycloneDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx-json
+          path: sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 14
+
+  sast_scan:
+    name: Security Scan (SAST) (optional)
+    runs-on: ubuntu-latest
+    if: ${{ vars.ENABLE_SAST == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep scan
+        uses: semgrep/semgrep-action@v1
+        with:
+          generateSarif: "1"
+
+      - name: Upload security scan artifact (SARIF)
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-sarif
+          path: semgrep.sarif
+          if-no-files-found: error
+          retention-days: 14
