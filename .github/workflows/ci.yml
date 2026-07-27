@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup language (latest stable)
+        run: |
+          echo "No language/runtime version or setup action provided in upgrade context."
+          echo "Target language is 'unknown' and version is 'latest stable' (not a concrete version)."
+          echo "Skipping language setup."
+
+      - name: Lint (placeholder)
+        run: |
+          echo "No lint tool provided in upgrade context."
+          echo "Add project-specific lint command here."
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup language (latest stable)
+        run: |
+          echo "No language/runtime version or setup action provided in upgrade context."
+          echo "Target language is 'unknown' and version is 'latest stable' (not a concrete version)."
+          echo "Skipping language setup."
+
+      - name: Unit tests (placeholder)
+        run: |
+          echo "No test tool/command provided in upgrade context."
+          echo "Add project-specific unit test command here."
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup language (latest stable)
+        run: |
+          echo "No language/runtime version or setup action provided in upgrade context."
+          echo "Target language is 'unknown' and version is 'latest stable' (not a concrete version)."
+          echo "Skipping language setup."
+
+      - name: Build (placeholder)
+        run: |
+          echo "No build tool/command provided in upgrade context."
+          echo "Add project-specific build command here."
+
+  sast:
+    name: SAST (optional)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SAST scan (placeholder)
+        run: |
+          echo "No SAST tool/version provided in upgrade context."
+          echo "Add an approved SAST tool invocation here (optional)."
