@@ -1,0 +1,4 @@
+# requirements.txt
+# TODO: No Base Source Code requirements.txt was provided, and the upgrade context contains
+# no concrete package names or target versions to pin. Please supply the existing
+# requirements.txt (or dependency list) and the exact upgrade targets/versions.
