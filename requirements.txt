@@ -1,7 +1,2 @@
-# No base requirements.txt was provided in the upgrade context or base source code.
-# No specific dependency upgrade targets or versions were provided.
-# As a result, there are no actionable changes to apply while following the rules
-# (use ONLY versions from the provided upgrade context; preserve existing deps).
-#
-# Please provide the existing requirements.txt (or dependency list) and the
-# exact packages + target versions to upgrade.
+# No base requirements.txt was provided in the upgrade context, and no specific packages/versions to upgrade were supplied.
+# A concrete, upgraded requirements.txt cannot be generated without the current dependency list and target versions.
