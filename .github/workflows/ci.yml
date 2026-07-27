@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  sast:
+    name: Dependency vulnerability scan (fail on critical)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependency Review (PR only; fail on critical)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: critical
+          retry-on-snapshot-warnings: true
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+
+      - name: CodeQL Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:unknown"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Lint
+        run: |
+          echo "Lint step not configured (language/build tool unknown)."
+          exit 0
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Unit tests
+        run: |
+          echo "Unit test step not configured (language/build tool unknown)."
+          exit 0
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        run: |
+          echo "Build step not configured (language/build tool unknown)."
+          exit 0
