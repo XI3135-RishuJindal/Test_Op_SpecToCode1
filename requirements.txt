@@ -1,0 +1,1 @@
+# No Python dependencies are required for configuring GitHub CodeQL in CI.
