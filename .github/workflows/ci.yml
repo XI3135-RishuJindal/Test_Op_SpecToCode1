@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    name: Lint, Test, Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint
+        run: |
+          echo "No-op: language/build tool unknown. Add lint command(s) here."
+          exit 0
+
+      - name: Unit tests
+        run: |
+          echo "No-op: language/build tool unknown. Add test command(s) here."
+          exit 0
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          echo "No-op build artifact placeholder (language/build tool unknown)." > dist/BUILD_ARTIFACT.txt
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+
+      - name: Generate SBOM (placeholder)
+        run: |
+          mkdir -p sbom
+          cat > sbom/sbom.json <<'EOF'
+          {
+            "bomFormat": "CycloneDX",
+            "specVersion": "1.5",
+            "version": 1,
+            "metadata": {
+              "component": {
+                "type": "application",
+                "name": "unknown",
+                "version": "unknown"
+              }
+            },
+            "components": []
+          }
+          EOF
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom/sbom.json
+
+  sast:
+    name: SAST (optional placeholder)
+    runs-on: ubuntu-latest
+    if: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SAST scan
+        run: |
+          echo "Optional SAST placeholder. Enable and configure scanning tool here."
+          exit 0
