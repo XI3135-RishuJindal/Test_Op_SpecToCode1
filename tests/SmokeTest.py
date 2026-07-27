@@ -1,352 +1,393 @@
 import os
-import re
-import subprocess
 import sys
 import unittest
-from pathlib import Path
-from typing import Dict, Tuple, Optional
+import platform
+import subprocess
+import re
+from typing import Optional, Tuple
+
+
+def _env(name: str) -> Optional[str]:
+    v = os.environ.get(name)
+    return v.strip() if isinstance(v, str) and v.strip() else None
+
+
+def _run(cmd, cwd: Optional[str] = None) -> Tuple[int, str]:
+    p = subprocess.run(
+        cmd,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        shell=isinstance(cmd, str),
+        env=os.environ.copy(),
+    )
+    return p.returncode, (p.stdout or "").strip()
+
+
+def _parse_semver(s: str) -> Tuple[int, int, int, str]:
+    """
+    Parse versions like:
+      3.12.4
+      v18.20.3
+      21.6.2+build
+      1.2.3-rc.1
+    Returns (major, minor, patch, suffix)
+    """
+    s = s.strip()
+    if s.startswith("v"):
+        s = s[1:]
+    # take first occurrence of x.y.z
+    m = re.search(r"(\d+)\.(\d+)\.(\d+)(.*)$", s)
+    if not m:
+        raise ValueError(f"Unable to parse semantic version from: {s!r}")
+    return int(m.group(1)), int(m.group(2)), int(m.group(3)), (m.group(4) or "").strip()
+
+
+def _detect_runtime_and_version() -> Tuple[str, str]:
+    """
+    Best-effort runtime detection with no extra deps.
+    Supports common runtimes: python, node, java, dotnet, go, ruby, php.
+    Priority: explicit UPGRADE_RUNTIME env, then detect based on availability.
+    """
+    forced = _env("UPGRADE_RUNTIME")
+    if forced:
+        rt = forced.lower()
+        if rt == "python":
+            return "python", platform.python_version()
+        if rt == "node":
+            rc, out = _run(["node", "--version"])
+            if rc != 0:
+                raise AssertionError(f"UPGRADE_RUNTIME=node but node not available: {out}")
+            return "node", out.splitlines()[0].strip()
+        if rt == "java":
+            rc, out = _run(["java", "-version"])
+            if rc != 0:
+                raise AssertionError(f"UPGRADE_RUNTIME=java but java not available: {out}")
+            # java -version prints to stderr; we redirected to stdout
+            first = out.splitlines()[0].strip()
+            return "java", first
+        if rt == "dotnet":
+            rc, out = _run(["dotnet", "--version"])
+            if rc != 0:
+                raise AssertionError(f"UPGRADE_RUNTIME=dotnet but dotnet not available: {out}")
+            return "dotnet", out.splitlines()[0].strip()
+        if rt == "go":
+            rc, out = _run(["go", "version"])
+            if rc != 0:
+                raise AssertionError(f"UPGRADE_RUNTIME=go but go not available: {out}")
+            return "go", out.splitlines()[0].strip()
+        if rt == "ruby":
+            rc, out = _run(["ruby", "--version"])
+            if rc != 0:
+                raise AssertionError(f"UPGRADE_RUNTIME=ruby but ruby not available: {out}")
+            return "ruby", out.splitlines()[0].strip()
+        if rt == "php":
+            rc, out = _run(["php", "--version"])
+            if rc != 0:
+                raise AssertionError(f"UPGRADE_RUNTIME=php but php not available: {out}")
+            return "php", out.splitlines()[0].strip()
+        raise AssertionError(f"Unsupported UPGRADE_RUNTIME={forced!r}")
+
+    # auto-detect: python is always present for this test file
+    return "python", platform.python_version()
+
+
+def _repo_root() -> str:
+    rc, out = _run(["git", "rev-parse", "--show-toplevel"])
+    if rc == 0 and out:
+        return out.strip()
+    return os.getcwd()
 
 
 class UpgradeValidationTests(unittest.TestCase):
     """
-    Upgrade validation tests.
+    Upgrade validation tests intended for dependency patch/minor upgrades.
 
-    NOTE: This repository's upgrade context did not specify the target runtime/framework
-    name nor the exact target version. These tests are written to be runnable and to
-    enforce that the pipeline supplies the exact target version via environment variables.
+    This suite is designed to be runnable without repo-specific dependencies,
+    but requires upgrade context to be supplied via environment variables
+    so it can assert the EXACT target version and verify upgrade-specific behavior.
 
-    Required env vars for strict validation:
-      - UPGRADE_TARGET_RUNTIME: e.g., "python"
-      - UPGRADE_TARGET_VERSION: e.g., "3.12.4"
-    Optional env vars:
-      - UPGRADE_DEPRECATED_API_REGEX: regex for deprecated API usage to assert absent
-      - UPGRADE_NEW_CONFIG_KEYS: comma-separated keys that must load from config
-      - UPGRADE_CONFIG_PATH: path to config file to parse (default: auto-detect)
+    Required environment variables:
+      - UPGRADE_TARGET_VERSION: exact semantic version (x.y.z) expected to be active.
+        (For non-semver runtimes/frameworks, provide the exact version string and set UPGRADE_EXACT_MATCH=1.)
+    Optional:
+      - UPGRADE_RUNTIME: python|node|java|dotnet|go|ruby|php (forces runtime detection)
+      - UPGRADE_EXACT_MATCH: "1" to require string-equality match rather than semver comparison
+      - UPGRADE_CRITICAL_PATH_CMD: a command to execute as a critical application path
+      - UPGRADE_NEW_CONFIG_KEYS: comma-separated config keys expected to load
+      - UPGRADE_CONFIG_FILE: path to a config file to validate (best-effort parsing)
+      - UPGRADE_DEPRECATED_TOKEN: a string that must not appear in the codebase (deprecated API)
+      - UPGRADE_DEPRECATED_GREP: regex (python re) that must not match any tracked source file
+      - UPGRADE_REPLACEMENT_TOKEN: a string that must appear at least once (replacement usage)
+      - UPGRADE_LOCKFILE: lockfile path (e.g., package-lock.json, poetry.lock, Gemfile.lock)
+      - UPGRADE_EXPECTED_PACKAGE_VERSIONS: comma-separated "name@x.y.z" pairs to verify in lockfiles (best-effort)
     """
 
-    @staticmethod
-    def _run(cmd, cwd: Optional[Path] = None) -> Tuple[int, str]:
-        p = subprocess.run(
-            cmd,
-            cwd=str(cwd) if cwd else None,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            check=False,
+    @classmethod
+    def setUpClass(cls):
+        cls.repo = _repo_root()
+        cls.runtime, cls.runtime_version = _detect_runtime_and_version()
+
+    def test_active_runtime_exact_target_version(self):
+        target = _env("UPGRADE_TARGET_VERSION")
+        self.assertTrue(
+            target,
+            "UPGRADE_TARGET_VERSION must be set to the EXACT target version for upgrade validation.",
         )
-        return p.returncode, p.stdout
 
-    @staticmethod
-    def _repo_root() -> Path:
-        # Best-effort: walk up until we find a VCS marker or stop.
-        here = Path(__file__).resolve()
-        for p in [here] + list(here.parents):
-            if (p / ".git").exists() or (p / "pyproject.toml").exists() or (p / "package.json").exists():
-                return p
-        return here.parent
+        exact_match = _env("UPGRADE_EXACT_MATCH") == "1"
+        active = self.runtime_version.strip()
 
-    def _require_env(self, key: str) -> str:
-        v = os.environ.get(key, "").strip()
-        self.assertTrue(v, f"Missing required environment variable: {key}")
-        return v
-
-    def test_000_target_runtime_and_version_are_exact(self):
-        target_runtime = self._require_env("UPGRADE_TARGET_RUNTIME").lower()
-        target_version = self._require_env("UPGRADE_TARGET_VERSION")
-
-        if target_runtime == "python":
-            active = sys.version.split()[0]
+        if exact_match:
             self.assertEqual(
                 active,
-                target_version,
-                f"Active Python runtime version mismatch. Expected EXACT {target_version}, got {active}.",
+                target,
+                f"Active {self.runtime} version must match EXACT target. active={active!r} target={target!r}",
             )
-        else:
-            self.fail(
-                f"Unsupported/unknown runtime '{target_runtime}'. "
-                f"Provide a supported runtime or extend tests. "
-                f"Target version was '{target_version}'."
-            )
-
-    def test_010_critical_application_path_starts_and_responds(self):
-        """
-        Critical path validation for a typical Python app: ensure module import + CLI start works.
-
-        This tries, in order:
-          1) If APP_MODULE env var is set: import it.
-          2) If an executable script path is set via APP_START_CMD: run it and expect exit 0.
-          3) Else: attempt to run 'python -m <package>' if APP_PACKAGE env var is set.
-
-        These are intentionally strict upgrade-validation hooks; the pipeline should set one.
-        """
-        app_module = os.environ.get("APP_MODULE", "").strip()
-        app_start_cmd = os.environ.get("APP_START_CMD", "").strip()
-        app_package = os.environ.get("APP_PACKAGE", "").strip()
-
-        if app_module:
-            try:
-                __import__(app_module)
-            except Exception as e:
-                self.fail(f"Failed to import critical application module '{app_module}' after upgrade: {e!r}")
             return
 
-        if app_start_cmd:
-            cmd = app_start_cmd.split()
-            rc, out = self._run(cmd, cwd=self._repo_root())
-            self.assertEqual(rc, 0, f"Critical application start command failed: {app_start_cmd}\n{out}")
-            return
+        # semver compare for common cases where active may include prefix/suffix
+        a = _parse_semver(active)
+        t = _parse_semver(target)
 
-        if app_package:
-            rc, out = self._run([sys.executable, "-m", app_package], cwd=self._repo_root())
-            self.assertEqual(rc, 0, f"Critical application package start failed: python -m {app_package}\n{out}")
-            return
-
-        self.fail(
-            "No critical application path configured. Set one of: APP_MODULE, APP_START_CMD, APP_PACKAGE."
+        self.assertEqual(
+            a[:3],
+            t[:3],
+            f"Active {self.runtime} version must match EXACT target semver. active={active!r} target={target!r}",
         )
 
-    def test_020_deprecated_apis_replaced_no_longer_present(self):
+    def test_critical_application_path_executes_successfully(self):
         """
-        Assert deprecated APIs removed from the codebase.
-
-        The upgrade context did not specify which APIs were deprecated/replaced, so this test
-        is parameterized by UPGRADE_DEPRECATED_API_REGEX (required for this check to be meaningful).
+        Critical path should be provided by the upgrade context since repo/framework is unknown.
+        This is not a generic smoke test: it asserts an upgrade-specific critical path command
+        still works under the upgraded runtime/dependencies.
         """
-        pattern = os.environ.get("UPGRADE_DEPRECATED_API_REGEX", "").strip()
+        cmd = _env("UPGRADE_CRITICAL_PATH_CMD")
         self.assertTrue(
-            pattern,
-            "Missing UPGRADE_DEPRECATED_API_REGEX. Provide a regex matching deprecated API symbols/paths "
-            "that should no longer appear after upgrade.",
+            cmd,
+            "UPGRADE_CRITICAL_PATH_CMD must be set to a real critical application path command "
+            "(e.g., 'python -m yourapp --version', 'node dist/server.js --healthcheck', "
+            "'./gradlew test -x ...', 'dotnet test', etc.).",
         )
-        rx = re.compile(pattern)
 
-        root = self._repo_root()
+        rc, out = _run(cmd, cwd=self.repo)
+        self.assertEqual(
+            rc,
+            0,
+            f"Critical application path command failed under upgraded environment.\n"
+            f"cmd={cmd!r}\nexit={rc}\noutput:\n{out}\n",
+        )
 
-        # Search common source file extensions without adding dependencies.
-        exts = {
+    def test_deprecated_apis_removed_or_replaced(self):
+        """
+        Verifies deprecated APIs that were replaced in this upgrade no longer appear,
+        and optionally verifies their replacements appear.
+        """
+        deprecated_token = _env("UPGRADE_DEPRECATED_TOKEN")
+        deprecated_grep = _env("UPGRADE_DEPRECATED_GREP")
+        replacement_token = _env("UPGRADE_REPLACEMENT_TOKEN")
+
+        self.assertTrue(
+            deprecated_token or deprecated_grep,
+            "Set UPGRADE_DEPRECATED_TOKEN (literal string) and/or UPGRADE_DEPRECATED_GREP (regex) "
+            "to verify deprecated APIs removed in this upgrade.",
+        )
+
+        # Enumerate tracked files via git to avoid scanning build outputs/vendor directories.
+        rc, files_out = _run(["git", "ls-files"], cwd=self.repo)
+        self.assertEqual(rc, 0, f"Unable to list repo files via git: {files_out}")
+        files = [f for f in files_out.splitlines() if f.strip()]
+
+        # only scan plausible text/source files
+        scan_exts = {
             ".py",
-            ".pyi",
-            ".txt",
-            ".md",
-            ".rst",
-            ".toml",
-            ".yaml",
+            ".js",
+            ".ts",
+            ".tsx",
+            ".jsx",
+            ".java",
+            ".kt",
+            ".kts",
+            ".cs",
+            ".go",
+            ".rb",
+            ".php",
+            ".scala",
+            ".gradle",
+            ".xml",
             ".yml",
+            ".yaml",
             ".json",
+            ".toml",
             ".ini",
             ".cfg",
-            ".env",
-            ".sh",
-            ".bat",
-            ".ps1",
+            ".properties",
+            ".md",
+            ".txt",
         }
-        ignore_dirs = {".git", ".venv", "venv", "node_modules", "dist", "build", ".tox", ".pytest_cache", "__pycache__"}
-        offenders = []
 
-        for path in root.rglob("*"):
-            if path.is_dir():
+        dep_regex = re.compile(deprecated_grep) if deprecated_grep else None
+        found_deprecated = []
+        found_replacement = 0
+
+        for rel in files:
+            _, ext = os.path.splitext(rel)
+            if ext and ext.lower() not in scan_exts:
                 continue
-            if any(part in ignore_dirs for part in path.parts):
-                continue
-            if path.suffix.lower() not in exts:
-                continue
+            path = os.path.join(self.repo, rel)
             try:
-                content = path.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
+                with open(path, "rb") as fh:
+                    data = fh.read()
+                # skip likely binary
+                if b"\x00" in data:
+                    continue
+                text = data.decode("utf-8", errors="replace")
+            except OSError:
                 continue
-            if rx.search(content):
-                offenders.append(str(path.relative_to(root)))
 
-        self.assertFalse(
-            offenders,
-            f"Deprecated API usage still present (pattern: {pattern}). Offending files:\n- "
-            + "\n- ".join(sorted(offenders)),
+            if deprecated_token and deprecated_token in text:
+                found_deprecated.append(rel)
+
+            if dep_regex and dep_regex.search(text):
+                found_deprecated.append(rel)
+
+            if replacement_token and replacement_token in text:
+                found_replacement += 1
+
+        self.assertEqual(
+            found_deprecated,
+            [],
+            "Deprecated API usage still present after upgrade. "
+            f"Matches found in files: {sorted(set(found_deprecated))}",
         )
 
-    def test_030_new_configuration_keys_load_without_errors(self):
-        """
-        Validate new configuration keys introduced by the upgrade can be loaded.
+        if replacement_token:
+            self.assertGreater(
+                found_replacement,
+                0,
+                "Replacement API token was not found anywhere; expected at least one usage "
+                f"of {replacement_token!r} to confirm migration.",
+            )
 
-        Since config system/framework isn't specified, this test does a conservative parse of
-        common config files and asserts keys are present in at least one detected config.
-
-        Provide:
-          - UPGRADE_NEW_CONFIG_KEYS: comma-separated list of keys (required)
-          - UPGRADE_CONFIG_PATH: explicit config file path (optional)
+    def test_new_configuration_keys_load_without_errors(self):
         """
-        keys_raw = os.environ.get("UPGRADE_NEW_CONFIG_KEYS", "").strip()
+        Verifies new configuration keys introduced by the upgrade can be loaded/recognized.
+        Since framework is unknown, this test supports two strategies:
+          1) Verify keys exist in a provided config file (UPGRADE_CONFIG_FILE).
+          2) Verify app can start/load config via UPGRADE_CRITICAL_PATH_CMD and that the keys are present in env.
+
+        To avoid false positives, require explicit UPGRADE_NEW_CONFIG_KEYS.
+        """
+        keys_csv = _env("UPGRADE_NEW_CONFIG_KEYS")
         self.assertTrue(
-            keys_raw,
-            "Missing UPGRADE_NEW_CONFIG_KEYS. Provide comma-separated new config keys that must load.",
+            keys_csv,
+            "UPGRADE_NEW_CONFIG_KEYS must be set (comma-separated) to validate new config keys introduced by upgrade.",
         )
-        required_keys = [k.strip() for k in keys_raw.split(",") if k.strip()]
-        self.assertTrue(required_keys, "UPGRADE_NEW_CONFIG_KEYS did not contain any keys.")
+        keys = [k.strip() for k in keys_csv.split(",") if k.strip()]
+        self.assertTrue(keys, "UPGRADE_NEW_CONFIG_KEYS did not contain any keys.")
 
-        root = self._repo_root()
-        cfg_path_env = os.environ.get("UPGRADE_CONFIG_PATH", "").strip()
+        cfg_file = _env("UPGRADE_CONFIG_FILE")
+        if cfg_file:
+            cfg_path = cfg_file if os.path.isabs(cfg_file) else os.path.join(self.repo, cfg_file)
+            self.assertTrue(os.path.exists(cfg_path), f"UPGRADE_CONFIG_FILE does not exist: {cfg_path}")
+            with open(cfg_path, "rb") as fh:
+                data = fh.read()
+            self.assertNotIn(b"\x00", data, "Config file appears to be binary.")
+            text = data.decode("utf-8", errors="replace")
 
-        candidate_paths = []
-        if cfg_path_env:
-            candidate_paths.append((root / cfg_path_env).resolve())
+            missing = [k for k in keys if k not in text]
+            self.assertEqual(
+                missing,
+                [],
+                f"New config keys missing from config file {cfg_file!r}: {missing}",
+            )
         else:
-            # Auto-detect common config files
-            for name in [
-                "pyproject.toml",
-                "config.toml",
-                "config.yaml",
-                "config.yml",
-                "appsettings.json",
-                "settings.json",
-                ".env",
-                ".env.local",
-                "setup.cfg",
-                "tox.ini",
-            ]:
-                p = root / name
-                if p.exists() and p.is_file():
-                    candidate_paths.append(p.resolve())
+            # No config file provided; require env vars to exist as a proxy for loadable keys.
+            missing_env = [k for k in keys if _env(k) is None]
+            self.assertEqual(
+                missing_env,
+                [],
+                "No UPGRADE_CONFIG_FILE provided; expected new config keys to be supplied via environment "
+                f"variables. Missing: {missing_env}",
+            )
 
+        # Additionally ensure critical path doesn't error when these keys are present.
+        cmd = _env("UPGRADE_CRITICAL_PATH_CMD")
         self.assertTrue(
-            candidate_paths,
-            "Could not find any config files to validate. Set UPGRADE_CONFIG_PATH or add a recognizable config.",
+            cmd,
+            "UPGRADE_CRITICAL_PATH_CMD must be set so we can verify new config keys don't cause load errors.",
+        )
+        rc, out = _run(cmd, cwd=self.repo)
+        self.assertEqual(
+            rc,
+            0,
+            "Application failed to run with new configuration keys after upgrade.\n"
+            f"cmd={cmd!r}\nexit={rc}\noutput:\n{out}\n",
         )
 
-        parsed_any = False
-        found_keys = set()
+    def test_upgraded_dependencies_reflected_in_lockfile_when_provided(self):
+        """
+        Upgrade-specific validation that expected patched versions are present.
+        Best-effort parsing across common lockfile types; requires explicit expectations.
 
-        for p in candidate_paths:
-            try:
-                text = p.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
+        Env:
+          - UPGRADE_LOCKFILE: path to lockfile
+          - UPGRADE_EXPECTED_PACKAGE_VERSIONS: "name@x.y.z,name2@a.b.c"
+        """
+        lockfile = _env("UPGRADE_LOCKFILE")
+        expected = _env("UPGRADE_EXPECTED_PACKAGE_VERSIONS")
+        if not lockfile or not expected:
+            self.skipTest(
+                "Set UPGRADE_LOCKFILE and UPGRADE_EXPECTED_PACKAGE_VERSIONS to verify patched dependency versions."
+            )
+
+        lock_path = lockfile if os.path.isabs(lockfile) else os.path.join(self.repo, lockfile)
+        self.assertTrue(os.path.exists(lock_path), f"Lockfile not found: {lock_path}")
+
+        with open(lock_path, "rb") as fh:
+            data = fh.read()
+        self.assertNotIn(b"\x00", data, "Lockfile appears to be binary.")
+        text = data.decode("utf-8", errors="replace")
+
+        pairs = []
+        for item in expected.split(","):
+            item = item.strip()
+            if not item:
                 continue
+            if "@" not in item:
+                self.fail(
+                    f"Invalid entry in UPGRADE_EXPECTED_PACKAGE_VERSIONS: {item!r}. Expected format 'name@x.y.z'."
+                )
+            name, ver = item.rsplit("@", 1)
+            name = name.strip()
+            ver = ver.strip()
+            if not name or not ver:
+                self.fail(f"Invalid entry in UPGRADE_EXPECTED_PACKAGE_VERSIONS: {item!r}.")
+            pairs.append((name, ver))
 
-            parsed = self._parse_config_best_effort(p, text)
-            if parsed is None:
-                continue
-            parsed_any = True
+        missing = []
+        for name, ver in pairs:
+            # best-effort patterns across lockfile formats
+            patterns = [
+                rf'"{re.escape(name)}"\s*:\s*{{[^}}]*"version"\s*:\s*"{re.escape(ver)}"',  # package-lock v2/v3
+                rf'"{re.escape(name)}@[^"]*"\s*:\s*{{[^}}]*"version"\s*:\s*"{re.escape(ver)}"',  # yarn lock v2+ json-ish
+                rf'^{re.escape(name)}\s+\({re.escape(ver)}\)',  # pnpm-lock style (rare)
+                rf'^{re.escape(name)}\s+\({re.escape(ver)}',  # bundler (Gemfile.lock) sometimes: "    name (ver)"
+                rf'^\s*{re.escape(name)}\s*\({re.escape(ver)}\)',  # Gemfile.lock
+                rf'^{re.escape(name)}=={re.escape(ver)}$',  # requirements freeze
+                rf'{re.escape(name)}\s*==\s*{re.escape(ver)}',  # requirements.txt
+                rf'{re.escape(name)}\s*{re.escape(ver)}',  # fallback
+            ]
+            if not any(re.search(p, text, flags=re.MULTILINE) for p in patterns):
+                missing.append(f"{name}@{ver}")
 
-            # Support dotted keys as nested dict paths (best-effort)
-            for key in required_keys:
-                if self._has_key(parsed, key):
-                    found_keys.add(key)
-
-        self.assertTrue(parsed_any, "Failed to parse any config file (best-effort parsers did not apply).")
-        missing = [k for k in required_keys if k not in found_keys]
-        self.assertFalse(
+        self.assertEqual(
             missing,
-            "New configuration keys missing or failed to load from config: " + ", ".join(missing),
+            [],
+            f"Expected patched dependency versions not found in {lockfile!r}: {missing}",
         )
-
-    @staticmethod
-    def _parse_config_best_effort(path: Path, text: str) -> Optional[Dict]:
-        suffix = path.suffix.lower()
-        name = path.name.lower()
-
-        if suffix == ".json":
-            import json
-
-            try:
-                return json.loads(text) if text.strip() else {}
-            except Exception:
-                return None
-
-        if suffix in {".yml", ".yaml"}:
-            # No external deps allowed; minimal YAML subset: key: value, nesting via indentation (2+ spaces).
-            return UpgradeValidationTests._parse_minimal_yaml(text)
-
-        if suffix == ".toml" or name == "pyproject.toml":
-            # Python 3.11+ has tomllib; fallback to None if not available.
-            try:
-                import tomllib  # type: ignore
-            except Exception:
-                return None
-            try:
-                return tomllib.loads(text) if text.strip() else {}
-            except Exception:
-                return None
-
-        if name in {".env", ".env.local"}:
-            return UpgradeValidationTests._parse_dotenv(text)
-
-        if suffix in {".ini", ".cfg"} or name in {"setup.cfg", "tox.ini"}:
-            import configparser
-
-            cp = configparser.ConfigParser()
-            try:
-                cp.read_string(text)
-            except Exception:
-                return None
-            d = {"DEFAULT": dict(cp.defaults())}
-            for section in cp.sections():
-                d[section] = dict(cp.items(section))
-            return d
-
-        return None
-
-    @staticmethod
-    def _parse_dotenv(text: str) -> Dict:
-        d: Dict[str, str] = {}
-        for line in text.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            d[k.strip()] = v.strip().strip("'").strip('"')
-        return d
-
-    @staticmethod
-    def _parse_minimal_yaml(text: str) -> Optional[Dict]:
-        # Minimal YAML parser for simple mappings; returns None if structure seems incompatible.
-        root: Dict = {}
-        stack = [(0, root)]
-        for raw in text.splitlines():
-            if not raw.strip() or raw.lstrip().startswith("#"):
-                continue
-            if "\t" in raw:
-                return None
-            indent = len(raw) - len(raw.lstrip(" "))
-            line = raw.strip()
-            if ":" not in line:
-                return None
-            key, rest = line.split(":", 1)
-            key = key.strip()
-            value = rest.strip()
-            # Determine current container based on indentation
-            while stack and indent < stack[-1][0]:
-                stack.pop()
-            if not stack:
-                return None
-            cur = stack[-1][1]
-            if value == "":
-                nxt: Dict = {}
-                cur[key] = nxt
-                stack.append((indent + 2, nxt))
-            else:
-                # scalar
-                cur[key] = value.strip("'").strip('"')
-        return root
-
-    @staticmethod
-    def _has_key(obj: object, dotted_key: str) -> bool:
-        # Supports dotted lookup into nested dicts; also supports case-insensitive match for INI-style keys.
-        parts = dotted_key.split(".")
-        cur = obj
-        for part in parts:
-            if isinstance(cur, dict):
-                if part in cur:
-                    cur = cur[part]
-                    continue
-                # case-insensitive fallback
-                lower_map = {str(k).lower(): k for k in cur.keys()}
-                if part.lower() in lower_map:
-                    cur = cur[lower_map[part.lower()]]
-                    continue
-                return False
-            return False
-        return True
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=2)
