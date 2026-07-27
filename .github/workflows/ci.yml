@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint (placeholder)
+        run: |
+          echo "Lint step not configured: language/build tool unknown."
+          echo "Add project-specific lint command once the build system is identified."
+          exit 0
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unit tests (placeholder)
+        run: |
+          echo "Test step not configured: language/build tool unknown."
+          echo "Add project-specific unit test command once the build system is identified."
+          exit 0
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build (placeholder)
+        run: |
+          echo "Build step not configured: language/build tool unknown."
+          echo "Add project-specific build command once the build system is identified."
+          exit 0
+
+  sast:
+    name: SAST (optional)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SAST scan (placeholder)
+        run: |
+          echo "SAST step not configured: no tool/version specified in upgrade context."
+          echo "Enable CodeQL or another SAST tool once selected and version pinned per context."
+          exit 0
