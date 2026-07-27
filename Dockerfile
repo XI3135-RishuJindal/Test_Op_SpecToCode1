@@ -1,7 +1,5 @@
-FROM debian:bookworm-slim
+FROM alpine:3.21.3
 
 WORKDIR /app
-
-COPY . .
 
 CMD ["sh"]
