@@ -1,0 +1,2 @@
+# No requirements provided in upgrade context; manifest cannot be generated without a base dependency list.
+# Provide the existing requirements.txt (or dependency manifest) and target versions to pin.
