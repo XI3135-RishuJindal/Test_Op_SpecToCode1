@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint (not configured)
+        run: |
+          echo "No language/build tool detected from upgrade context; lint step is a placeholder."
+          exit 0
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unit tests (not configured)
+        run: |
+          echo "No language/build tool detected from upgrade context; unit test step is a placeholder."
+          exit 0
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build (not configured)
+        run: |
+          echo "No language/build tool detected from upgrade context; build step is a placeholder."
+          exit 0
+
+  sast:
+    name: SAST (optional)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SAST scan (not configured)
+        run: |
+          echo "No language/tooling detected from upgrade context; SAST step is a placeholder."
+          exit 0
