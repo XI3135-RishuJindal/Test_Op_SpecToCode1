@@ -1,256 +1,352 @@
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
+import os
+import re
+import subprocess
+import sys
+import unittest
+from pathlib import Path
+from typing import Dict, Tuple, Optional
 
-function findNearestPackageJson(startDir) {
-  let dir = startDir;
-  while (true) {
-    const candidate = path.join(dir, 'package.json');
-    if (fs.existsSync(candidate)) return candidate;
-    const parent = path.dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
 
-function safeJsonParse(filePath) {
-  const raw = fs.readFileSync(filePath, 'utf8');
-  try {
-    return JSON.parse(raw);
-  } catch (e) {
-    const err = new Error(`Failed to parse JSON at ${filePath}: ${e.message}`);
-    err.cause = e;
-    throw err;
-  }
-}
+class UpgradeValidationTests(unittest.TestCase):
+    """
+    Upgrade validation tests.
 
-function getNodeVersion() {
-  // Returns exact version string like "v20.15.1"
-  return process.version;
-}
+    NOTE: This repository's upgrade context did not specify the target runtime/framework
+    name nor the exact target version. These tests are written to be runnable and to
+    enforce that the pipeline supplies the exact target version via environment variables.
 
-function readRootPackageJson() {
-  const pkgPath = findNearestPackageJson(process.cwd());
-  if (!pkgPath) {
-    throw new Error(
-      'Unable to locate package.json in current or parent directories. ' +
-        'This upgrade validation test expects a Node.js project with a package.json.'
-    );
-  }
-  return { pkgPath, pkg: safeJsonParse(pkgPath) };
-}
+    Required env vars for strict validation:
+      - UPGRADE_TARGET_RUNTIME: e.g., "python"
+      - UPGRADE_TARGET_VERSION: e.g., "3.12.4"
+    Optional env vars:
+      - UPGRADE_DEPRECATED_API_REGEX: regex for deprecated API usage to assert absent
+      - UPGRADE_NEW_CONFIG_KEYS: comma-separated keys that must load from config
+      - UPGRADE_CONFIG_PATH: path to config file to parse (default: auto-detect)
+    """
 
-function loadUpgradeContext() {
-  // Target version must be explicitly specified to be verifiable.
-  // Accept any of these environment variables as the "exact target version":
-  // - UPGRADE_TARGET_NODE_VERSION (recommended)
-  // - TARGET_NODE_VERSION
-  // - EXPECTED_NODE_VERSION
-  //
-  // Examples: "v20.15.1" (exact, including v) or "20.15.1"
-  const target =
-    process.env.UPGRADE_TARGET_NODE_VERSION ||
-    process.env.TARGET_NODE_VERSION ||
-    process.env.EXPECTED_NODE_VERSION ||
-    '';
+    @staticmethod
+    def _run(cmd, cwd: Optional[Path] = None) -> Tuple[int, str]:
+        p = subprocess.run(
+            cmd,
+            cwd=str(cwd) if cwd else None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+        )
+        return p.returncode, p.stdout
 
-  return {
-    targetNodeVersion: target.trim(),
-  };
-}
+    @staticmethod
+    def _repo_root() -> Path:
+        # Best-effort: walk up until we find a VCS marker or stop.
+        here = Path(__file__).resolve()
+        for p in [here] + list(here.parents):
+            if (p / ".git").exists() or (p / "pyproject.toml").exists() or (p / "package.json").exists():
+                return p
+        return here.parent
 
-function normalizeNodeVersion(v) {
-  // normalize "20.15.1" -> "v20.15.1", keep "v20.15.1" as-is
-  if (!v) return '';
-  return v.startsWith('v') ? v : `v${v}`;
-}
+    def _require_env(self, key: str) -> str:
+        v = os.environ.get(key, "").strip()
+        self.assertTrue(v, f"Missing required environment variable: {key}")
+        return v
 
-function listAllDependencySpecs(pkg) {
-  return {
-    ...pkg.dependencies,
-    ...pkg.devDependencies,
-    ...pkg.peerDependencies,
-    ...pkg.optionalDependencies,
-  };
-}
+    def test_000_target_runtime_and_version_are_exact(self):
+        target_runtime = self._require_env("UPGRADE_TARGET_RUNTIME").lower()
+        target_version = self._require_env("UPGRADE_TARGET_VERSION")
 
-function repoHasAnyFileNamed(startDir, fileNames) {
-  // Shallow-ish search: check root and common subdirs
-  const candidates = [];
-  for (const name of fileNames) {
-    candidates.push(path.join(startDir, name));
-    candidates.push(path.join(startDir, 'config', name));
-    candidates.push(path.join(startDir, 'configs', name));
-    candidates.push(path.join(startDir, 'src', name));
-    candidates.push(path.join(startDir, 'app', name));
-  }
-  return candidates.some((p) => fs.existsSync(p));
-}
+        if target_runtime == "python":
+            active = sys.version.split()[0]
+            self.assertEqual(
+                active,
+                target_version,
+                f"Active Python runtime version mismatch. Expected EXACT {target_version}, got {active}.",
+            )
+        else:
+            self.fail(
+                f"Unsupported/unknown runtime '{target_runtime}'. "
+                f"Provide a supported runtime or extend tests. "
+                f"Target version was '{target_version}'."
+            )
 
-describe('Upgrade validation (security patch/minor upgrades)', function () {
-  const ctx = loadUpgradeContext();
-  const activeNode = getNodeVersion();
-  const normalizedActiveNode = normalizeNodeVersion(activeNode);
-  const normalizedTargetNode = normalizeNodeVersion(ctx.targetNodeVersion);
+    def test_010_critical_application_path_starts_and_responds(self):
+        """
+        Critical path validation for a typical Python app: ensure module import + CLI start works.
 
-  const { pkgPath, pkg } = readRootPackageJson();
-  const deps = listAllDependencySpecs(pkg);
+        This tries, in order:
+          1) If APP_MODULE env var is set: import it.
+          2) If an executable script path is set via APP_START_CMD: run it and expect exit 0.
+          3) Else: attempt to run 'python -m <package>' if APP_PACKAGE env var is set.
 
-  it('asserts the upgraded runtime is active at the EXACT target version (Node.js)', function () {
-    assert.ok(
-      normalizedTargetNode,
-      [
-        'Missing explicit target runtime version for upgrade validation.',
-        'Set one of: UPGRADE_TARGET_NODE_VERSION, TARGET_NODE_VERSION, EXPECTED_NODE_VERSION.',
-        'Example: export UPGRADE_TARGET_NODE_VERSION=v20.15.1',
-      ].join(' ')
-    );
+        These are intentionally strict upgrade-validation hooks; the pipeline should set one.
+        """
+        app_module = os.environ.get("APP_MODULE", "").strip()
+        app_start_cmd = os.environ.get("APP_START_CMD", "").strip()
+        app_package = os.environ.get("APP_PACKAGE", "").strip()
 
-    assert.strictEqual(
-      normalizedActiveNode,
-      normalizedTargetNode,
-      `Active Node.js runtime version (${normalizedActiveNode}) does not match exact target (${normalizedTargetNode}).`
-    );
-  });
+        if app_module:
+            try:
+                __import__(app_module)
+            except Exception as e:
+                self.fail(f"Failed to import critical application module '{app_module}' after upgrade: {e!r}")
+            return
 
-  it('validates critical application paths can load the application entrypoint without errors', function () {
-    // "Critical application path" in a generic repo: being able to load the main entrypoint.
-    // We do not assume any framework; we simply ensure the configured entry can be resolved/required.
-    const mainField = pkg.main;
-    const typeField = pkg.type; // "module" or undefined/commonjs
+        if app_start_cmd:
+            cmd = app_start_cmd.split()
+            rc, out = self._run(cmd, cwd=self._repo_root())
+            self.assertEqual(rc, 0, f"Critical application start command failed: {app_start_cmd}\n{out}")
+            return
 
-    // Determine candidate entrypoints
-    const candidates = [];
+        if app_package:
+            rc, out = self._run([sys.executable, "-m", app_package], cwd=self._repo_root())
+            self.assertEqual(rc, 0, f"Critical application package start failed: python -m {app_package}\n{out}")
+            return
 
-    if (mainField) {
-      candidates.push(path.resolve(path.dirname(pkgPath), mainField));
-    }
-    // Common conventional entrypoints
-    candidates.push(path.resolve(path.dirname(pkgPath), 'index.js'));
-    candidates.push(path.resolve(path.dirname(pkgPath), 'src', 'index.js'));
-    candidates.push(path.resolve(path.dirname(pkgPath), 'app.js'));
-    candidates.push(path.resolve(path.dirname(pkgPath), 'server.js'));
-    candidates.push(path.resolve(path.dirname(pkgPath), 'src', 'server.js'));
+        self.fail(
+            "No critical application path configured. Set one of: APP_MODULE, APP_START_CMD, APP_PACKAGE."
+        )
 
-    const existing = candidates.find((p) => fs.existsSync(p) || fs.existsSync(`${p}.js`) || fs.existsSync(`${p}.cjs`) || fs.existsSync(`${p}.mjs`));
+    def test_020_deprecated_apis_replaced_no_longer_present(self):
+        """
+        Assert deprecated APIs removed from the codebase.
 
-    if (!existing) {
-      // If there is no obvious entrypoint, this is not necessarily an error in the codebase,
-      // but we cannot validate runtime load; fail with actionable info.
-      assert.fail(
-        'No recognizable application entrypoint found to validate load path. ' +
-          `Checked: ${candidates
-            .map((p) => path.relative(path.dirname(pkgPath), p))
-            .join(', ')}. ` +
-          'Set "main" in package.json or add a conventional entrypoint.'
-      );
-    }
+        The upgrade context did not specify which APIs were deprecated/replaced, so this test
+        is parameterized by UPGRADE_DEPRECATED_API_REGEX (required for this check to be meaningful).
+        """
+        pattern = os.environ.get("UPGRADE_DEPRECATED_API_REGEX", "").strip()
+        self.assertTrue(
+            pattern,
+            "Missing UPGRADE_DEPRECATED_API_REGEX. Provide a regex matching deprecated API symbols/paths "
+            "that should no longer appear after upgrade.",
+        )
+        rx = re.compile(pattern)
 
-    // If package.json type=module, require() may not work; validate that the file at least exists and is readable.
-    // Otherwise, attempt to require and ensure it does not throw at load-time.
-    if (typeField === 'module' || existing.endsWith('.mjs')) {
-      assert.ok(fs.statSync(existing).isFile(), `Entrypoint is not a file: ${existing}`);
-      const content = fs.readFileSync(existing, 'utf8');
-      assert.ok(content.length >= 0, 'Entrypoint exists but could not be read.');
-    } else {
-      // For CommonJS, require should be safe and is a stronger signal that upgraded deps don't break startup.
-      try {
-        // eslint-disable-next-line global-require, import/no-dynamic-require
-        require(existing);
-      } catch (e) {
-        const err = new Error(`Failed to require application entrypoint (${existing}). Load-time error: ${e && e.message}`);
-        err.cause = e;
-        throw err;
-      }
-    }
-  });
+        root = self._repo_root()
 
-  it('verifies deprecated APIs replaced in this upgrade no longer appear in dependency specs (no "*" / "latest")', function () {
-    // For security patch/minor upgrades, a critical anti-pattern is using floating versions like "*" or "latest",
-    // which defeats deterministic patching and CVE remediation validation.
-    // This test enforces that no dependency spec uses "*" or "latest".
-    const bad = [];
-    for (const [name, spec] of Object.entries(deps)) {
-      if (!spec) continue;
-      const s = String(spec).trim().toLowerCase();
-      if (s === '*' || s === 'latest') bad.push({ name, spec });
-    }
+        # Search common source file extensions without adding dependencies.
+        exts = {
+            ".py",
+            ".pyi",
+            ".txt",
+            ".md",
+            ".rst",
+            ".toml",
+            ".yaml",
+            ".yml",
+            ".json",
+            ".ini",
+            ".cfg",
+            ".env",
+            ".sh",
+            ".bat",
+            ".ps1",
+        }
+        ignore_dirs = {".git", ".venv", "venv", "node_modules", "dist", "build", ".tox", ".pytest_cache", "__pycache__"}
+        offenders = []
 
-    assert.deepStrictEqual(
-      bad,
-      [],
-      `Found floating dependency specs that should be replaced with fixed/ranged versions as part of conservative upgrades: ${bad
-        .map((b) => `${b.name}@${b.spec}`)
-        .join(', ')}`
-    );
-  });
+        for path in root.rglob("*"):
+            if path.is_dir():
+                continue
+            if any(part in ignore_dirs for part in path.parts):
+                continue
+            if path.suffix.lower() not in exts:
+                continue
+            try:
+                content = path.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+            if rx.search(content):
+                offenders.append(str(path.relative_to(root)))
 
-  it('verifies new configuration keys introduced by the upgrade load without errors (dotenv support if present)', function () {
-    // In absence of concrete upgrade details, validate that configuration loading does not throw.
-    // If dotenv is present, ensure it can be required and configured safely (a common post-upgrade config path).
-    const hasDotenv = Object.prototype.hasOwnProperty.call(deps, 'dotenv');
+        self.assertFalse(
+            offenders,
+            f"Deprecated API usage still present (pattern: {pattern}). Offending files:\n- "
+            + "\n- ".join(sorted(offenders)),
+        )
 
-    if (!hasDotenv) {
-      // If dotenv isn't used, validate that typical config files (if present) are parseable as JSON/YAML when applicable.
-      const rootDir = path.dirname(pkgPath);
+    def test_030_new_configuration_keys_load_without_errors(self):
+        """
+        Validate new configuration keys introduced by the upgrade can be loaded.
 
-      const hasConfigFile = repoHasAnyFileNamed(rootDir, [
-        '.env',
-        '.env.example',
-        'config.json',
-        'config.local.json',
-        'settings.json',
-        'application.json',
-        'appsettings.json',
-      ]);
+        Since config system/framework isn't specified, this test does a conservative parse of
+        common config files and asserts keys are present in at least one detected config.
 
-      // If there's no sign of config files, we can't validate much; treat as pass.
-      if (!hasConfigFile) return;
+        Provide:
+          - UPGRADE_NEW_CONFIG_KEYS: comma-separated list of keys (required)
+          - UPGRADE_CONFIG_PATH: explicit config file path (optional)
+        """
+        keys_raw = os.environ.get("UPGRADE_NEW_CONFIG_KEYS", "").strip()
+        self.assertTrue(
+            keys_raw,
+            "Missing UPGRADE_NEW_CONFIG_KEYS. Provide comma-separated new config keys that must load.",
+        )
+        required_keys = [k.strip() for k in keys_raw.split(",") if k.strip()]
+        self.assertTrue(required_keys, "UPGRADE_NEW_CONFIG_KEYS did not contain any keys.")
 
-      // Parse any present JSON configs among the common names.
-      const jsonCandidates = [
-        path.join(rootDir, 'config.json'),
-        path.join(rootDir, 'config.local.json'),
-        path.join(rootDir, 'settings.json'),
-        path.join(rootDir, 'application.json'),
-        path.join(rootDir, 'appsettings.json'),
-        path.join(rootDir, 'config', 'config.json'),
-        path.join(rootDir, 'config', 'settings.json'),
-      ].filter((p) => fs.existsSync(p));
+        root = self._repo_root()
+        cfg_path_env = os.environ.get("UPGRADE_CONFIG_PATH", "").strip()
 
-      for (const fp of jsonCandidates) {
-        const parsed = safeJsonParse(fp);
-        assert.ok(parsed && typeof parsed === 'object', `Config JSON did not parse into an object: ${fp}`);
-      }
-      return;
-    }
+        candidate_paths = []
+        if cfg_path_env:
+            candidate_paths.append((root / cfg_path_env).resolve())
+        else:
+            # Auto-detect common config files
+            for name in [
+                "pyproject.toml",
+                "config.toml",
+                "config.yaml",
+                "config.yml",
+                "appsettings.json",
+                "settings.json",
+                ".env",
+                ".env.local",
+                "setup.cfg",
+                "tox.ini",
+            ]:
+                p = root / name
+                if p.exists() and p.is_file():
+                    candidate_paths.append(p.resolve())
 
-    let dotenv;
-    try {
-      // eslint-disable-next-line global-require
-      dotenv = require('dotenv');
-    } catch (e) {
-      const err = new Error(`dotenv is declared in ${path.relative(process.cwd(), pkgPath)} but could not be required after upgrade.`);
-      err.cause = e;
-      throw err;
-    }
+        self.assertTrue(
+            candidate_paths,
+            "Could not find any config files to validate. Set UPGRADE_CONFIG_PATH or add a recognizable config.",
+        )
 
-    assert.ok(dotenv, 'dotenv required but returned empty module export.');
-    assert.ok(
-      typeof dotenv.config === 'function',
-      'dotenv loaded but does not expose config() function; upgrade may have broken configuration loading.'
-    );
+        parsed_any = False
+        found_keys = set()
 
-    // Attempt to load .env if present; config() should not throw.
-    const envPath = path.join(path.dirname(pkgPath), '.env');
-    try {
-      const result = fs.existsSync(envPath) ? dotenv.config({ path: envPath }) : dotenv.config();
-      // dotenv returns { parsed, error }; ensure no error
-      if (result && result.error) throw result.error;
-    } catch (e) {
-      const err = new Error(`dotenv.config() threw an error after upgrade. This indicates configuration keys/files introduced/changed in the upgrade do not load cleanly.`);
-      err.cause = e;
-      throw err;
-    }
-  });
-});
+        for p in candidate_paths:
+            try:
+                text = p.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+
+            parsed = self._parse_config_best_effort(p, text)
+            if parsed is None:
+                continue
+            parsed_any = True
+
+            # Support dotted keys as nested dict paths (best-effort)
+            for key in required_keys:
+                if self._has_key(parsed, key):
+                    found_keys.add(key)
+
+        self.assertTrue(parsed_any, "Failed to parse any config file (best-effort parsers did not apply).")
+        missing = [k for k in required_keys if k not in found_keys]
+        self.assertFalse(
+            missing,
+            "New configuration keys missing or failed to load from config: " + ", ".join(missing),
+        )
+
+    @staticmethod
+    def _parse_config_best_effort(path: Path, text: str) -> Optional[Dict]:
+        suffix = path.suffix.lower()
+        name = path.name.lower()
+
+        if suffix == ".json":
+            import json
+
+            try:
+                return json.loads(text) if text.strip() else {}
+            except Exception:
+                return None
+
+        if suffix in {".yml", ".yaml"}:
+            # No external deps allowed; minimal YAML subset: key: value, nesting via indentation (2+ spaces).
+            return UpgradeValidationTests._parse_minimal_yaml(text)
+
+        if suffix == ".toml" or name == "pyproject.toml":
+            # Python 3.11+ has tomllib; fallback to None if not available.
+            try:
+                import tomllib  # type: ignore
+            except Exception:
+                return None
+            try:
+                return tomllib.loads(text) if text.strip() else {}
+            except Exception:
+                return None
+
+        if name in {".env", ".env.local"}:
+            return UpgradeValidationTests._parse_dotenv(text)
+
+        if suffix in {".ini", ".cfg"} or name in {"setup.cfg", "tox.ini"}:
+            import configparser
+
+            cp = configparser.ConfigParser()
+            try:
+                cp.read_string(text)
+            except Exception:
+                return None
+            d = {"DEFAULT": dict(cp.defaults())}
+            for section in cp.sections():
+                d[section] = dict(cp.items(section))
+            return d
+
+        return None
+
+    @staticmethod
+    def _parse_dotenv(text: str) -> Dict:
+        d: Dict[str, str] = {}
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            d[k.strip()] = v.strip().strip("'").strip('"')
+        return d
+
+    @staticmethod
+    def _parse_minimal_yaml(text: str) -> Optional[Dict]:
+        # Minimal YAML parser for simple mappings; returns None if structure seems incompatible.
+        root: Dict = {}
+        stack = [(0, root)]
+        for raw in text.splitlines():
+            if not raw.strip() or raw.lstrip().startswith("#"):
+                continue
+            if "\t" in raw:
+                return None
+            indent = len(raw) - len(raw.lstrip(" "))
+            line = raw.strip()
+            if ":" not in line:
+                return None
+            key, rest = line.split(":", 1)
+            key = key.strip()
+            value = rest.strip()
+            # Determine current container based on indentation
+            while stack and indent < stack[-1][0]:
+                stack.pop()
+            if not stack:
+                return None
+            cur = stack[-1][1]
+            if value == "":
+                nxt: Dict = {}
+                cur[key] = nxt
+                stack.append((indent + 2, nxt))
+            else:
+                # scalar
+                cur[key] = value.strip("'").strip('"')
+        return root
+
+    @staticmethod
+    def _has_key(obj: object, dotted_key: str) -> bool:
+        # Supports dotted lookup into nested dicts; also supports case-insensitive match for INI-style keys.
+        parts = dotted_key.split(".")
+        cur = obj
+        for part in parts:
+            if isinstance(cur, dict):
+                if part in cur:
+                    cur = cur[part]
+                    continue
+                # case-insensitive fallback
+                lower_map = {str(k).lower(): k for k in cur.keys()}
+                if part.lower() in lower_map:
+                    cur = cur[lower_map[part.lower()]]
+                    continue
+                return False
+            return False
+        return True
+
+
+if __name__ == "__main__":
+    unittest.main()
