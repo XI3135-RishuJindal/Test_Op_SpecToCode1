@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run lint (repo-defined)
+        run: |
+          set -euo pipefail
+          if [ -f "Makefile" ] && grep -qE '^[[:space:]]*lint:' Makefile; then
+            make lint
+          elif [ -f "package.json" ] && grep -q '"lint"\s*:' package.json; then
+            npm run lint
+          elif [ -f "pyproject.toml" ] || [ -f "requirements.txt" ]; then
+            if command -v python >/dev/null 2>&1; then python -m compileall .; else echo "Python not available"; exit 1; fi
+          else
+            echo "No known lint command found (Makefile lint / npm run lint / basic python compile)."
+            exit 1
+          fi
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run unit tests (repo-defined)
+        run: |
+          set -euo pipefail
+          if [ -f "Makefile" ] && grep -qE '^[[:space:]]*test:' Makefile; then
+            make test
+          elif [ -f "package.json" ] && grep -q '"test"\s*:' package.json; then
+            npm test
+          elif [ -f "pytest.ini" ] || [ -d "tests" ]; then
+            if command -v python >/dev/null 2>&1; then python -m unittest discover -s tests || python -m pytest; else echo "Python not available"; exit 1; fi
+          else
+            echo "No known unit test command found (Makefile test / npm test / python unittest/pytest)."
+            exit 1
+          fi
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build (repo-defined)
+        run: |
+          set -euo pipefail
+          if [ -f "Makefile" ] && grep -qE '^[[:space:]]*build:' Makefile; then
+            make build
+          elif [ -f "package.json" ] && grep -q '"build"\s*:' package.json; then
+            npm run build
+          else
+            echo "No known build command found (Makefile build / npm run build)."
+            exit 1
+          fi
+
+  sast:
+    name: SAST (optional)
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SAST not configured for unknown language/toolchain
+        run: |
+          echo "SAST scan is optional and requires language/toolchain specifics."
+          echo "No SAST tool configured to avoid introducing new dependencies."
