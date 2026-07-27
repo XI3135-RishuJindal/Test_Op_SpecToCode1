@@ -1,0 +1,3 @@
+# This project upgrade is CI-configuration-only (SBOM + security scan artifact publishing).
+# No Python dependency upgrades were specified in the provided upgrade context.
+# Keeping requirements.txt empty to avoid introducing unrelated dependencies.
