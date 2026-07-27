@@ -1,0 +1,2 @@
+# No base requirements.txt was provided in the upgrade context, and no specific packages/versions to upgrade were supplied.
+# A concrete, upgraded requirements.txt cannot be generated without the current dependency list and target versions.

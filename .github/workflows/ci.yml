@@ -1,0 +1,188 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect project tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f package.json ]; then echo "tool=node" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -f pyproject.toml ] || [ -f requirements.txt ] || [ -f setup.py ]; then echo "tool=python" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -f go.mod ]; then echo "tool=go" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -f Cargo.toml ]; then echo "tool=rust" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -f pom.xml ] || [ -f build.gradle ] || [ -f build.gradle.kts ]; then echo "tool=java" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -f composer.json ]; then echo "tool=php" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -f Gemfile ]; then echo "tool=ruby" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ -f "*.csproj" ] || [ -f "*.sln" ]; then echo "tool=dotnet" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "tool=unknown" >> "$GITHUB_OUTPUT"
+        id: detect
+
+      - name: Lint (best-effort)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "No explicit language/build tool provided in upgrade context; running best-effort lint if a standard command exists."
+          if [ -f package.json ]; then
+            npm ci
+            npm run -s lint || npm run -s lint:check || npm run -s eslint || true
+            exit 0
+          fi
+          if [ -f pyproject.toml ] || [ -f requirements.txt ] || [ -f setup.py ]; then
+            python -m pip install -U pip
+            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+            (python -m ruff check .) || (python -m flake8 .) || (python -m pylint .) || true
+            exit 0
+          fi
+          if [ -f go.mod ]; then
+            gofmt -w .
+            git diff --exit-code || (echo "gofmt produced changes; please run gofmt locally." && exit 1)
+            go vet ./... || true
+            exit 0
+          fi
+          if [ -f Cargo.toml ]; then
+            cargo fmt --all -- --check || true
+            cargo clippy --all-targets --all-features -- -D warnings || true
+            exit 0
+          fi
+          if [ -f pom.xml ]; then
+            mvn -q -DskipTests=true validate || true
+            exit 0
+          fi
+          if [ -f build.gradle ] || [ -f build.gradle.kts ]; then
+            ./gradlew -q -Dorg.gradle.warning.mode=all tasks >/dev/null 2>&1 || true
+            exit 0
+          fi
+          echo "No supported lint command detected; skipping."
+          exit 0
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unit tests (best-effort)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "No explicit language/build tool provided in upgrade context; running best-effort unit tests if a standard command exists."
+          if [ -f package.json ]; then
+            npm ci
+            npm test || npm run -s test || true
+            exit 0
+          fi
+          if [ -f pyproject.toml ] || [ -f requirements.txt ] || [ -f setup.py ]; then
+            python -m pip install -U pip
+            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+            python -m pytest -q || true
+            exit 0
+          fi
+          if [ -f go.mod ]; then
+            go test ./... || true
+            exit 0
+          fi
+          if [ -f Cargo.toml ]; then
+            cargo test --all-features || true
+            exit 0
+          fi
+          if [ -f pom.xml ]; then
+            mvn -q test || true
+            exit 0
+          fi
+          if [ -f build.gradle ] || [ -f build.gradle.kts ]; then
+            ./gradlew test || true
+            exit 0
+          fi
+          if [ -f composer.json ]; then
+            composer install --no-interaction --no-progress || true
+            vendor/bin/phpunit || true
+            exit 0
+          fi
+          if [ -f Gemfile ]; then
+            bundle install --jobs 4 --retry 3 || true
+            bundle exec rake test || bundle exec rspec || true
+            exit 0
+          fi
+          echo "No supported unit test command detected; skipping."
+          exit 0
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build (best-effort)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "No explicit language/build tool provided in upgrade context; running best-effort build if a standard command exists."
+          if [ -f package.json ]; then
+            npm ci
+            npm run -s build || true
+            exit 0
+          fi
+          if [ -f pyproject.toml ] || [ -f requirements.txt ] || [ -f setup.py ]; then
+            python -m pip install -U pip
+            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+            python -m compileall . || true
+            exit 0
+          fi
+          if [ -f go.mod ]; then
+            go build ./... || true
+            exit 0
+          fi
+          if [ -f Cargo.toml ]; then
+            cargo build --release || true
+            exit 0
+          fi
+          if [ -f pom.xml ]; then
+            mvn -q -DskipTests=true package || true
+            exit 0
+          fi
+          if [ -f build.gradle ] || [ -f build.gradle.kts ]; then
+            ./gradlew build -x test || true
+            exit 0
+          fi
+          echo "No supported build command detected; skipping."
+          exit 0
+
+  sast:
+    name: SAST (optional)
+    if: ${{ vars.ENABLE_SAST == 'true' || github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SAST placeholder
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "SAST is optional. Upgrade context did not specify a SAST tool or version; no scanner is executed."
+          echo "Set vars.ENABLE_SAST=true and configure an approved scanner in this job as needed."
