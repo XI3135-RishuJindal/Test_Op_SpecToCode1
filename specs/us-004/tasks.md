@@ -1,6 +1,6 @@
-- [ ] Create test scenarios for SAML integration in Tests/Controllers/AuthControllerTests.cs: include cases for invalid token handling.
-- [ ] Update README.md with SAML testing procedures and expected outcomes.
-- [ ] Review the current implementation in Controllers/AuthController.cs for error handling logic against SAML-specific scenarios.
-- [ ] Ensure logging in the AuthController provides sufficient information for SAML authentication request evaluation.
-- [ ] Conduct a review session with QA to validate test coverage against previously identified SAML-related incidents.
-- [ ] Implement continuous integration checks ensuring the new SAML-related test cases are executed without failures.
+- **Repository**: XI3135-RishuJindal/Test_Op_SpecToCode1
+  - [ ] Create a new controller `Controllers/WishlistController.cs`: Implement actions to view, add, remove, and rearrange wishlist items.
+  - [ ] Create views in `Views/Wishlist/`: Develop views for wishlist display and item management (CRUD operations).
+  - [ ] Update `ApiGateway.csproj`: Include any new libraries or settings needed for wishlist functionality.
+  - [ ] Develop unit tests in `Tests/Controllers/WishlistControllerTests.cs`: Ensure all methods in the `WishlistController` are adequately tested.
+  - [ ] Conduct UI tests in supported browsers to ensure layout is consistent and functionalities are working as required.
