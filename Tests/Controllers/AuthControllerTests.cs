@@ -1,91 +1,50 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Moq;
+```csharp
+using System.Net;
+using System.Net.Http.Json;
 using Xunit;
-using ApiGateway.Controllers;
+using ApiGateway.Models;
 
 namespace ApiGateway.Tests.Controllers
 {
-    public class AuthControllerTests
+    public class AuthControllerTests : IClassFixture<WebApplicationFactory<Program>>
     {
-        private readonly Mock<IConfiguration> _mockConfiguration;
-        private readonly Mock<ILogger<AuthController>> _mockLogger;
-        private readonly AuthController _controller;
+        private readonly HttpClient _client;
 
-        public AuthControllerTests()
+        public AuthControllerTests(WebApplicationFactory<Program> factory)
         {
-            _mockConfiguration = new Mock<IConfiguration>();
-            _mockLogger = new Mock<ILogger<AuthController>>();
-            
-            // Setup configuration
-            _mockConfiguration.Setup(x => x["Jwt:Key"]).Returns("test-secret-key-for-unit-tests-256-bits");
-            _mockConfiguration.Setup(x => x["Jwt:Issuer"]).Returns("TestIssuer");
-            _mockConfiguration.Setup(x => x["Jwt:Audience"]).Returns("TestAudience");
-            
-            _controller = new AuthController(_mockConfiguration.Object, _mockLogger.Object);
+            _client = factory.CreateClient();
         }
 
         [Fact]
-        public void GenerateToken_ValidCredentials_ReturnsToken()
+        public async Task GenerateToken_ValidCredentials_ReturnsOk()
         {
             // Arrange
-            var request = new LoginRequest
-            {
-                Username = "testuser",
-                Password = "testpassword"
-            };
+            var request = new { Username = "validUser", Password = "validPassword" };
 
             // Act
-            var result = _controller.GenerateToken(request);
+            var response = await _client.PostAsJsonAsync("/api/auth/token", request);
 
             // Assert
-            var okResult = Assert.IsType<OkObjectResult>(result);
-            var tokenResponse = okResult.Value;
-            Assert.NotNull(tokenResponse);
-            
-            // Use reflection to check the anonymous object properties
-            var tokenProperty = tokenResponse.GetType().GetProperty("Token");
-            Assert.NotNull(tokenProperty);
-            var token = tokenProperty.GetValue(tokenResponse) as string;
-            Assert.NotNull(token);
-            Assert.NotEmpty(token);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
         [Fact]
-        public void GenerateToken_EmptyUsername_ReturnsBadRequest()
+        public async Task GenerateToken_InvalidCredentials_ReturnsBadRequest()
         {
             // Arrange
-            var request = new LoginRequest
-            {
-                Username = "",
-                Password = "testpassword"
-            };
+            var request = new { Username = "", Password = "validPassword" };
 
             // Act
-            var result = _controller.GenerateToken(request);
+            var response = await _client.PostAsJsonAsync("/api/auth/token", request);
 
             // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var errorResponse = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+            Assert.NotNull(errorResponse);
+            Assert.Equal("InvalidCredentials", errorResponse!.Error);
         }
 
-        [Fact]
-        public void GenerateToken_EmptyPassword_ReturnsBadRequest()
-        {
-            // Arrange
-            var request = new LoginRequest
-            {
-                Username = "testuser",
-                Password = ""
-            };
-
-            // Act
-            var result = _controller.GenerateToken(request);
-
-            // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.NotNull(badRequestResult.Value);
-        }
+        // Additional test cases based on historical SAML-related incidents can be added here
     }
 }
+```

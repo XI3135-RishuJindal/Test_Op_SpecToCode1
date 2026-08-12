@@ -1,0 +1,23 @@
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" type="text/css" href="~/css/site.css">
+</head>
+<body>
+    <div class="navbar">
+        <a href="/">Home</a> |
+        <a href="/Wishlist/Index">Wishlist</a>
+    </div>
+
+    <div class="container">
+        @RenderBody()
+    </div>
+
+    <footer>
+        <p>&copy; My Company 2023</p>
+    </footer>
+</body>
+</html>
+```

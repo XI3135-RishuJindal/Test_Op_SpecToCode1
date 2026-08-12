@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Wishlist</title>
+  <!--
+    Wishlist Management Frontend
+    ============================
+    Implements the "View and Manage Wishlist Interface" user story (us-004).
+    Communicates with /api/wishlist via fetch() using a JWT bearer token
+    obtained from /api/auth/token.
+
+    Accessibility: WCAG 2.1 AA — semantic HTML, ARIA labels, keyboard navigation,
+    focus management, and sufficient colour contrast are applied throughout.
+  -->
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --color-bg:        #f5f7fa;
+      --color-surface:   #ffffff;
+      --color-primary:   #2563eb;
+      --color-primary-h: #1d4ed8;
+      --color-danger:    #dc2626;
+      --color-danger-h:  #b91c1c;
+      --color-success:   #16a34a;
+      --color-border:    #d1d5db;
+      --color-text:      #111827;
+      --color-muted:     #6b7280;
+      --radius:          0.5rem;
+      --shadow:          0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08);
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--color-bg);
+      color: var(--color-text);
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    /* ── Skip-to-content link (accessibility) ─────────────────────────── */
+    .skip-link {
+      position: absolute;
+      top: -3rem;
+      left: 0;
+      background: var(--color-primary);
+      color: #fff;
+      padding: .5rem 1rem;
+      border-radius: var(--radius);
+      z-index: 100;
+      transition: top .2s;
+    }
+    .skip-link:focus { top: .5rem; }
+
+    /* ── Layout ───────────────────────────────────────────────────────── */
+    .container { max-width: 860px; margin: 0 auto; }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: .75rem;
+    }
+
+    h1 { font-size: 1.75rem; font-weight: 700; }
+
+    /* ── Auth panel ───────────────────────────────────────────────────── */
+    #auth-panel {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      max-width: 400px;
+      margin: 2rem auto;
+    }
+    #auth-panel h2 { margin-bottom: 1rem; font-size: 1.25rem; }
+
+    /* ── Form elements ────────────────────────────────────────────────── */
+    .form-group { display: flex; flex-direction: column; gap: .25rem; margin-bottom: .75rem; }
+    label { font-size: .875rem; font-weight: 600; }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="url"],
+    input[type="number"],
+    select,
+    textarea {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: .5rem .75rem;
+      font-size: 1rem;
+      width: 100%;
+      background: var(--color-surface);
+      color: var(--color-text);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.25);
+    }
+    textarea { resize: vertical; min-height: 4rem; }
+
+    /* ── Buttons ──────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .5rem 1rem;
+      border: none;
+      border-radius: var(--radius);
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+    }
+    .btn:focus-visible {
+      outline: 3px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+    .btn-primary  { background: var(--color-primary);  color: #fff; }
+    .btn-primary:hover  { background: var(--color-primary-h); }
+    .btn-danger   { background: var(--color-danger);   color: #fff; }
+    .btn-danger:hover   { background: var(--color-danger-h); }
+    .btn-secondary { background: #e5e7eb; color: var(--color-text); }
+    .btn-secondary:hover { background: #d1d5db; }
+    .btn-sm { padding: .3rem .65rem; font-size: .8rem; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Add / Edit form card ─────────────────────────────────────────── */
+    #item-form-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.5rem;
+    }
+    #item-form-card h2 { font-size: 1.1rem; margin-bottom: 1rem; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+    }
+    @media (max-width: 540px) { .form-row { grid-template-columns: 1fr; } }
+
+    .form-actions { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
+
+    /* ── Wishlist table ───────────────────────────────────────────────── */
+    #wishlist-section h2 { font-size: 1.1rem; margin-bottom: .75rem; }
+
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--color-surface);
+      font-size: .9rem;
+    }
+    thead { background: #f3f4f6; }
+    th, td {
+      padding: .65rem .9rem;
+      text-align: left;
+      border-bottom: 1px solid var(--color-border);
+    }
+    th { font-weight: 700; white-space: nowrap; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: #f9fafb; }
+
+    .priority-badge {
+      display: inline-block;
+      padding: .15rem .5rem;
+      border-radius: 9999px;
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .priority-high   { background: #fee2e2; color: #991b1b; }
+    .priority-medium { background: #fef9c3; color: #854d0e; }
+    .priority-low    { background: #dcfce7; color: #166534; }
+
+    .actions-cell { display: flex; gap: .4rem; flex-wrap: wrap; }
+
+    /* ── Empty / loading states ───────────────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--color-muted);
+      background: var(--color-surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .empty-state svg { margin-bottom: .75rem; opacity: .4; }
+
+    /* ── Toast notifications ──────────────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      z-index: 200;
+    }
+    .toast {
+      padding: .65rem 1rem;
+      border-radius: var(--radius);
+      color: #fff;
+      font-size: .875rem;
+      font-weight: 600;
+      box-shadow: var(--shadow);
+      animation: slideIn .25s ease;
+    }
+    .toast-success { background: var(--color-success); }
+    .toast-error   { background: var(--color-danger); }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to   { transform: translateX(0);   opacity: 1; }
+    }
+
+    /* ── Logout button ────────────────────────────────────────────────── */
+    #logout-btn { margin-left: auto; }
+
+    /* ── Visually hidden (screen-reader only) ─────────────────────────── */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Skip navigation for keyboard / screen-reader users -->
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <!-- Live region for dynamic announcements (accessibility) -->
+  <div id="live-region" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
+  <!-- Toast container -->
+  <div id="toast-container" role="status" aria-live="polite"></div>
+
+  <div class="container" id="main-content">
+
+    <!-- ── Authentication panel (shown when not logged in) ─────────────── -->
+    <section id="auth-panel" aria-labelledby="auth-heading">
+      <h2 id="auth-heading">Sign in to manage your wishlist</h2>
+      <form id="login-form" novalidate>
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input id="username" type="text" autocomplete="username"
+                 placeholder="Enter username" required aria-required="true" />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password"
+                 placeholder="Enter password" required aria-required="true" />
+        </div>
+        <div id="login-error" role="alert" style="color:var(--color-danger);font-size:.875rem;margin-bottom:.5rem;display:none;"></div>
+        <button type="submit" class="btn btn-primary" id="login-btn">Sign in</button>
+      </form>
+    </section>
+
+    <!-- ── Main wishlist UI (shown after login) ────────────────────────── -->
+    <div id="app" hidden>
+      <header>
+        <h1>My Wishlist</h1>
+        <button id="logout-btn" class="btn btn-secondary" aria-label="Sign out">Sign out</button>
+      </header>
+
+      <!-- Add / Edit form -->
+      <section id="item-form-card" aria-labelledby="form-heading">
+        <h2 id="form-heading">Add a new item</h2>
+        <form id="item-form" novalidate>
+          <!-- Hidden field to track edit mode -->
+          <input type="hidden" id="edit-id" value="" />
+
+          <div class="form-group">
+            <label for="item-name">Name <span aria-hidden="true">*</span></label>
+            <input id="item-name" type="text" placeholder="e.g. Wireless headphones"
+                   required aria-required="true" />
+          </div>
+
+          <div class="form-group">
+            <label for="item-desc">Description</label>
+            <textarea id="item-desc" placeholder="Optional notes about this item"></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="item-url">URL</label>
+              <input id="item-url" type="url" placeholder="https://example.com/product" />
+            </div>
+            <div class="form-group">
+              <label for="item-price">Price ($)</label>
+              <input id="item-price" type="number" min="0" step="0.01" placeholder="0.00" />
+            </div>
+          </div>
+
+          <div class="form-group" style="max-width:200px">
+            <label for="item-priority">Priority</label>
+            <select id="item-priority">
+              <option value="High">High</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+
+          <div id="form-error" role="alert"
+               style="color:var(--color-danger);font-size:.875rem;margin-bottom:.5rem;display:none;"></div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="save-btn">Add item</button>
+            <button type="button" class="btn btn-secondary" id="cancel-btn" hidden>Cancel</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Wishlist table -->
+      <section id="wishlist-section" aria-labelledby="list-heading">
+        <h2 id="list-heading">Your wishlist items</h2>
+        <div id="list-container">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+    </div><!-- /#app -->
+  </div><!-- /.container -->
+
+  <script>
+    /* ================================================================
+       Wishlist Management — Frontend Logic
+       ================================================================
+       Communicates with:
+         POST   /api/auth/token          — obtain JWT
+         GET    /api/wishlist            — list items
+         POST   /api/wishlist            — create item
+         PUT    /api/wishlist/{id}       — update item
+         DELETE /api/wishlist/{id}       — delete item
+    ================================================================ */
+
+    // ── State ──────────────────────────────────────────────────────────
+    let token = sessionStorage.getItem('wl_token') || '';
+    let editingId = null; // null = add mode, number = edit mode
+
+    // ── DOM refs ───────────────────────────────────────────────────────
+    const authPanel    = document.getElementById('auth-panel');
+    const app          = document.getElementById('app');
+    const loginForm    = document.getElementById('login-form');
+    const loginError   = document.getElementById('login-error');
+    const loginBtn     = document.getElementById('login-btn');
+    const logoutBtn    = document.getElementById('logout-btn');
+    const itemForm     = document.getElementById('item-form');
+    const formHeading  = document.getElementById('form-heading');
+    const saveBtn      = document.getElementById('save-btn');
+    const cancelBtn    = document.getElementById('cancel-btn');
+    const formError    = document.getElementById('form-error');
+    const listContainer = document.getElementById('list-container');
+    const liveRegion   = document.getElementById('live-region');
+
+    // Form fields
+    const fId       = document.getElementById('edit-id');
+    const fName     = document.getElementById('item-name');
+    const fDesc     = document.getElementById('item-desc');
+    const fUrl      = document.getElementById('item-url');
+    const fPrice    = document.getElementById('item-price');
+    const fPriority = document.getElementById('item-priority');
+
+    // ── Utility: toast notification ────────────────────────────────────
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.textContent = message;
+      toast.setAttribute('role', 'status');
+      container.appendChild(toast);
+      // Announce to screen readers via live region
+      liveRegion.textContent = message;
+      setTimeout(() => { toast.remove(); liveRegion.textContent = ''; }, 3500);
+    }
+
+    // ── Utility: authenticated fetch wrapper ───────────────────────────
+    async function apiFetch(url, options = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(options.headers || {})
+      };
+      const response = await fetch(url, { ...options, headers });
+      return response;
+    }
+
+    // ── Auth: login ────────────────────────────────────────────────────
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginError.style.display = 'none';
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Signing in…';
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch('/api/auth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || 'Invalid credentials. Please try again.');
+        }
+
+        const data = await res.json();
+        token = data.token || data.Token || '';
+        sessionStorage.setItem('wl_token', token);
+
+        authPanel.hidden = true;
+        app.hidden = false;
+        await loadWishlist();
+        fName.focus();
+      } catch (err) {
+        loginError.textContent = err.message;
+        loginError.style.display = 'block';
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Sign in';
+      }
+    });
+
+    // ── Auth: logout ───────────────────────────────────────────────────
+    logoutBtn.addEventListener('click', () => {
+      token = '';
+      sessionStorage.removeItem('wl_token');
+      app.hidden = true;
+      authPanel.hidden = false;
+      document.getElementById('username').focus();
+    });
+
+    // ── Load wishlist items from API ───────────────────────────────────
+    async function loadWishlist() {
+      try {
+        const res = await apiFetch('/api/wishlist');
+        if (res.status === 401) { handleUnauthorized(); return; }
+        if (!res.ok) throw new Error('Failed to load wishlist.');
+        const items = await res.json();
+        renderList(items);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // ── Render the wishlist table ──────────────────────────────────────
+    function renderList(items) {
+      if (!items || items.length === 0) {
+        listContainer.innerHTML = `
+          <div class="empty-state" role="status">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none"
+                 viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+            </svg>
+            <p>Your wishlist is empty. Add your first item above!</p>
+          </div>`;
+        return;
+      }
+
+      // Build accessible table
+      const rows = items.map(item => {
+        const priorityClass = `priority-${item.priority.toLowerCase()}`;
+        const priceDisplay  = item.price != null ? `$${parseFloat(item.price).toFixed(2)}` : '—';
+        const urlDisplay    = item.url
+          ? `<a href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer"
+               aria-label="Link for ${escHtml(item.name)} (opens in new tab)">Link</a>`
+          : '—';
+
+        return `
+          <tr>
+            <td>${escHtml(item.name)}</td>
+            <td>${escHtml(item.description || '')}</td>
+            <td>${urlDisplay}</td>
+            <td>${priceDisplay}</td>
+            <td><span class="priority-badge ${priorityClass}">${escHtml(item.priority)}</span></td>
+            <td>
+              <div class="actions-cell">
+                <button class="btn btn-secondary btn-sm"
+                        onclick="startEdit(${item.id})"
+                        aria-label="Edit ${escHtml(item.name)}">Edit</button>
+                <button class="btn btn-danger btn-sm"
+                        onclick="deleteItem(${item.id}, '${escHtml(item.name).replace(/'/g, "\\'")}')"
+                        aria-label="Remove ${escHtml(item.name)}">Remove</button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+
+      listContainer.innerHTML = `
+        <div class="table-wrapper">
+          <table aria-label="Wishlist items">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Description</th>
+                <th scope="col">URL</th>
+                <th scope="col">Price</th>
+                <th scope="col">Priority</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    // ── Add / Edit form submission ─────────────────────────────────────
+    itemForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      formError.style.display = 'none';
+
+      const name = fName.value.trim();
+      if (!name) {
+        formError.textContent = 'Item name is required.';
+        formError.style.display = 'block';
+        fName.focus();
+        return;
+      }
+
+      const payload = {
+        name,
+        description: fDesc.value.trim(),
+        url:         fUrl.value.trim() || null,
+        price:       fPrice.value !== '' ? parseFloat(fPrice.value) : null,
+        priority:    fPriority.value
+      };
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = editingId ? 'Saving…' : 'Adding…';
+
+      try {
+        let res;
+        if (editingId) {
+          res = await apiFetch(`/api/wishlist/${editingId}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+          });
+        } else {
+          res = await apiFetch('/api/wishlist', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+        }
+
+        if (res.status === 401) { handleUnauthorized(); return; }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || 'Failed to save item.');
+        }
+
+        showToast(editingId ? 'Item updated successfully.' : 'Item added to wishlist.');
+        resetForm();
+        await loadWishlist();
+      } catch (err) {
+        formError.textContent = err.message;
+        formError.style.display = 'block';
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = editingId ? 'Save changes' : 'Add item';
+      }
+    });
+
+    // ── Populate form for editing ──────────────────────────────────────
+    async function startEdit(id) {
+      try {
+        const res = await apiFetch(`/api/wishlist/${id}`);
+        if (res.status === 401) { handleUnauthorized(); return; }
+        if (!res.ok) throw new Error('Could not load item details.');
+        const item = await res.json();
+
+        editingId         = id;
+        fId.value         = id;
+        fName.value       = item.name;
+        fDesc.value       = item.description || '';
+        fUrl.value        = item.url || '';
+        fPrice.value      = item.price != null ? item.price : '';
+        fPriority.value   = item.priority || 'Medium';
+
+        formHeading.textContent = 'Edit item';
+        saveBtn.textContent     = 'Save changes';
+        cancelBtn.hidden        = false;
+
+        // Scroll form into view and focus first field
+        document.getElementById('item-form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        fName.focus();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // ── Cancel edit ────────────────────────────────────────────────────
+    cancelBtn.addEventListener('click', resetForm);
+
+    function resetForm() {
+      editingId = null;
+      itemForm.reset();
+      fId.value               = '';
+      formHeading.textContent = 'Add a new item';
+      saveBtn.textContent     = 'Add item';
+      cancelBtn.hidden        = true;
+      formError.style.display = 'none';
+    }
+
+    // ── Delete an item ─────────────────────────────────────────────────
+    async function deleteItem(id, name) {
+      // Accessible confirmation
+      if (!confirm(`Remove "${name}" from your wishlist?`)) return;
+
+      try {
+        const res = await apiFetch(`/api/wishlist/${id}`, { method: 'DELETE' });
+        if (res.status === 401) { handleUnauthorized(); return; }
+        if (!res.ok) throw new Error('Failed to remove item.');
+        showToast(`"${name}" removed from wishlist.`);
+        await loadWishlist();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // ── Handle 401 (token expired / invalid) ──────────────────────────
+    function handleUnauthorized() {
+      token = '';
+      sessionStorage.removeItem('wl_token');
+      app.hidden = true;
+      authPanel.hidden = false;
+      showToast('Session expired. Please sign in again.', 'error');
+      document.getElementById('username').focus();
+    }
+
+    // ── HTML escape helper ─────────────────────────────────────────────
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // ── Bootstrap: if a token is already stored, show the app ─────────
+    (function init() {
+      if (token) {
+        authPanel.hidden = true;
+        app.hidden = false;
+        loadWishlist();
+      }
+    })();
+  </script>
+</body>
+</html>

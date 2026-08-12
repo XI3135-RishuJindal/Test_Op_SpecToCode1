@@ -1,0 +1,8 @@
+- [ ] Create Controllers/WishlistController.cs: implement endpoints for managing wishlist items.
+- [ ] Define Models/WishlistItemDTO.cs: create the data model to represent wishlist items.
+- [ ] Update Program.cs: register new controller and related services for wishlist management.
+- [ ] Implement new API endpoints in WishlistController: Provide methods such as GetWishlist, AddItem, RemoveItem, UpdateItem.
+- [ ] Develop a basic frontend interface for Wishlist management (if not on existing system).
+- [ ] Write unit tests for WishlistController in Tests/Controllers/WishlistControllerTests.cs.
+- [ ] Ensure new code adheres to coding standards and includes comprehensive documentation.
+- [ ] Conduct a review meeting with the QA team and stakeholders to ensure all requirements are met.

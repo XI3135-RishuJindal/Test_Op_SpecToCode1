@@ -1,35 +1,41 @@
-# API Gateway Specification
+```
+# Auth Code Exchange Specifications
 
-## Purpose
-The API Gateway serves as the entry point for client requests, managing routing, aggregation, and authentication.
+## Overview
+The authorization code exchange flow securely exchanges an authorization code for access, ID, and optional refresh tokens at the Identity Provider's (IdP) token endpoint.
 
-### Requirement
-#### Scenario: Handle POST request
-- **Given** a client sends a POST request to `/api/test`
-- **When** the request is processed
-- **Then** the API Gateway should route the request to the appropriate service and return the response.
+## Token Exchange Process
 
-## Technologies
-- C# with .NET Core Web API
+### Prerequisites
+- Obtain an authorization code as a result of a successful user session at the IdP.
+- Ensure the system is configured with client credentials and a redirect URI.
 
-## Components
-- API Gateway: Handles incoming requests and routes them.
+### Configuration in `appsettings.json`:
+```json
+{
+  "Client": {
+    "Id": "your-client-id",
+    "Secret": "your-client-secret",
+    "RedirectUri": "your-redirect-uri"
+  }
+}
+```
 
-## APIs
-### POST /api/test
-- **Purpose**: To test the layered architecture flow.
-- **Inputs**: Request body (specific structure TBD).
-- **Outputs**: Response body (specific structure TBD).
+### Process Steps
+1. **Code Reception**: Upon successful identity verification with the IdP, receive an authorization code through a user-agent redirect back to your specified redirect URI.
+2. **Token Request**: POST the authorization code to the IdP's token endpoint using HTTPS. Include the authorization code, client credentials, the same redirect URI, and the PKCE `code_verifier`.
+3. **Token Response**: On successful exchange, receive one or more tokens (access token, ID token, refresh token if available).
+4. **Token Validation**: Validate received tokens following security best practices to ensure authenticity and integrity.
+5. **Security Notice**: Do not log sensitive token information or expose in URLs. Ensure HTTPS is used for all communications.
 
-## Data Models
-- **MedicationDTO**: Represents medication data.
-- **ErrorResponse**: Represents error responses from the API.
+### API Changes
+- The `/exchange` endpoint facilitates the token exchange process.
+- New client configuration must be set in `appsettings.json`.
 
-## Interactions with Dependencies
-- No external services or data stores are involved.
+## Security Considerations
+- Ensure sensitive details are protected through encryption.
+- Operate under the assumption that network communications are secure (use of TLS/SSL).
+- Avoid logging sensitive data.
 
-## Key Flows
-1. Client sends a POST request to `/api/test`.
-2. API Gateway authenticates the request.
-3. The request is routed to the appropriate backend service.
-4. The response is returned to the client.
+This specification integrates with the broader identity management workflows and adheres to security protocols to maintain data integrity and confidentiality.
+```

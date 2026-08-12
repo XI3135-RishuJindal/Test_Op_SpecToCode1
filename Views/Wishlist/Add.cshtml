@@ -1,0 +1,13 @@
+```html
+@{
+    ViewData["Title"] = "Add New Item to Wishlist";
+}
+
+<h2>Add New Item</h2>
+
+<form method="post" action="/Wishlist/AddToWishlist">
+    <label for="itemName">Item Name:</label>
+    <input type="text" id="itemName" name="itemName" required />
+    <button type="submit">Add</button>
+</form>
+```

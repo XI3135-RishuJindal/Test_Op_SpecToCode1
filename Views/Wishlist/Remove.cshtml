@@ -1,0 +1,15 @@
+```html
+@{
+    ViewData["Title"] = "Remove Item from Wishlist";
+}
+
+<h2>Remove Item</h2>
+
+<p>Are you sure you want to remove this item from your wishlist?</p>
+
+<form method="post" action="/Wishlist/RemoveConfirmed">
+    <input type="hidden" name="itemId" value="@ViewData["ItemId"]" />
+    <button type="submit">Yes, remove</button>
+    <button type="button" onclick="history.back();">Cancel</button>
+</form>
+```
