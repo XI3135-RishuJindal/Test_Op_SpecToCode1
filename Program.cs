@@ -50,6 +50,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Serve static files from wwwroot (includes wishlist.html frontend).
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 

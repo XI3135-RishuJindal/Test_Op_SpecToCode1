@@ -1,13 +1,10 @@
-To deliver the "View and Manage Wishlist Interface", the following steps should be followed:
+To implement the "View and Manage Wishlist Interface," the following steps are necessary: 
 
-1. **UI/UX Design**: Collaborate with UI/UX designers to create wireframes and prototypes for the wishlist interface based on user personas and scenarios.
-
-2. **Determine the Required Changes**: The implementation will require changes primarily in the UI components. Specifically, a new controller and associated views should be created:
-   - Add a new `WishlistController` to handle wishlist-related actions.
-   - Create views under a `Views/Wishlist` directory to manage the display, addition, deletion, and sorting of wishlist items.
-
-3. **Implementation**: Utilize ASP.NET MVC framework to build out the controller methods and corresponding views, focusing on implementing the CRUD operations needed for the wishlist functionality.
-
-4. **Testing**: Develop unit tests for the controller and integration tests to ensure the interface performs correctly and efficiently integrates with existing systems. Utilize existing testing frameworks like xUnit.
-
-5. **Review and Deployment**: Conduct thorough code review, focusing on usability and performance optimization, then deploy the changes to a staging environment before rolling out to production.
+1. **Architecture Decisions**: Leverage existing API Gateway architecture and extend the user interface capabilities through new front-end components that interact with the backend services.
+2. **API Contracts**: Develop and expose API endpoints under a newly created `WishlistController` class in the Controllers directory. These endpoints will handle CRUD operations for wishlist items.
+3. **Data Model Changes**: Introduce a `WishlistItemDTO` model in the Models directory to structure the data exchanged between the frontend and backend effectively. This model will capture data such as item ID, name, description, and additional metadata.
+4. **File/Classes Changes**: 
+   - Extend `Program.cs` to include new service registrations if necessary.
+   - Create `Controllers/WishlistController.cs` to house the logic for managing user wishlists.
+   - Implement `Models/WishlistItemDTO.cs` to define the data structure for wishlist items.
+5. Coordinate with stakeholders to ensure the interface design meets user expectations and complies with established standards for usability and accessibility.

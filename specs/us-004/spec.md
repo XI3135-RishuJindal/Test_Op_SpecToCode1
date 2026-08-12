@@ -1,18 +1,14 @@
-### User Story: US-004
-**Title**: View and Manage Wishlist Interface
+The "View and Manage Wishlist Interface" user story aims to provide users with a simple and intuitive interface to view, manage, and modify items within their wishlist. This functionality addresses user needs for dynamic management of wishlist items with ease. 
 
-**Description**: Develop a user-friendly interface that allows users to view, manage, and modify their wishlist contents easily.
+**Acceptance Criteria**
+- Users should be able to view their current wishlist items.
+- Users should have options to add new items or remove existing ones.
+- Users should be able to modify details of wishlist items.
+- Interface design should align with user-friendly principles and support accessibility.
 
-**Acceptance Criteria**:
-- Users must be able to view all items in their wishlist.
-- Users must be able to add new items to the wishlist.
-- Users must be able to remove items from the wishlist.
-- Users must have the ability to rearrange or sort items within the wishlist.
-- The interface should be intuitive, requiring minimal user guidance for effective use.
+**Out-of-Scope Items**
+- Integration with any third-party wishlist services is not included.
+- Development of a backend service for wishlist management will not be covered within this scope.
 
-**Out of Scope**:
-- Backend services and database interactions will not be altered or newly introduced.
-- Integration with payment systems or shopping cart functionalities.
-
-**Cross-Service Dependencies**:
-- None directly affecting architecture, though cooperation with a frontend/UI team responsible for design is necessary.
+**Cross-Service Dependencies**
+- The feature will operate in conjunction with the existing API Gateway architecture and rely on the AuthController in managing user authentication.

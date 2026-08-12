@@ -1,6 +1,8 @@
-- **Repository**: XI3135-RishuJindal/Test_Op_SpecToCode1
-  - [ ] Create a new controller `Controllers/WishlistController.cs`: Implement actions to view, add, remove, and rearrange wishlist items.
-  - [ ] Create views in `Views/Wishlist/`: Develop views for wishlist display and item management (CRUD operations).
-  - [ ] Update `ApiGateway.csproj`: Include any new libraries or settings needed for wishlist functionality.
-  - [ ] Develop unit tests in `Tests/Controllers/WishlistControllerTests.cs`: Ensure all methods in the `WishlistController` are adequately tested.
-  - [ ] Conduct UI tests in supported browsers to ensure layout is consistent and functionalities are working as required.
+- [ ] Create Controllers/WishlistController.cs: implement endpoints for managing wishlist items.
+- [ ] Define Models/WishlistItemDTO.cs: create the data model to represent wishlist items.
+- [ ] Update Program.cs: register new controller and related services for wishlist management.
+- [ ] Implement new API endpoints in WishlistController: Provide methods such as GetWishlist, AddItem, RemoveItem, UpdateItem.
+- [ ] Develop a basic frontend interface for Wishlist management (if not on existing system).
+- [ ] Write unit tests for WishlistController in Tests/Controllers/WishlistControllerTests.cs.
+- [ ] Ensure new code adheres to coding standards and includes comprehensive documentation.
+- [ ] Conduct a review meeting with the QA team and stakeholders to ensure all requirements are met.
